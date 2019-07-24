@@ -112,6 +112,9 @@ override_dh_makeshlibs:
 override_dh_missing:
 	dh_missing --fail-missing
 
+override_dh_auto_test:
+	/bin/true
+
 override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both
 # debian/changelog and config.version

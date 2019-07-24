@@ -21,6 +21,7 @@ struct l3a_if *l3a_if_get_byname(const char *name)
 		l3a_if = XCALLOC(MTYPE_L3A_IFACE, sizeof(struct l3a_if));
 		l3a_if->ifp = ifp;
 		l3a_if->snoop_fd = -1;
+		l3a_if->arp_fd = -1;
 		l3a_route_iflist_init(&l3a_if->routes);
 		ifp->info = l3a_if;
 	} else
@@ -48,6 +49,7 @@ static int interface_add(ZAPI_CALLBACK_ARGS)
 		l3a_if = XCALLOC(MTYPE_L3A_IFACE, sizeof(struct l3a_if));
 		l3a_if->ifp = ifp;
 		l3a_if->snoop_fd = -1;
+		l3a_if->arp_fd = -1;
 		l3a_route_iflist_init(&l3a_if->routes);
 		ifp->info = l3a_if;
 	} else
@@ -59,6 +61,8 @@ static int interface_add(ZAPI_CALLBACK_ARGS)
 	if (ifp->flags & IFF_UP) {
 		if (l3a_if->snoop)
 			l3a_dhcpv6_snoop(l3a_if);
+		if (l3a_if->arp_snoop)
+			l3a_arp_snoop(l3a_if);
 		frr_each (l3a_route_iflist, &l3a_if->routes, l3ar)
 			l3a_zebra_update(l3ar);
 	}
@@ -113,6 +117,8 @@ static int interface_state_up(ZAPI_CALLBACK_ARGS)
 
 	if (l3a_if->snoop)
 		l3a_dhcpv6_snoop(l3a_if);
+	if (l3a_if->arp_snoop)
+		l3a_arp_snoop(l3a_if);
 	frr_each (l3a_route_iflist, &l3a_if->routes, l3ar)
 		l3a_zebra_update(l3ar);
 	return 0;

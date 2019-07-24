@@ -36,6 +36,10 @@ struct l3a_if {
 	bool snoop;
 	int snoop_fd;
 	struct thread *snoop_thread;
+
+	bool arp_snoop;
+	int arp_fd;
+	struct thread *arp_thread;
 };
 
 extern struct route_table *l3a_v6;
@@ -45,6 +49,7 @@ void l3a_route_update(union prefixconstptr pfx, int64_t lifetime,
 		      uint64_t *tags, size_t n_tags);
 
 void l3a_dhcpv6_snoop(struct l3a_if *l3a_if);
+void l3a_arp_snoop(struct l3a_if *l3a_if);
 
 void l3a_zebra_update(struct l3a_route *l3ar);
 void l3a_zebra_remove(struct l3a_route *l3ar);

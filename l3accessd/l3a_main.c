@@ -12,7 +12,11 @@
 
 DEFINE_MGROUP(L3A, "l3accessd")
 
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
+zebra_capabilities_t _caps_p[] = {
+	ZCAP_NET_ADMIN,
+	ZCAP_NET_RAW,
+	ZCAP_BIND,
+};
 
 struct zebra_privs_t l3a_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
