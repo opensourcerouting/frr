@@ -723,7 +723,10 @@ static void vty_erase_prompt(struct vty *vty)
 	if (vty->width)
 		uplines = (len - 1) / vty->width;
 
-	vty_out(vty, "\033[1G\033[%dA\033[J", uplines);
+	if (uplines)
+		vty_out(vty, "\033[1G\033[%dA\033[J", uplines);
+	else
+		vty_out(vty, "\033[1G\033[J");
 }
 
 /* Forward word. */
