@@ -75,12 +75,17 @@ struct pcep_ctrl_socket_data {
 typedef int (*pcep_ctrl_thread_callback)(struct thread *);
 
 /* Functions called from the main thread */
+int calculate_best_pce(struct ctrl_state *ctrl_state);
+bool is_best_pce(struct ctrl_state *ctrl_state, int pce);
+int get_pcc_id_by_ip(struct frr_pthread *fpt, struct ipaddr *pce_ip);
+int pcep_ctrl_get_free_pcc_id(struct frr_pthread *fpt);
 int pcep_ctrl_initialize(struct thread_master *main_thread,
 			 struct frr_pthread **fpt,
 			 pcep_main_event_handler_t event_handler);
 int pcep_ctrl_finalize(struct frr_pthread **fpt);
 int pcep_ctrl_update_pcc_options(struct frr_pthread *fpt,
 				 struct pcc_opts *opts);
+int pcep_ctrl_update_best_pce_options(struct ctrl_state *ctrl_state);
 int pcep_ctrl_update_pce_options(struct frr_pthread *fpt, int pcc_id,
 				 struct pce_opts *opts);
 int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, int pcc_id);

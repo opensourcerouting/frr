@@ -45,11 +45,14 @@
 		_a <= _b ? _a : _b;                                            \
 	})
 
+#define MAX_RETRIES_BEFORE_LOST_PRECEDENCE 5
+
 
 /* Event handling data structures */
 enum pcep_ctrl_event_type {
 	EV_UPDATE_PCC_OPTS = 1,
 	EV_UPDATE_PCE_OPTS,
+	EV_UPDATE_BEST_PCE_OPTS,
 	EV_REMOVE_PCC,
 	EV_PATHD_EVENT,
 	EV_SYNC_PATH,
@@ -121,6 +124,8 @@ static int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 static int pcep_thread_event_handler(struct thread *thread);
 static int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 						struct pcc_opts *opts);
+static int
+pcep_thread_event_update_best_pce_options(struct ctrl_state *ctrl_state);
 static int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 						int pcc_id,
 						struct pce_opts *opts);
@@ -191,6 +196,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	ctrl_state->pcc_count = 0;
 	ctrl_state->pcc_opts =
 		XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
+	memset(ctrl_state->pcc, 0, sizeof(ctrl_state->pcc[0]) * MAX_PCC);
 	/* Default to no PCC address defined */
 	UNSET_FLAG(ctrl_state->pcc_opts->flags, F_PCC_OPTS_IPV4);
 	UNSET_FLAG(ctrl_state->pcc_opts->flags, F_PCC_OPTS_IPV6);
@@ -230,7 +236,10 @@ int pcep_ctrl_update_pce_options(struct frr_pthread *fpt, int pcc_id,
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
 	return send_to_thread(ctrl_state, pcc_id, EV_UPDATE_PCE_OPTS, 0, opts);
 }
-
+int pcep_ctrl_update_best_pce_options(struct ctrl_state *ctrl_state)
+{
+	return send_to_thread(ctrl_state, 0, EV_UPDATE_BEST_PCE_OPTS, 0, NULL);
+}
 int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, int pcc_id)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
@@ -452,7 +461,9 @@ int pcep_thread_timer_handler(struct thread *thread)
 
 	int ret = 0;
 	struct pcc_state *pcc_state = NULL;
-
+	pcc_state = get_pcc_state(ctrl_state, pcc_id);
+	assert(pcc_state != NULL);
+	pcep_ctrl_update_best_pce_options(ctrl_state);
 	switch (type) {
 	case TM_RECONNECT_PCC:
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
@@ -609,6 +620,9 @@ int pcep_thread_event_handler(struct thread *thread)
 		ret = pcep_thread_event_update_pce_options(ctrl_state, pcc_id,
 							   pce_opts);
 		break;
+	case EV_UPDATE_BEST_PCE_OPTS:
+		ret = pcep_thread_event_update_best_pce_options(ctrl_state);
+		break;
 	case EV_REMOVE_PCC:
 		ret = pcep_thread_event_remove_pcc(ctrl_state, pcc_id);
 		break;
@@ -647,18 +661,74 @@ int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 	ctrl_state->pcc_opts = opts;
 	return 0;
 }
-
+int pcep_thread_event_update_best_pce_options(struct ctrl_state *ctrl_state)
+{
+	// struct pcc_state *pcc_state = NULL;
+	// pcc_state = get_pcc_state(ctrl_state, pcc_id);
+	// if (pcc_state->retry_count < MAX_RETRIES_BEFORE_LOST_PRECEDENCE) {
+	//		PCEP_DEBUG("%s wait and keep pce precedence ",
+	//pcc_state->tag); } else {
+	PCEP_DEBUG(" recalculating pce precedence ");
+	PCEP_DEBUG(" ...and RETURN ");
+	return 0;
+	int best = calculate_best_pce(ctrl_state);
+	if (best) {
+		struct pcc_state *best_pcc_state =
+			get_pcc_state(ctrl_state, best);
+		if ( // best != pcc_state->id &&
+			!best_pcc_state->pce_opts->previous_best) {
+			PCEP_DEBUG(
+				"%s disable-enable pce (%i)-(%i) && !(%i) retry-count (%i)",
+				best_pcc_state->tag, best, best_pcc_state->id,
+				!best_pcc_state->pce_opts->previous_best,
+				best_pcc_state->retry_count);
+			pcep_pcc_disable(ctrl_state, best_pcc_state);
+			best_pcc_state->retry_count++;
+			pcep_thread_schedule_reconnect(
+				ctrl_state, best, best_pcc_state->retry_count,
+				&best_pcc_state->t_reconnect);
+			/*
+					  pcep_pcc_enable(ctrl_state,
+			   best_pcc_state);
+			  */
+		} else {
+			PCEP_DEBUG(
+				"%s NO disable-enable pce (%i)-(%i) && !(%i)",
+				best_pcc_state->tag, best, best_pcc_state->id,
+				!best_pcc_state->pce_opts->previous_best);
+		}
+	} else {
+		PCEP_DEBUG(" None best pce , all pce seem disconnected");
+	}
+	//}
+}
 int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 					 int pcc_id, struct pce_opts *pce_opts)
 {
 	struct pcc_state *pcc_state;
 	struct pcc_opts *pcc_opts;
 
+	struct pce_opts *pce_opts_copy;
+	int current_pcc_id = get_pcc_id_by_ip(pcep_g->fpt, &pce_opts->addr);
+	if (!current_pcc_id) {
+		current_pcc_id = pcep_ctrl_get_free_pcc_id(pcep_g->fpt);
+	}
+	if (pcep_g->pce_opts[current_pcc_id - 1] != NULL)
+		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
+	pce_opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
+	pce_opts_copy = memcpy(pce_opts_copy, pce_opts, sizeof(*pce_opts));
+	pcep_g->pce_opts[current_pcc_id - 1] = pce_opts_copy;
+	pcc_id = current_pcc_id;
+
 	if (pcc_id > ctrl_state->pcc_count) {
 		pcc_state = pcep_pcc_initialize(ctrl_state, pcc_id);
 		set_pcc_state(ctrl_state, pcc_state);
 	} else {
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
+		if (!pcc_state) {
+			pcc_state = pcep_pcc_initialize(ctrl_state, pcc_id);
+			set_pcc_state(ctrl_state, pcc_state);
+		}
 	}
 
 	/* Copy the pcc options to delegate it to the update function */
@@ -670,6 +740,7 @@ int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 			 "failed to update PCC configuration");
 	}
 
+	calculate_best_pce(ctrl_state);
 	return 0;
 }
 
@@ -677,11 +748,9 @@ int pcep_thread_event_remove_pcc(struct ctrl_state *ctrl_state, int pcc_id)
 {
 	struct pcc_state *pcc_state;
 
-	if (pcc_id <= ctrl_state->pcc_count) {
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
 		remove_pcc_state(ctrl_state, pcc_state);
 		pcep_pcc_finalize(ctrl_state, pcc_state);
-	}
 
 	return 0;
 }
@@ -710,6 +779,7 @@ int pcep_thread_event_pathd_event(struct ctrl_state *ctrl_state,
 
 	for (i = 0; i < ctrl_state->pcc_count; i++) {
 		struct pcc_state *pcc_state = ctrl_state->pcc[i];
+		// path->is_delegated = is_best_pce(ctrl_state, i);
 		pcep_pcc_pathd_event_handler(ctrl_state, pcc_state, type, path);
 	}
 
@@ -753,7 +823,120 @@ int pcep_main_event_handler(struct thread *thread)
 
 
 /* ------------ Helper functions ------------ */
+bool is_best_pce(struct ctrl_state *ctrl_state, int pce)
+{
+	if (ctrl_state && ctrl_state->pcc[pce]) {
+		return ctrl_state->pcc[pce]->pce_opts->is_best;
+	} else {
+		return false;
+	}
+}
+bool get_previous_best_pce(struct ctrl_state *ctrl_state)
+{
+	if (!ctrl_state || !ctrl_state->pcc_count)
+		return 0;
 
+	int previous_best_pce = -1;
+	struct pcc_state **pcc = &ctrl_state->pcc[0];
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts
+		    && pcc[i]->pce_opts->previous_best == true) {
+			previous_best_pce = i;
+			break;
+		}
+	}
+	return previous_best_pce != -1 ? previous_best_pce + 1 : -1;
+}
+int calculate_best_pce(struct ctrl_state *ctrl_state)
+{
+	bool is_best = false;
+	int best_precedence = PCE_DEFAULT_PRECEDENCE;
+	int best_pce = -1;
+	int default_pce = -1;
+	int previous_best_pce = -1;
+
+	if (!ctrl_state || !ctrl_state->pcc_count)
+		return 0;
+
+	struct pcc_state **pcc = &ctrl_state->pcc[0];
+
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts) {
+			if (pcc[i]->pce_opts->is_best == true) {
+				previous_best_pce = i;
+				pcc[i]->pce_opts->is_best = false;
+			}
+			if (pcc[i]->pce_opts->previous_best == true) {
+				pcc[i]->pce_opts->previous_best = false;
+			}
+		}
+	}
+
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts
+		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
+			default_pce = i; // In case none better
+			if (pcc[i]->pce_opts->precedence <= best_precedence) {
+				if (best_pce != -1
+				    && pcc[best_pce]->pce_opts->precedence
+					       == pcc[i]->pce_opts->precedence
+				    && ipaddr_cmp(
+					       &pcc[i]->pce_opts->addr,
+					       &pcc[best_pce]->pce_opts->addr)
+					       > 0) {
+					// collide of precedences so compare ip
+					best_pce = i;
+				} else {
+					best_precedence =
+						pcc[i]->pce_opts->precedence;
+					best_pce = i;
+				}
+			}
+		}
+	}
+
+	if (best_pce != -1) {
+		pcc[best_pce]->pce_opts->is_best = true;
+		zlog_debug("best pce (%i) ", best_pce + 1);
+	} else {
+		if (default_pce != -1) {
+			pcc[default_pce]->pce_opts->is_best = true;
+			zlog_debug("best pce (default) (%i) ", default_pce + 1);
+		} else {
+			for (int i = 0; i < MAX_PCC; i++) {
+				if (pcc[i] && pcc[i]->pce_opts) {
+					pcc[i]->pce_opts->is_best = true;
+					zlog_debug("best pce (default) (%i) ",
+						   i + 1);
+					break;
+				}
+			}
+		}
+	}
+
+	if (previous_best_pce != -1) {
+		pcc[previous_best_pce]->pce_opts->previous_best = true;
+		zlog_debug("previous best pce (%i) ", previous_best_pce + 1);
+	}
+
+	return best_pce + 1;
+}
+int pcep_ctrl_get_free_pcc_id(struct frr_pthread *fpt)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	if (ctrl_state->pcc_count == 0) {
+		return 1;
+	}
+
+	for (int pcc_id = 0; pcc_id < MAX_PCC; pcc_id++) {
+		if (ctrl_state->pcc[pcc_id] == NULL) {
+			zlog_debug("new pcc_id (%d)", pcc_id + 1);
+			return pcc_id + 1;
+		}
+	}
+
+	return 0;
+}
 void set_ctrl_state(struct frr_pthread *fpt, struct ctrl_state *ctrl_state)
 {
 	assert(fpt != NULL);
@@ -771,16 +954,32 @@ struct ctrl_state *get_ctrl_state(struct frr_pthread *fpt)
 	return ctrl_state;
 }
 
+int get_pcc_id_by_ip(struct frr_pthread *fpt, struct ipaddr *pce_ip)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	for (int pcc_id = 0; pcc_id < MAX_PCC; pcc_id++) {
+		if (ctrl_state->pcc[pcc_id]) {
+			if (ipaddr_cmp((const struct ipaddr *)&ctrl_state
+					       ->pcc[pcc_id]
+					       ->pce_opts->addr,
+				       (const struct ipaddr *)pce_ip)
+			    == 0) {
+				zlog_debug("found pcc_id (%d)", pcc_id + 1);
+				return pcc_id + 1;
+			}
+		}
+	}
+	return 0;
+}
+
 struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state, int pcc_id)
 {
 	assert(ctrl_state != NULL);
 	assert(pcc_id >= 0);
 	assert(pcc_id <= MAX_PCC);
-	assert(pcc_id <= ctrl_state->pcc_count);
 
 	struct pcc_state *pcc_state;
 	pcc_state = ctrl_state->pcc[pcc_id - 1];
-	assert(pcc_state != NULL);
 	return pcc_state;
 }
 
@@ -789,11 +988,10 @@ void set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	assert(ctrl_state != NULL);
 	assert(pcc_state->id >= 0);
 	assert(pcc_state->id <= MAX_PCC);
-	assert(pcc_state->id > ctrl_state->pcc_count);
-	assert(ctrl_state->pcc[pcc_state->id - 1] == NULL);
 
 	ctrl_state->pcc[pcc_state->id - 1] = pcc_state;
-	ctrl_state->pcc_count = pcc_state->id;
+	ctrl_state->pcc_count++;
+	zlog_debug("added pce pcc_id (%d)", pcc_state->id);
 }
 
 void remove_pcc_state(struct ctrl_state *ctrl_state,
@@ -804,11 +1002,11 @@ void remove_pcc_state(struct ctrl_state *ctrl_state,
 	assert(pcc_state->id <= MAX_PCC);
 	/* FIXME: Can only remove the last PCC for now,
 	 * we have only one anyway */
-	assert(pcc_state->id == ctrl_state->pcc_count);
-	assert(ctrl_state->pcc[pcc_state->id - 1] != NULL);
+	// assert(ctrl_state->pcc[pcc_state->id - 1] != NULL);
 
 	ctrl_state->pcc[pcc_state->id - 1] = NULL;
 	ctrl_state->pcc_count--;
+	zlog_debug("removed pce pcc_id (%d)", pcc_state->id);
 }
 
 uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t retry_count)

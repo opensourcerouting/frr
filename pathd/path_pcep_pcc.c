@@ -226,6 +226,11 @@ int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs)
 		return 1;
 	}
 
+	retval = lhs->precedence - rhs->precedence;
+	if (retval != 0) {
+		return retval;
+	}
+
 	retval = memcmp(&lhs->addr, &rhs->addr, sizeof(lhs->addr));
 	if (retval != 0) {
 		return retval;
@@ -518,9 +523,11 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		PCEP_DEBUG_PCEP("%s PCEP message: %s", pcc_state->tag,
 				format_pcep_message(event->message));
 		break;
+	case PCE_DEAD_TIMER_EXPIRED:
+		PCEP_DEBUG("%s PCE_DEAD_TIMER_EXPIRED %d", pcc_state->tag,
+			   pcc_state->retry_count);
 	case PCE_CLOSED_SOCKET:
 	case PCE_SENT_PCEP_CLOSE:
-	case PCE_DEAD_TIMER_EXPIRED:
 	case PCE_OPEN_KEEP_WAIT_TIMER_EXPIRED:
 	case PCC_PCEP_SESSION_CLOSED:
 	case PCC_RCVD_MAX_INVALID_MSGS:
@@ -765,7 +772,8 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 	path->sender = pcc_state->pcc_addr_tr;
 
 	if ((path->originator == NULL)
-	    || (strcmp(path->originator, pcc_state->originator) == 0)) {
+	    || (strcmp(path->originator, pcc_state->originator) == 0)
+	    || pcc_state->pce_opts->is_best) {
 		is_delegated = path->type == SRTE_CANDIDATE_TYPE_DYNAMIC;
 		/* it seems the PCE consider updating an LSP a creation ?!?
 		at least Cisco does... */
@@ -773,8 +781,8 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 	}
 
 	path->pcc_id = pcc_state->id;
-	path->go_active = is_delegated;
-	path->is_delegated = is_delegated;
+	path->go_active = (is_delegated & pcc_state->pce_opts->is_best);
+	path->is_delegated = (is_delegated & pcc_state->pce_opts->is_best);
 	path->was_created = was_created;
 }
 

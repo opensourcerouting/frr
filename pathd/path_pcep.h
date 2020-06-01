@@ -28,9 +28,10 @@
 #include "pathd/pathd.h"
 #include "pathd/path_pcep_memory.h"
 
+#define PCE_DEFAULT_PRECEDENCE 255
 #define PCC_DEFAULT_MSD 4
 #define PCEP_DEFAULT_PORT 4189
-#define MAX_PCC 1
+#define MAX_PCC 3
 #define MAX_TAG_SIZE 50
 #define PCEP_DEBUG_MODE_BASIC 0x01
 #define PCEP_DEBUG_MODE_PATH 0x02
@@ -84,6 +85,9 @@ struct pce_opts {
 	struct ipaddr addr;
 	short port;
 	bool draft07;
+	uint8_t precedence;
+	bool is_best;
+	bool previous_best;
 };
 
 struct pcc_opts {

@@ -417,7 +417,7 @@ DEFUN(pcep_cli_no_pcc, pcep_cli_no_pcc_cmd, "no pcc",
 }
 
 DEFUN(pcep_cli_pce, pcep_cli_pce_cmd,
-      "pce <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)] [sr-draft07]",
+      "pce <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)] [sr-draft07] [precedence (0-255)]",
       "PCE configuration\n"
       "PCE IPv4 address\n"
       "Remote PCE server IPv4 address\n"
@@ -425,14 +425,17 @@ DEFUN(pcep_cli_pce, pcep_cli_pce_cmd,
       "Remote PCE server IPv6 address\n"
       "Remote PCE server port\n"
       "Remote PCE server port value\n"
-      "Use the draft 07 of PCEP segemnt routing\n")
+      "Use the draft 07 of PCEP segment routing\n"
+      "Priority when multiple pce, the lower the more precedence\n"
+      "Priority value , (default 255)\n")
 {
 	/* TODO: Add support for multiple PCE */
 
 	struct ipaddr pce_addr;
 	uint32_t pce_port = PCEP_DEFAULT_PORT;
-	struct pce_opts *pce_opts, *pce_opts_copy;
+	struct pce_opts *pce_opts;
 	bool draft07 = false;
+	uint8_t pce_precedence = PCE_DEFAULT_PRECEDENCE;
 	int i = 1;
 
 	/* Get the first argument, should be either ip or ipv6 */
@@ -476,6 +479,14 @@ DEFUN(pcep_cli_pce, pcep_cli_pce_cmd,
 			i++;
 			continue;
 		}
+		if (strcmp("precedence", argv[i]->arg) == 0) {
+			i++;
+			if (i >= argc)
+				return CMD_ERR_NO_MATCH;
+			pce_precedence = atoi(argv[i]->arg);
+			i++;
+			continue;
+		}
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -483,15 +494,13 @@ DEFUN(pcep_cli_pce, pcep_cli_pce_cmd,
 	IPADDR_COPY(&pce_opts->addr, &pce_addr);
 	pce_opts->port = pce_port;
 	pce_opts->draft07 = draft07;
+	pce_opts->precedence = pce_precedence;
 
-	if (pcep_ctrl_update_pce_options(pcep_g->fpt, 1, pce_opts))
+#define NO_USE 0
+	if (pcep_ctrl_update_pce_options(pcep_g->fpt, NO_USE /*current_pcc_id*/,
+					 pce_opts))
 		return CMD_WARNING;
 
-	if (pcep_g->pce_opts[0] != NULL)
-		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
-	pce_opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*pce_opts));
-	pce_opts_copy = memcpy(pce_opts_copy, pce_opts, sizeof(*pce_opts));
-	pcep_g->pce_opts[0] = pce_opts_copy;
 
 	return CMD_SUCCESS;
 }
@@ -508,11 +517,39 @@ DEFUN(pcep_cli_no_pce, pcep_cli_no_pce_cmd,
       "Remote PCE server port value\n")
 {
 	/* TODO: Add support for multiple PCE */
+	int i = 2;
+	struct ipaddr pce_addr;
+	pce_addr.ipa_type = IPADDR_V4;
+	SET_IPADDR_V4(&pce_addr);
+	if (strcmp("ipv6", argv[i]->arg) == 0) {
+		SET_IPADDR_V6(&pce_addr);
+	} else if (strcmp("ip", argv[i]->arg) != 0) {
+		return CMD_ERR_NO_MATCH;
+	}
 
-	pcep_ctrl_remove_pcc(pcep_g->fpt, 1);
-	if (pcep_g->pce_opts[0] != NULL) {
-		XFREE(MTYPE_PCEP, pcep_g->pce_opts[0]);
-		pcep_g->pce_opts[0] = NULL;
+	/* Get the first argument value */
+	i++;
+	if (i >= argc) {
+		return CMD_ERR_NO_MATCH;
+	}
+	if (IS_IPADDR_V6(&pce_addr)) {
+		if (!inet_pton(AF_INET6, argv[i]->arg, &pce_addr.ipaddr_v6)) {
+			return CMD_ERR_INCOMPLETE;
+		}
+	} else {
+		if (!inet_pton(AF_INET, argv[i]->arg, &pce_addr.ipaddr_v4)) {
+			return CMD_ERR_INCOMPLETE;
+		}
+	}
+
+
+	int current_pcc_id = get_pcc_id_by_ip(pcep_g->fpt, &pce_addr);
+	if (current_pcc_id) {
+		pcep_ctrl_remove_pcc(pcep_g->fpt, current_pcc_id);
+		if (pcep_g->pce_opts[current_pcc_id - 1] != NULL) {
+			XFREE(MTYPE_PCEP, pcep_g->pce_opts[current_pcc_id - 1]);
+			pcep_g->pce_opts[current_pcc_id - 1] = NULL;
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -621,6 +658,12 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 				if (pce_opts->draft07 == true) {
 					csnprintfrr(buff, sizeof(buff),
 						    " sr-draft07");
+				}
+				if (pce_opts->precedence
+				    != PCE_DEFAULT_PRECEDENCE) {
+					csnprintfrr(buff, sizeof(buff),
+						    " precedence %d",
+						    pce_opts->precedence);
 				}
 				if (IS_IPADDR_V6(&pce_opts->addr)) {
 					vty_out(vty, " pce ipv6 %pI6%s\n",
