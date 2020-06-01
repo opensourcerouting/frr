@@ -45,12 +45,17 @@ struct ctrl_state {
 	pcep_main_event_handler_t main_event_handler;
 	struct pcc_opts *pcc_opts;
 	int pcc_count;
-	struct pcc_state *pcc[MAX_PCE];
+	int pcc_last_id;
+	struct pcc_state *pcc[MAX_PCC];
 };
 
 /* Timer handling data structures */
 
-enum pcep_ctrl_timer_type { TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
+enum pcep_ctrl_timer_type {
+	TM_RECONNECT_PCC,
+	TM_PCEPLIB_TIMER,
+	TM_CALCULATE_BEST_PCE
+};
 
 struct pcep_ctrl_timer_data {
     struct ctrl_state *ctrl_state;
@@ -81,16 +86,15 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 int pcep_ctrl_finalize(struct frr_pthread **fpt);
 int pcep_ctrl_update_pcc_options(struct frr_pthread *fpt,
 				 struct pcc_opts *opts);
-int pcep_ctrl_update_pce_options(struct frr_pthread *fpt, int pcc_id,
+int pcep_ctrl_update_pce_options(struct frr_pthread *fpt,
 				 struct pce_opts *opts);
-int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, int pcc_id);
+int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, struct pce_opts *pce_opts);
 int pcep_ctrl_pathd_event(struct frr_pthread *fpt,
 			  enum pcep_pathd_event_type type, struct path *path);
 int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);
 int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id);
 struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 					      int pcc_id);
-int pcep_ctrl_pcc_num_pce(struct frr_pthread *fpt);
 bool pcep_ctrl_pcc_has_pce(struct frr_pthread *fpt, const char *pce_name);
 /* Synchronously send a report, the caller is responsible to free the path,
  * If `pcc_id` is `0` the report is sent by all PCCs */
@@ -104,6 +108,9 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread);
 
+void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
+					int pcc_id, int delay,
+					struct thread **thread);
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
         int delay, void *payload, struct thread **thread,
         pcep_ctrl_thread_callback cb);

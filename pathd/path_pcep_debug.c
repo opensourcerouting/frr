@@ -976,9 +976,11 @@ void _format_ctrl_state(int ps, struct ctrl_state *state)
 		}
 		PCEP_FORMAT("%*spcc_count: %d\n", ps2, "", state->pcc_count);
 		PCEP_FORMAT("%*spcc:\n", ps2, "");
-		for (i = 0; i < state->pcc_count; i++) {
-			PCEP_FORMAT("%*s- ", ps3 - 2, "");
-			_format_pcc_state(ps3, state->pcc[i]);
+		for (i = 0; i < MAX_PCC; i++) {
+			if (state->pcc[i]) {
+				PCEP_FORMAT("%*s- ", ps3 - 2, "");
+				_format_pcc_state(ps3, state->pcc[i]);
+			}
 		}
 	}
 }
