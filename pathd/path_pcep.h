@@ -30,8 +30,8 @@
 #include "pathd/path_pcep_memory.h"
 
 #define PCEP_DEFAULT_PORT 4189
-#define MAX_PCC 1
-#define MAX_PCE 100
+#define MAX_PCC 32
+#define MAX_PCE 32
 #define MAX_TAG_SIZE 50
 #define PCEP_DEBUG_MODE_BASIC 0x01
 #define PCEP_DEBUG_MODE_PATH 0x02

@@ -231,6 +231,11 @@ int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs)
 		return retval;
 	}
 
+	retval = lhs->precedence - rhs->precedence;
+	if (retval != 0) {
+		return retval;
+	}
+
 	retval = memcmp(&lhs->addr, &rhs->addr, sizeof(lhs->addr));
 	if (retval != 0) {
 		return retval;
@@ -356,6 +361,12 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		return 0;
 	}
 
+  // In case some best pce alternative were waiting to activate
+	if (pcc_state->t_update_best != NULL) {
+		thread_cancel(pcc_state->t_update_best);
+		pcc_state->t_update_best = NULL;
+	}
+
 	pcc_state->status = PCEP_PCC_CONNECTING;
 
 	return 0;
@@ -382,10 +393,13 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path)
 {
-	if (pcc_state->status != PCEP_PCC_SYNCHRONIZING)
+	if (pcc_state->status == PCEP_PCC_SYNCHRONIZING) {
+		path->is_synching = true;
+	} else if (pcc_state->status == PCEP_PCC_OPERATING)
+		path->is_synching = false;
+	else
 		return;
 
-	path->is_synching = true;
 	path->go_active = true;
 
 	/* Accumulate the dynamic paths without any LSP so computation
@@ -467,6 +481,10 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	}
 }
 
+void pcep_pcc_start_sync(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
+{
+			pcep_thread_start_sync(ctrl_state, pcc_state->id);
+}
 /* ------------ Pathd event handler ------------ */
 
 void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
@@ -543,9 +561,9 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		PCEP_DEBUG_PCEP("%s PCEP message: %s", pcc_state->tag,
 				format_pcep_message(event->message));
 		break;
+	case PCE_DEAD_TIMER_EXPIRED:
 	case PCE_CLOSED_SOCKET:
 	case PCE_SENT_PCEP_CLOSE:
-	case PCE_DEAD_TIMER_EXPIRED:
 	case PCE_OPEN_KEEP_WAIT_TIMER_EXPIRED:
 	case PCC_PCEP_SESSION_CLOSED:
 	case PCC_RCVD_MAX_INVALID_MSGS:
@@ -813,6 +831,11 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 	pcep_thread_schedule_reconnect(ctrl_state, pcc_state->id,
 				       pcc_state->retry_count,
 				       &pcc_state->t_reconnect);
+  if (pcc_state->retry_count == 1) {
+          pcep_thread_schedule_sync_best_pce(
+                  ctrl_state, pcc_state->id, pcc_state->pce_opts->config_opts.delegation_timeout_seconds ,
+                  &pcc_state->t_update_best);
+      }
 }
 
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
@@ -872,8 +895,8 @@ void specialize_outgoing_path(struct pcc_state *pcc_state, struct path *path)
 	was_created = path->update_origin == SRTE_ORIGIN_PCEP;
 
 	path->pcc_id = pcc_state->id;
-	path->go_active = is_delegated;
-	path->is_delegated = is_delegated;
+	path->go_active = is_delegated && pcc_state->is_best;
+	path->is_delegated = is_delegated && pcc_state->is_best;
 	path->was_created = was_created;
 }
 
@@ -930,6 +953,9 @@ void send_comp_request(struct pcc_state *pcc_state, struct req_entry *req)
 	char buff[40];
 	struct pcep_message *msg;
 
+	if (!pcc_state->is_best) {
+		return;
+	}
 	/* TODO: Add a timer to retry the computation request ? */
 
 	specialize_outgoing_path(pcc_state, req->path);

@@ -44,6 +44,7 @@
 #include "pathd/path_pcep_cli_clippy.c"
 #endif
 
+#define DEFAULT_PCE_PRECEDENCE 255
 #define DEFAULT_PCC_MSD 4
 #define DEFAULT_SR_DRAFT07 false
 #define DEFAULT_PCE_INITIATED false
@@ -867,7 +868,8 @@ static int path_pcep_cli_pcc_delete(struct vty *vty, const char *ip_str,
 				    struct in6_addr *ipv6, const char *port_str,
 				    long port, const char *msd_str, long msd)
 {
-	pcep_ctrl_remove_pcc(pcep_g->fpt, 1);
+	pcep_ctrl_remove_pcc(pcep_g->fpt, NULL);
+
 	if (pcep_g->pcc_opts != NULL) {
 		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
 		pcep_g->pcc_opts = NULL;
@@ -896,8 +898,9 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 	}
 
 	/* Get the optional precedence argument */
+	pce_opts->precedence = DEFAULT_PCE_PRECEDENCE;
 	PCEP_VTYSH_INT_ARG_CHECK(precedence_str, precedence,
-				 pce_opts->precedence, 1, 65535);
+				 pce_opts->precedence, 0, 256);
 
 	/* Finalize the pce_opts config values */
 	pcep_cli_merge_pcep_config_group_options(pce_opts_cli);
@@ -913,20 +916,12 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 		return CMD_WARNING;
 	}
 
-	int num_pce = pcep_ctrl_pcc_num_pce(pcep_g->fpt);
-	/* TODO when Multi-PCE is added, remove this check */
-	if (num_pce > 0) {
-		vty_out(vty, "%% Multi-pce is not supported yet");
-		return CMD_WARNING;
-	}
-
 	/* The PCC will use a copy of the pce_opts, which is used for CLI only
 	 */
 	struct pce_opts *pce_opts_copy =
 		XMALLOC(MTYPE_PCEP, sizeof(struct pce_opts));
 	memcpy(pce_opts_copy, pce_opts, sizeof(struct pce_opts));
-	if (pcep_ctrl_update_pce_options(pcep_g->fpt, num_pce + 1,
-					 pce_opts_copy)) {
+	if (pcep_ctrl_update_pce_options(pcep_g->fpt, pce_opts_copy)) {
 		return CMD_WARNING;
 	}
 
@@ -945,9 +940,9 @@ static int path_pcep_cli_pcc_pcc_peer_delete(struct vty *vty,
 		return CMD_WARNING;
 	}
 
-	/* TODO when Multi-PCE is added, the PCC Id needs to be set
-	 *      correctly based on the pcc-peer being removed */
-	pcep_ctrl_remove_pcc(pcep_g->fpt, 1);
+	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(peer_name);
+	pcep_ctrl_remove_pcc(pcep_g->fpt, &pce_opts_cli->pce_opts);
+
 
 	return CMD_SUCCESS;
 }
@@ -1033,6 +1028,12 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	for (int i = 0; i < MAX_PCE; i++) {
 		pce_opts_cli = pcep_g->pce_opts_cli[i];
 		if (pce_opts_cli == NULL) {
+			continue;
+		}
+
+		/* Only show the PCEs configured in the pcc sub-command */
+		if (!pcep_ctrl_pcc_has_pce(pcep_g->fpt,
+					   pce_opts_cli->pce_opts.pce_name)) {
 			continue;
 		}
 

@@ -78,13 +78,15 @@ struct pcc_state {
 	uint32_t retry_count;
 	bool synchronized;
 	struct thread *t_reconnect;
-	struct thread *t_update_opts;
+	struct thread *t_update_best;
 	uint32_t next_reqid;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
 	struct req_entry_head requests;
 	struct pcep_caps caps;
+	bool is_best;
+	bool previous_best;
 };
 
 struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state,
@@ -112,6 +114,8 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state,
 			  struct path *path);
+void pcep_pcc_start_sync(struct ctrl_state *ctrl_state,
+		       struct pcc_state *pcc_state);
 
 
 #endif // _PATH_PCEP_PCC_H_
