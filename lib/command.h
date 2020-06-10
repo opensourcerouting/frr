@@ -151,6 +151,8 @@ enum node_type {
 	SEGMENT_LIST_NODE,	 /* SR segment list config node */
 	SR_POLICY_NODE,		 /* SR policy config node */
 	PCC_NODE,                /* PCC config node */
+	PCC_PEER_NODE,           /* PCC Peer (PCE) config node */
+	PCE_CONFIG_GROUP_NODE,   /* PCE Configuration Group node */
 	VTY_NODE,		 /* Vty node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */
 	BGP_EVPN_VNI_NODE,       /* BGP EVPN VNI */

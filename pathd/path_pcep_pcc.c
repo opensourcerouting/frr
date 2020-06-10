@@ -222,8 +222,9 @@ int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs)
 		return retval;
 	}
 
-	if (lhs->draft07 != rhs->draft07) {
-		return 1;
+	retval = strcmp(lhs->pce_name, rhs->pce_name);
+	if (retval != 0) {
+		return retval;
 	}
 
 	retval = memcmp(&lhs->addr, &rhs->addr, sizeof(lhs->addr));
@@ -334,7 +335,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	pcc_state->sess = pcep_lib_connect(
 		&pcc_state->pcc_addr_tr, pcc_state->pcc_opts->port,
 		&pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
-		pcc_state->pce_opts->draft07, pcc_state->pcc_opts->msd);
+		pcc_state->pce_opts->merged_opts.draft07, pcc_state->pcc_opts->msd);
 
 	if (pcc_state->sess == NULL) {
 		flog_warn(EC_PATH_PCEP_LIB_CONNECT,

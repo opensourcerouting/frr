@@ -141,6 +141,8 @@ const char *node_names[] = {
 	"pw",			    // PW_NODE,
 	"segment list",		    // SEGMENT_LIST_NODE,
 	"segment-routing policy",   // SR_POLICY_NODE,
+	"pce-config-group",         // PCE_CONFIG_GROUP_NODE,
+	"pcc-peer",                 // PCC_PEER_NODE,
 	"pcc",                      // PCC_NODE,
 	"vty",			    // VTY_NODE,
 	"link-params",		    // LINK_PARAMS_NODE,
@@ -1489,6 +1491,8 @@ void cmd_exit(struct vty *vty)
 	case SEGMENT_LIST_NODE:
 	case SR_POLICY_NODE:
 	case PCC_NODE:
+	case PCC_PEER_NODE:
+	case PCE_CONFIG_GROUP_NODE:
 		vty->node = CONFIG_NODE;
 		break;
 	case BGP_IPV4_NODE:

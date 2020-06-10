@@ -34,6 +34,7 @@ noinst_HEADERS += \
 	pathd/path_memory.h \
 	pathd/path_nb.h \
 	pathd/path_pcep.h \
+	pathd/path_pcep_cli.h \
 	pathd/path_pcep_controller.h \
 	pathd/path_pcep_debug.h \
 	pathd/path_pcep_lib.h \
@@ -55,6 +56,7 @@ pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la -lm $(LIBCAP)
 
 pathd_pathd_pcep_la_SOURCES = \
 	pathd/path_pcep.c \
+	pathd/path_pcep_cli.c \
 	pathd/path_pcep_controller.c \
 	pathd/path_pcep_debug.c \
 	pathd/path_pcep_lib.c \
