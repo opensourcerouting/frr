@@ -147,7 +147,9 @@ enum node_type {
 	PW_NODE,		 /* Pseudowire config node */
 	SEGMENT_LIST_NODE,	 /* SR segment list config node */
 	SR_POLICY_NODE,		 /* SR policy config node */
-	PCC_NODE,                /* PCC config node */
+	PCEP_CONFIG_GROUP_NODE,	 /* PCEP peer Configuration Group node */
+	PCC_PEER_NODE,		 /* PCC Peer (PCE) config node */
+	PCC_NODE,		 /* PCC config node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */
 	LINK_PARAMS_NODE,	/* Link-parameters node */

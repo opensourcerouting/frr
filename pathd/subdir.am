@@ -9,7 +9,7 @@ dist_examples_DATA += pathd/pathd.conf.sample
 vtysh_scan += $(top_srcdir)/pathd/path_cli.c
 
 if PCEP
-vtysh_scan += $(top_srcdir)/pathd/path_pcep.c
+vtysh_scan += $(top_srcdir)/pathd/path_pcep_cli.c
 module_LTLIBRARIES += pathd/pathd_pcep.la
 endif
 
@@ -33,11 +33,18 @@ clippy_scan += \
 	pathd/path_cli.c \
 	# end
 
+if PCEP
+clippy_scan += \
+	pathd/path_pcep_cli.c \
+	# end
+endif
+
 noinst_HEADERS += \
 	pathd/path_errors.h \
 	pathd/path_memory.h \
 	pathd/path_nb.h \
 	pathd/path_pcep.h \
+	pathd/path_pcep_cli.h \
 	pathd/path_pcep_controller.h \
 	pathd/path_pcep_debug.h \
 	pathd/path_pcep_lib.h \
@@ -49,9 +56,6 @@ noinst_HEADERS += \
 	pathd/pathd.h \
 	# end
 
-pathd/path_cli_clippy.c: $(CLIPPY_DEPS)
-pathd/path_cli.$(OBJEXT): pathd/path_cli_clippy.c
-
 pathd_pathd_SOURCES = pathd/path_main.c
 nodist_pathd_pathd_SOURCES = \
 	yang/frr-pathd.yang.c \
@@ -60,6 +64,7 @@ pathd_pathd_LDADD = pathd/libpath.a lib/libfrr.la -lm $(LIBCAP)
 
 pathd_pathd_pcep_la_SOURCES = \
 	pathd/path_pcep.c \
+	pathd/path_pcep_cli.c \
 	pathd/path_pcep_controller.c \
 	pathd/path_pcep_debug.c \
 	pathd/path_pcep_lib.c \

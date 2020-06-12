@@ -22,15 +22,16 @@
 
 #include <stdbool.h>
 #include <debug.h>
+#include <netinet/tcp.h>
 #include <pcep_utils_logging.h>
 #include <pcep_pcc_api.h>
 #include "mpls.h"
 #include "pathd/pathd.h"
 #include "pathd/path_pcep_memory.h"
 
-#define PCC_DEFAULT_MSD 4
 #define PCEP_DEFAULT_PORT 4189
 #define MAX_PCC 1
+#define MAX_PCE 100
 #define MAX_TAG_SIZE 50
 #define PCEP_DEBUG_MODE_BASIC 0x01
 #define PCEP_DEBUG_MODE_PATH 0x02
@@ -80,18 +81,47 @@
 		}                                                              \
 	} while (0)
 
+struct pcep_config_group_opts {
+	char name[64];
+	char tcp_md5_auth[TCP_MD5SIG_MAXKEYLEN];
+	bool draft07;
+	bool pce_initiated;
+	int keep_alive_seconds;
+	int min_keep_alive_seconds;
+	int max_keep_alive_seconds;
+	int dead_timer_seconds;
+	int min_dead_timer_seconds;
+	int max_dead_timer_seconds;
+	int pcep_request_time_seconds;
+	int state_timeout_inteval_seconds;
+};
+
 struct pce_opts {
 	struct ipaddr addr;
 	short port;
-	bool draft07;
+	char pce_name[64];
+	struct pcep_config_group_opts config_opts;
+	uint8_t precedence; /* Multi-PCE precedence */
+};
+
+/* Encapsulate the pce_opts with needed CLI information */
+struct pce_opts_cli {
+	struct pce_opts pce_opts;
+	char config_group_name[64];
+	/* These are the values configured in the pcc-peer sub-commands.
+	 * These need to be stored for later merging. Notice, it could
+	 * be that not all of them are set. */
+	struct pcep_config_group_opts pce_config_group_opts;
+	/* The pce_opts->config_opts will be a merge of the default values,
+	 * optional config_group values (which overwrite default values),
+	 * and any values configured in the pce sub-commands (which overwrite
+	 * both default and config_group values). This flag indicates of the
+	 * values need to be merged or not. */
+	bool merged;
 };
 
 struct pcc_opts {
-	uint16_t flags;
-#define F_PCC_OPTS_IPV4 0x0002
-#define F_PCC_OPTS_IPV6 0x0004
-	struct in_addr addr_v4;
-	struct in6_addr addr_v6;
+	struct ipaddr addr;
 	short port;
 	short msd;
 };
@@ -245,7 +275,10 @@ struct pcep_glob {
 	struct frr_pthread *fpt;
 	/* Copy of the PCC/PCE configurations for display purpose */
 	struct pcc_opts *pcc_opts;
-	struct pce_opts *pce_opts[MAX_PCC];
+	uint8_t num_pce_opts_cli;
+	struct pce_opts_cli *pce_opts_cli[MAX_PCE];
+	uint8_t num_config_group_opts;
+	struct pcep_config_group_opts *config_group_opts[MAX_PCE];
 };
 
 extern struct pcep_glob *pcep_g;

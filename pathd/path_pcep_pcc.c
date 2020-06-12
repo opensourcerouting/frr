@@ -173,11 +173,6 @@ int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs)
 		return -1;
 	}
 
-	retval = lhs->flags != rhs->flags;
-	if (retval != 0) {
-		return retval;
-	}
-
 	retval = lhs->port - rhs->port;
 	if (retval != 0) {
 		return retval;
@@ -188,17 +183,15 @@ int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs)
 		return retval;
 	}
 
-	if (CHECK_FLAG(lhs->flags, F_PCC_OPTS_IPV4)) {
-		retval = memcmp(&lhs->addr_v4, &rhs->addr_v4,
-				sizeof(lhs->addr_v4));
+	if (IS_IPADDR_V4(&lhs->addr)) {
+		retval = memcmp(&lhs->addr.ipaddr_v4, &rhs->addr.ipaddr_v4,
+				sizeof(lhs->addr.ipaddr_v4));
 		if (retval != 0) {
 			return retval;
 		}
-	}
-
-	if (CHECK_FLAG(lhs->flags, F_PCC_OPTS_IPV6)) {
-		retval = memcmp(&lhs->addr_v6, &rhs->addr_v6,
-				sizeof(lhs->addr_v6));
+	} else if (IS_IPADDR_V6(&lhs->addr)) {
+		retval = memcmp(&lhs->addr.ipaddr_v6, &rhs->addr.ipaddr_v6,
+				sizeof(lhs->addr.ipaddr_v6));
 		if (retval != 0) {
 			return retval;
 		}
@@ -222,8 +215,9 @@ int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs)
 		return retval;
 	}
 
-	if (lhs->draft07 != rhs->draft07) {
-		return 1;
+	retval = strcmp(lhs->pce_name, rhs->pce_name);
+	if (retval != 0) {
+		return retval;
 	}
 
 	retval = memcmp(&lhs->addr, &rhs->addr, sizeof(lhs->addr));
@@ -261,15 +255,16 @@ int pcep_pcc_update(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
 	pcc_state->pcc_opts = pcc_opts;
 	pcc_state->pce_opts = pce_opts;
 
-	if (CHECK_FLAG(pcc_opts->flags, F_PCC_OPTS_IPV4)) {
-		pcc_state->pcc_addr_v4 = pcc_opts->addr_v4;
+	if (IS_IPADDR_V4(&pcc_opts->addr)) {
+		pcc_state->pcc_addr_v4 = pcc_opts->addr.ipaddr_v4;
 		SET_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4);
 	} else {
 		UNSET_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4);
 	}
 
-	if (CHECK_FLAG(pcc_opts->flags, F_PCC_OPTS_IPV6)) {
-		pcc_state->pcc_addr_v6 = pcc_opts->addr_v6;
+	if (IS_IPADDR_V6(&pcc_opts->addr)) {
+		memcpy(&pcc_state->pcc_addr_v6, &pcc_opts->addr.ipaddr_v6,
+		       sizeof(struct in6_addr));
 		SET_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6);
 	} else {
 		UNSET_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6);
@@ -335,7 +330,7 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	pcc_state->sess = pcep_lib_connect(
 		&pcc_state->pcc_addr_tr, pcc_state->pcc_opts->port,
 		&pcc_state->pce_opts->addr, pcc_state->pce_opts->port,
-		pcc_state->pce_opts->draft07, pcc_state->pcc_opts->msd);
+		pcc_state->pcc_opts->msd, &pcc_state->pce_opts->config_opts);
 
 	if (pcc_state->sess == NULL) {
 		flog_warn(EC_PATH_PCEP_LIB_CONNECT,

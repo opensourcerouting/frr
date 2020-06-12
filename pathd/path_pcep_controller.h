@@ -45,7 +45,7 @@ struct ctrl_state {
 	pcep_main_event_handler_t main_event_handler;
 	struct pcc_opts *pcc_opts;
 	int pcc_count;
-	struct pcc_state *pcc[MAX_PCC];
+	struct pcc_state *pcc[MAX_PCE];
 };
 
 /* Timer handling data structures */
@@ -90,6 +90,8 @@ int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);
 int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id);
 struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 					      int pcc_id);
+int pcep_ctrl_pcc_num_pce(struct frr_pthread *fpt);
+bool pcep_ctrl_pcc_has_pce(struct frr_pthread *fpt, const char *pce_name);
 /* Synchronously send a report, the caller is responsible to free the path,
  * If `pcc_id` is `0` the report is sent by all PCCs */
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,

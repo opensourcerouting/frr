@@ -130,9 +130,10 @@ void pcep_lib_finalize(void)
 }
 
 
-pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
-			       struct ipaddr *dst_addr, int dst_port,
-			       bool draft07, short msd)
+pcep_session *
+pcep_lib_connect(struct ipaddr *src_addr, int src_port, struct ipaddr *dst_addr,
+		 int dst_port, short msd,
+		 const struct pcep_config_group_opts *pcep_options)
 {
 	pcep_configuration *config;
 	pcep_session *sess;
@@ -158,8 +159,18 @@ pcep_session *pcep_lib_connect(struct ipaddr *src_addr, int src_port,
 	config->support_sr_te_pst = true;
 	config->pcc_can_resolve_nai_to_sid = false;
 
-	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 = draft07;
 	config->max_sid_depth = msd;
+	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 =
+		pcep_options->draft07;
+	config->keep_alive_seconds = pcep_options->keep_alive_seconds;
+	config->min_keep_alive_seconds = pcep_options->min_keep_alive_seconds;
+	config->max_keep_alive_seconds = pcep_options->max_keep_alive_seconds;
+	config->dead_timer_seconds = pcep_options->dead_timer_seconds;
+	config->min_dead_timer_seconds = pcep_options->min_dead_timer_seconds;
+	config->max_dead_timer_seconds = pcep_options->max_dead_timer_seconds;
+	config->request_time_seconds = pcep_options->pcep_request_time_seconds;
+	/* TODO when available in the pceplib, set it here
+	 pcep_options->state_timeout_inteval_seconds;*/
 
 	if (IS_IPADDR_V6(dst_addr)) {
 		sess = connect_pce_ipv6(config, &dst_addr->ipaddr_v6);

@@ -25,3 +25,28 @@ sr-policy color 2 endpoint 2.2.2.2
  candidate-path preference 100 name def explicit segment-list test2
  candidate-path preference 200 name dyn dynamic metrics bound abc 16 te
 !
+!! Simplest PCEP config without pcep-config-group
+!
+!pcc-peer pce1
+!  address ip 10.0.12.1
+!pcc
+!  peer pce1
+!
+!! A more complex PCEP config with a pcep-config-group
+!
+!pcep-config-group group1
+! timer keep-alive 35
+!
+!pcc-peer pce1
+! config-group group1
+! address ip 10.0.12.1
+! timer dead-timer 140
+!
+!pcc
+! peer pce1
+!
+!show pcep-config-group
+!show pcep-config-group default
+!show pcep-config-group group1
+!show pcc-peer
+!show pcc-peer pce1
