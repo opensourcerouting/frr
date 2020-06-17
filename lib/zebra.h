@@ -358,6 +358,7 @@ typedef enum {
 #define ZEBRA_IBGP_DISTANCE_DEFAULT      200
 #define ZEBRA_EBGP_DISTANCE_DEFAULT       20
 #define ZEBRA_TABLE_DISTANCE_DEFAULT      15
+#define ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT 14
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
