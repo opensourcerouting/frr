@@ -548,7 +548,8 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 int zsend_redistribute_route(int cmd, struct zserv *client,
 			     const struct prefix *p,
 			     const struct prefix *src_p,
-			     const struct route_entry *re)
+			     const struct route_entry *re,
+			     bool is_table_direct)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -562,7 +563,11 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
 	api.safi = SAFI_UNICAST;
-	api.instance = re->instance;
+	if (is_table_direct) {
+		api.instance = re->table;
+		api.type = ZEBRA_ROUTE_TABLE_DIRECT;
+	} else
+		api.instance = re->instance;
 	api.flags = re->flags;
 
 	afi = family2afi(p->family);
@@ -627,7 +632,10 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 
 	/* Attributes. */
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-	api.distance = re->distance;
+	if (is_table_direct)
+		api.distance = ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT;
+	else
+		api.distance = re->distance;
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = re->metric;
 	if (re->tag) {
