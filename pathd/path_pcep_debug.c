@@ -65,6 +65,7 @@ _format_pcep_object_ipv4_endpoint(int ps,
 				  struct pcep_object_endpoints_ipv4 *obj);
 static void _format_pcep_object_metric(int ps, struct pcep_object_metric *obj);
 static void _format_pcep_object_bandwidth(int ps, struct pcep_object_bandwidth *obj);
+static void _format_pcep_object_nopath(int ps, struct pcep_object_nopath *obj);
 static void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj);
 static void _format_pcep_object_ro_details(int ps,
 					   struct pcep_object_ro_subobj *ro);
@@ -594,6 +595,22 @@ const char *pcep_metric_type_name(enum pcep_metric_types type)
 	}
 }
 
+const char *pcep_nopath_tlv_err_code_name(enum pcep_nopath_tlv_err_codes type)
+{
+	switch (type) {
+	case PCEP_NOPATH_TLV_ERR_NO_TLV:
+		return "NO_TLV";
+	case PCEP_NOPATH_TLV_ERR_PCE_UNAVAILABLE:
+		return "PCE_UNAVAILABLE";
+	case PCEP_NOPATH_TLV_ERR_UNKNOWN_DST:
+		return "UNKNOWN_DST";
+	case PCEP_NOPATH_TLV_ERR_UNKNOWN_SRC:
+		return "UNKNOWN_SRC";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 const char *format_pcc_opts(struct pcc_opts *opts)
 {
 	PCEP_FORMAT_INIT();
@@ -831,7 +848,7 @@ void _format_path(int ps, struct path *path)
 			    path->has_bandwidth);
 		if (path->has_bandwidth) {
 			PCEP_FORMAT("%*sbandwidth: %f\n", ps2, "",
-			            path->bandwidth);
+				    path->bandwidth);
 		}
 
 		if (path->first_hop == NULL) {
@@ -1045,6 +1062,10 @@ void _format_pcep_object_details(int ps, struct pcep_object_header *obj)
 		_format_pcep_object_bandwidth(ps,
 					   (struct pcep_object_bandwidth *)obj);
 		break;
+	case TUP(PCEP_OBJ_CLASS_NOPATH, PCEP_OBJ_TYPE_NOPATH):
+		_format_pcep_object_nopath(ps,
+					   (struct pcep_object_nopath *)obj);
+		break;
 	default:
 		PCEP_FORMAT("%*s...\n", ps, "");
 		break;
@@ -1118,6 +1139,15 @@ void _format_pcep_object_metric(int ps, struct pcep_object_metric *obj)
 void _format_pcep_object_bandwidth(int ps, struct pcep_object_bandwidth *obj)
 {
 	PCEP_FORMAT("%*sbandwidth: %f\n", ps, "", obj->bandwidth);
+}
+
+void _format_pcep_object_nopath(int ps, struct pcep_object_nopath *obj)
+{
+	PCEP_FORMAT("%*sni: %u\n", ps, "", obj->ni);
+	PCEP_FORMAT("%*sflag_c: %u\n", ps, "", obj->flag_c);
+	PCEP_FORMAT("%*serr_code: %s (%u)\n", ps, "",
+	            pcep_nopath_tlv_err_code_name(obj->err_code),
+	            obj->err_code);
 }
 
 void _format_pcep_object_ro(int ps, struct pcep_object_ro *obj)

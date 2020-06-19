@@ -44,6 +44,7 @@ const char *pcep_tlv_type_name(enum pcep_object_tlv_types tlv_type);
 const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type);
 const char *pcep_nai_type_name(enum pcep_sr_subobj_nai nai_type);
 const char *pcep_metric_type_name(enum pcep_metric_types type);
+const char *pcep_nopath_tlv_err_code_name(enum pcep_nopath_tlv_err_codes code);
 
 const char *format_pcc_opts(struct pcc_opts *ops);
 const char *format_pcc_state(struct pcc_state *state);

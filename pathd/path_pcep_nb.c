@@ -168,6 +168,7 @@ struct path *candidate_to_path(struct srte_candidate *candidate)
 		segment_list = RB_FIND(srte_segment_list_head,
 				       &srte_segment_lists, &key);
 		assert(segment_list != NULL);
+		assert(segment_list == candidate->segment_list);
 		hop = path_nb_list_path_hops(segment_list);
 		update_origin = segment_list->protocol_origin;
 		originator = XSTRDUP(MTYPE_PCEP, segment_list->originator);
@@ -242,7 +243,7 @@ struct path_hop *path_nb_list_path_hops(struct srte_segment_list *segment_list)
 		hop = pcep_new_hop();
 		*hop = (struct path_hop){
 			.next = last_hop,
-			.is_loose = false,
+			.is_loose = true,
 			.has_sid = true,
 			.is_mpls = true,
 			.has_attribs = false,
