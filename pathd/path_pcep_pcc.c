@@ -51,6 +51,7 @@
 /* The number of time we will skip connecting if we are missing the PCC
  * address for an inet family different from the selected transport one*/
 #define OTHER_FAMILY_MAX_RETRIES 4
+#define MAX_ERROR_MSG_SIZE 256
 
 /* PCEP Event Handler */
 static void handle_pcep_open(struct ctrl_state *ctrl_state,
@@ -78,18 +79,21 @@ static void update_tag(struct pcc_state *pcc_state);
 static void update_originator(struct pcc_state *pcc_state);
 static void schedule_reconnect(struct ctrl_state *ctrl_state,
 			       struct pcc_state *pcc_state);
-static void send_pcep_message(struct ctrl_state *ctrl_state,
-			      struct pcc_state *pcc_state,
+static void send_pcep_message(struct pcc_state *pcc_state,
 			      struct pcep_message *msg);
-static void send_report(struct ctrl_state *ctrl_state,
-			struct pcc_state *pcc_state, struct path *path);
-static void specialize_output_path(struct pcc_state *pcc_state,
-				   struct path *path);
-static void specialize_input_path(struct pcc_state *pcc_state,
-				  struct path *path);
-static void send_comp_request(struct ctrl_state *ctrl_state,
-			      struct pcc_state *pcc_state,
-			      struct lsp_nb_key *nb_key);
+static void send_pcep_error(struct pcc_state *pcc_state,
+			    enum pcep_error_type error_type,
+			    enum pcep_error_value error_value);
+static void send_report(struct pcc_state *pcc_state, struct path *path);
+static void send_comp_request(struct pcc_state *pcc_state,
+			      struct req_entry *req);
+static void specialize_outgoing_path(struct pcc_state *pcc_state,
+				     struct path *path);
+static void specialize_incoming_path(struct pcc_state *pcc_state,
+				     struct path *path);
+static bool validate_incoming_path(struct pcc_state *pcc_state,
+				   struct path *path,
+				   char* errbuff, size_t buffsize);
 static void set_pcc_address(struct pcc_state *pcc_state,
 			    struct lsp_nb_key *nbkey, struct ipaddr *addr);
 static int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs);
@@ -98,8 +102,10 @@ static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
 /* Data Structure Helper Functions */
 static void lookup_plspid(struct pcc_state *pcc_state, struct path *path);
 static void lookup_nbkey(struct pcc_state *pcc_state, struct path *path);
-static uint32_t push_req(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey);
-static bool pop_req(struct pcc_state *pcc_state, struct path *path);
+static void free_req_entry(struct req_entry *req);
+static struct req_entry* push_req(struct pcc_state *pcc_state,
+				  struct path* path);
+static struct req_entry* pop_req(struct pcc_state *pcc_state, uint32_t reqid);
 
 /* Data Structure Callbacks */
 static int plspid_map_cmp(const struct plspid_map_data *a,
@@ -108,16 +114,19 @@ static uint32_t plspid_map_hash(const struct plspid_map_data *e);
 static int nbkey_map_cmp(const struct nbkey_map_data *a,
 			 const struct nbkey_map_data *b);
 static uint32_t nbkey_map_hash(const struct nbkey_map_data *e);
-static int req_map_cmp(const struct req_map_data *a,
-		       const struct req_map_data *b);
-static uint32_t req_map_hash(const struct req_map_data *e);
 
 /* Data Structure Declarations */
 DECLARE_HASH(plspid_map, struct plspid_map_data, mi, plspid_map_cmp,
 	     plspid_map_hash)
 DECLARE_HASH(nbkey_map, struct nbkey_map_data, mi, nbkey_map_cmp,
 	     nbkey_map_hash)
-DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash)
+
+static inline int req_entry_compare(const struct req_entry *a,
+				    const struct req_entry *b)
+{
+	return a->path->req_id - b->path->req_id;
+}
+RB_GENERATE(req_entry_head, req_entry, entry, req_entry_compare)
 
 
 /* ------------ API Functions ------------ */
@@ -130,6 +139,8 @@ struct pcc_state *pcep_pcc_initialize(struct ctrl_state *ctrl_state, int index)
 	pcc_state->status = PCEP_PCC_DISCONNECTED;
 	pcc_state->next_reqid = 1;
 	pcc_state->next_plspid = 1;
+
+	RB_INIT(req_entry_head, &pcc_state->requests);
 
 	update_tag(pcc_state);
 	update_originator(pcc_state);
@@ -375,15 +386,27 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 		return;
 
 	assert(pcc_state->status == PCEP_PCC_SYNCHRONIZING);
-	assert(path->is_synching);
 
+	path->is_synching = true;
+	path->go_active = true;
+
+	/* Accumulate the dynamic paths without any LSP so computation
+	 * requests can be performed after synchronization */
+	if ((path->type == SRTE_CANDIDATE_TYPE_DYNAMIC)
+	    && (path->first_hop == NULL)) {
+		PCEP_DEBUG("%s Scheduling computation request for path %s",
+			   pcc_state->tag, path->name);
+		push_req(pcc_state, path);
+		return;
+	}
+
+	/* Synchronize the path if the PCE supports LSP updates and the
+	 * endpoint address familly is supported */
 	if (pcc_state->caps.is_stateful) {
-		/* PCE supports LSP updates, just sync all the path with
-		 * compatible IP version */
 		if (filter_path(pcc_state, path)) {
 			PCEP_DEBUG("%s Synchronizing path %s", pcc_state->tag,
 				   path->name);
-			send_report(ctrl_state, pcc_state, path);
+			send_report(pcc_state, path);
 		} else {
 			PCEP_DEBUG(
 				"%s Skipping %s candidate path %s "
@@ -392,18 +415,14 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 				ipaddr_type_name(&path->nbkey.endpoint),
 				path->name);
 		}
-	} else if (path->is_delegated) {
-		/* PCE doesn't supports LSP updates, trigger computation
-		 * request instead of synchronizing if the path is to be
-		 * delegated.
-		 */
-		send_comp_request(ctrl_state, pcc_state, &path->nbkey);
 	}
 }
 
 void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state)
 {
+	struct req_entry *req;
+
 	if (pcc_state->status == PCEP_PCC_DISCONNECTED)
 		return;
 
@@ -421,7 +440,7 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 				      .is_delegated = false,
 				      .first_hop = NULL,
 				      .first_metric = NULL};
-		send_report(ctrl_state, pcc_state, path);
+		send_report(pcc_state, path);
 		pcep_free_path(path);
 	}
 
@@ -429,6 +448,11 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 	pcc_state->status = PCEP_PCC_OPERATING;
 
 	PCEP_DEBUG("%s Synchronization done", pcc_state->tag);
+
+	/* Start the computation request accumulated during synchronization */
+	RB_FOREACH (req, req_entry_head, &pcc_state->requests) {
+		send_comp_request(pcc_state, req);
+	}
 }
 
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
@@ -438,7 +462,7 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	if (pcc_state->caps.is_stateful) {
 		PCEP_DEBUG("%s Send report for candidate path %s",
 			   pcc_state->tag, path->name);
-		send_report(ctrl_state, pcc_state, path);
+		send_report(pcc_state, path);
 	}
 }
 
@@ -449,6 +473,8 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 				  enum pcep_pathd_event_type type,
 				  struct path *path)
 {
+	struct req_entry* req;
+
 	if (!pcc_state->synchronized)
 		return;
 
@@ -465,23 +491,25 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 	case PCEP_PATH_CREATED:
 		PCEP_DEBUG("%s Candidate path %s created", pcc_state->tag,
 			   path->name);
-		if (pcc_state->caps.is_stateful)
-			send_report(ctrl_state, pcc_state, path);
-		else if (path->is_delegated)
-			send_comp_request(ctrl_state, pcc_state, &path->nbkey);
+		if ((path->first_hop == NULL)
+		    && (path->type == SRTE_CANDIDATE_TYPE_DYNAMIC)) {
+			req = push_req(pcc_state, path);
+			send_comp_request(pcc_state, req);
+		} else if (pcc_state->caps.is_stateful)
+			send_report(pcc_state, path);
 		return;
 	case PCEP_PATH_UPDATED:
 		PCEP_DEBUG("%s Candidate path %s updated", pcc_state->tag,
 			   path->name);
 		if (pcc_state->caps.is_stateful)
-			send_report(ctrl_state, pcc_state, path);
+			send_report(pcc_state, path);
 		return;
 	case PCEP_PATH_REMOVED:
 		PCEP_DEBUG("%s Candidate path %s removed", pcc_state->tag,
 			   path->name);
 		path->was_removed = true;
 		if (pcc_state->caps.is_stateful)
-			send_report(ctrl_state, pcc_state, path);
+			send_report(pcc_state, path);
 		return;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
@@ -575,50 +603,104 @@ void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state,
 			    struct pcep_message *msg)
 {
+	char err[MAX_ERROR_MSG_SIZE] = "";
 	struct path *path;
 	path = pcep_lib_parse_path(msg);
-	specialize_input_path(pcc_state, path);
-	path->update_origin = SRTE_ORIGIN_PCEP;
-	path->originator = pcc_state->originator;
+	lookup_nbkey(pcc_state, path);
+	/* TODO: Investigate if this is safe to do in the controller thread */
+	path_nb_lookup(path);
+	specialize_incoming_path(pcc_state, path);
 	PCEP_DEBUG("%s Received LSP update", pcc_state->tag);
 	PCEP_DEBUG_PATH("%s", format_path(path));
-	pcep_thread_update_path(ctrl_state, pcc_state->id, path);
+
+	if (validate_incoming_path(pcc_state, path, err, sizeof(err)))
+		pcep_thread_update_path(ctrl_state, pcc_state->id, path);
+	else {
+		/* FIXME: Monitor the amount of errors from the PCE and
+		 * possibly disconnect and blacklist */
+		flog_warn(EC_PATH_PCEP_UNSUPPORTED_PCEP_FEATURE,
+			  "Unsupported PCEP protocol feature: %s", err);
+		pcep_free_path(path);
+	}
 }
 
 void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state,
 			      struct pcep_message *msg)
 {
-	struct pcep_message *error;
-
 	PCEP_DEBUG("%s Received LSP initiate, not supported yet",
 		   pcc_state->tag);
 
 	/* TODO when we support both PCC and PCE initiated sessions,
 	 *      we should first check the session type before
 	 *      rejecting this message. */
-	error = pcep_lib_reject_message(PCEP_ERRT_INVALID_OPERATION,
-					PCEP_ERRV_LSP_NOT_PCE_INITIATED);
-	send_pcep_message(ctrl_state, pcc_state, error);
+	send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
+			PCEP_ERRV_LSP_NOT_PCE_INITIATED);
 }
 
 void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state,
 			    struct pcep_message *msg)
 {
+	char err[MAX_ERROR_MSG_SIZE] = "";
+	struct req_entry *req;
 	struct path *path;
 	path = pcep_lib_parse_path(msg);
-	if (!pop_req(pcc_state, path)) {
+	req = pop_req(pcc_state, path->req_id);
+	if (req == NULL) {
 		/* TODO: check the rate of bad computation reply and close
 		 * the connection if more that a given rate.
 		 */
+		PCEP_DEBUG("%s Received computation reply for unknown request "
+			   "%d", pcc_state->tag, path->req_id);
+		PCEP_DEBUG_PATH("%s", format_path(path));
+		send_pcep_error(pcc_state, PCEP_ERRT_UNKNOWN_REQ_REF,
+				PCEP_ERRV_UNASSIGNED);
 		return;
 	}
 
-	PCEP_DEBUG("%s Received computation reply", pcc_state->tag);
+	/* Transfer relevent metadata from the request to the response */
+	path->nbkey = req->path->nbkey;
+	path->plsp_id = req->path->plsp_id;
+	path->type = req->path->type;
+	path->name = XSTRDUP(MTYPE_PCEP, req->path->name);
+	specialize_incoming_path(pcc_state, path);
+
+	PCEP_DEBUG("%s Received computation reply %d (no-path: %s)",
+		   pcc_state->tag, path->req_id,
+		   path->no_path?"true":"false");
 	PCEP_DEBUG_PATH("%s", format_path(path));
 
-	pcep_thread_update_path(ctrl_state, pcc_state->id, path);
+	if (path->no_path) {
+		PCEP_DEBUG("%s Computation for path %s did not find any result",
+			   pcc_state->tag, path->name);
+	} else if (validate_incoming_path(pcc_state, path, err, sizeof(err))) {
+		/* Updating a dynamic path will automatically delegate it */
+		pcep_thread_update_path(ctrl_state, pcc_state->id, path);
+		free_req_entry(req);
+		return;
+	} else {
+		/* FIXME: Monitor the amount of errors from the PCE and
+		 * possibly disconnect and blacklist */
+		flog_warn(EC_PATH_PCEP_UNSUPPORTED_PCEP_FEATURE,
+			  "Unsupported PCEP protocol feature: %s", err);
+	}
+
+	pcep_free_path(path);
+
+	/* Delegate the path regardless of the outcome */
+	/* TODO: For now we are using the path from the request, when
+	 * pathd API is thread safe, we could get a new path */
+	if (pcc_state->caps.is_stateful) {
+		PCEP_DEBUG("%s Delegating undefined dynamic path %s to PCE %s",
+			   pcc_state->tag, path->name, pcc_state->originator);
+		path = pcep_copy_path(req->path);
+		path->is_delegated = true;
+		send_report(pcc_state, path);
+		pcep_free_path(path);
+	}
+
+	free_req_entry(req);
 }
 
 
@@ -729,28 +811,38 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 				       &pcc_state->t_reconnect);
 }
 
-void send_pcep_message(struct ctrl_state *ctrl_state,
-		       struct pcc_state *pcc_state, struct pcep_message *msg)
+void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
 {
 	PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
 			format_pcep_message(msg));
 	send_message(pcc_state->sess, msg, true);
 }
 
-void send_report(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
-		 struct path *path)
+void send_pcep_error(struct pcc_state *pcc_state,
+		     enum pcep_error_type error_type,
+		     enum pcep_error_value error_value)
+{
+	struct pcep_message*  msg;
+	PCEP_DEBUG("%s Sending PCEP error type %s (%d) value %s (%d)",
+		   pcc_state->tag, pcep_error_type_name(error_type), error_type,
+		   pcep_error_value_name(error_type, error_value), error_value);
+	msg = pcep_lib_format_error(error_type, error_value);
+	send_pcep_message(pcc_state, msg);
+}
+
+void send_report(struct pcc_state *pcc_state, struct path *path)
 {
 	struct pcep_message *report;
 
-	specialize_output_path(pcc_state, path);
+	specialize_outgoing_path(pcc_state, path);
 	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
 			format_path(path));
 	report = pcep_lib_format_report(path);
-	send_pcep_message(ctrl_state, pcc_state, report);
+	send_pcep_message(pcc_state, report);
 }
 
 /* Updates the path for the PCE, updating the delegation and creation flags */
-void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
+void specialize_outgoing_path(struct pcc_state *pcc_state, struct path *path)
 {
 	bool is_delegated = false;
 	bool was_created = false;
@@ -760,13 +852,20 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 	set_pcc_address(pcc_state, &path->nbkey, &path->pcc_addr);
 	path->sender = pcc_state->pcc_addr_tr;
 
-	if ((path->originator == NULL)
-	    || (strcmp(path->originator, pcc_state->originator) == 0)) {
-		is_delegated = path->type == SRTE_CANDIDATE_TYPE_DYNAMIC;
-		/* it seems the PCE consider updating an LSP a creation ?!?
-		at least Cisco does... */
-		was_created = path->update_origin == SRTE_ORIGIN_PCEP;
-	}
+	/* TODO: When the pathd API have a way to mark a path as
+	 * delegated, use it instead of considering all dynamic path
+	 * delegated. We need to disable the originator check for now,
+	 * because path could be delegated without having any originator yet */
+	// if ((path->originator == NULL)
+	//     || (strcmp(path->originator, pcc_state->originator) == 0)) {
+	// 	is_delegated = (path->type == SRTE_CANDIDATE_TYPE_DYNAMIC)
+	// 			&& (path->first_hop != NULL);
+	// 	/* it seems the PCE consider updating an LSP a creation ?!?
+	// 	at least Cisco does... */
+	// 	was_created = path->update_origin == SRTE_ORIGIN_PCEP;
+	// }
+	is_delegated = (path->type == SRTE_CANDIDATE_TYPE_DYNAMIC);
+	was_created = path->update_origin == SRTE_ORIGIN_PCEP;
 
 	path->pcc_id = pcc_state->id;
 	path->go_active = is_delegated;
@@ -775,35 +874,75 @@ void specialize_output_path(struct pcc_state *pcc_state, struct path *path)
 }
 
 /* Updates the path for the PCC */
-void specialize_input_path(struct pcc_state *pcc_state, struct path *path)
+void specialize_incoming_path(struct pcc_state *pcc_state, struct path *path)
 {
-	lookup_nbkey(pcc_state, path);
-	path_nb_lookup(path);
-
 	set_pcc_address(pcc_state, &path->nbkey, &path->pcc_addr);
-	path->sender = pcc_state->pcc_addr_tr;
+	path->sender = pcc_state->pce_opts->addr;
 	path->pcc_id = pcc_state->id;
+	path->update_origin = SRTE_ORIGIN_PCEP;
+	path->originator = XSTRDUP(MTYPE_PCEP, pcc_state->originator);
 }
 
-void send_comp_request(struct ctrl_state *ctrl_state,
-		       struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)
+/* Ensure the path can be handled by the PCC and if not, sends an error */
+bool validate_incoming_path(struct pcc_state *pcc_state, struct path *path,
+			    char* errbuff, size_t buffsize)
 {
+	struct path_hop *hop;
+	enum pcep_error_type err_type = 0;
+	enum pcep_error_value err_value = PCEP_ERRV_UNASSIGNED;
+
+	for (hop = path->first_hop; hop != NULL; hop = hop->next) {
+		/* Hops without SID are not supported */
+		if (!hop->has_sid) {
+			snprintfrr(errbuff, buffsize, "SR segment without SID");
+			err_type = PCEP_ERRT_RECEPTION_OF_INV_OBJECT;
+			/* FIXME: Use the constant when added to pceplib */
+			/* NAI cannot be resolved to a SID */
+			err_value = 15;
+			break;
+		}
+		/* Hops with non-MPLS SID are not supported */
+		if (!hop->is_mpls) {
+			snprintfrr(errbuff, buffsize, "SR segment with non-MPLS SID");
+			err_type = PCEP_ERRT_RECEPTION_OF_INV_OBJECT;
+			/* FIXME: Use the constant when added to pceplib */
+			/* Unsupported NAI Type in the SR-ERO/SR-RRO subobject */
+			err_value = 13;
+			break;
+		}
+	}
+
+	if (err_type != 0) {
+		send_pcep_error(pcc_state, err_type, err_value);
+		return false;
+	}
+
+	return true;
+}
+
+void send_comp_request(struct pcc_state *pcc_state, struct req_entry *req)
+{
+	assert(req != NULL);
+	assert(req->path != NULL);
+	assert(req->path->req_id > 0);
+	assert(RB_FIND(req_entry_head, &pcc_state->requests, req) == req);
+
 	char buff[40];
-	uint32_t reqid;
 	struct pcep_message *msg;
-	struct ipaddr pcc_addr;
 
-	reqid = push_req(pcc_state, nbkey);
-	/* TODO: Add a timer to retry the computation request */
+	/* TODO: Add a timer to retry the computation request ? */
 
-	set_pcc_address(pcc_state, nbkey, &pcc_addr);
+	specialize_outgoing_path(pcc_state, req->path);
 
-	PCEP_DEBUG("%s Sending computation request for path to %s",
-		   pcc_state->tag,
-		   ipaddr2str(&nbkey->endpoint, buff, sizeof(buff)));
+	PCEP_DEBUG("%s Sending computation request %d for path %s to %s",
+		   pcc_state->tag, req->path->req_id, req->path->name,
+		   ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)));
+	PCEP_DEBUG_PATH("%s Computation request path %s: %s", pcc_state->tag,
+			req->path->name, format_path(req->path));
 
-	msg = pcep_lib_format_request(reqid, &pcc_addr, &nbkey->endpoint);
-	send_pcep_message(ctrl_state, pcc_state, msg);
+	msg = pcep_lib_format_request(req->path->req_id, &req->path->pcc_addr,
+				      &req->path->nbkey.endpoint);
+	send_pcep_message(pcc_state, msg);
 }
 
 void set_pcc_address(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey,
@@ -864,42 +1003,46 @@ void lookup_nbkey(struct pcc_state *pcc_state, struct path *path)
 	path->nbkey = mapping->nbkey;
 }
 
-uint32_t push_req(struct pcc_state *pcc_state, struct lsp_nb_key *nbkey)
+void free_req_entry(struct req_entry *req)
 {
-	struct req_map_data *req_mapping;
+	pcep_free_path(req->path);
+	XFREE(MTYPE_PCEP, req);
+}
+
+struct req_entry* push_req(struct pcc_state *pcc_state, struct path* path)
+{
+	assert(path->req_id == 0);
+
 	uint32_t reqid = pcc_state->next_reqid;
+	struct req_entry *req;
+	void* res;
 
-	req_mapping = XCALLOC(MTYPE_PCEP, sizeof(*req_mapping));
-	req_mapping->reqid = reqid;
-	req_mapping->nbkey = *nbkey;
-
-	assert(req_map_find(&pcc_state->req_map, req_mapping) == NULL);
-	req_map_add(&pcc_state->req_map, req_mapping);
+	req = XCALLOC(MTYPE_PCEP, sizeof(*req));
+	req->path = pcep_copy_path(path);
+	req->path->req_id = reqid;
+	res = RB_INSERT(req_entry_head, &pcc_state->requests, req);
+	assert(res == NULL);
 
 	pcc_state->next_reqid += 1;
 	/* Wrapping is allowed, but 0 is not a valid id */
 	if (pcc_state->next_reqid == 0)
 		pcc_state->next_reqid = 1;
 
-	return reqid;
+	return req;
 }
 
-bool pop_req(struct pcc_state *pcc_state, struct path *path)
+struct req_entry* pop_req(struct pcc_state *pcc_state, uint32_t reqid)
 {
-	struct req_map_data key, *req_mapping;
+	struct path path = {.req_id = reqid};
+	struct req_entry key = {.path = &path};
+	struct req_entry *req;
 
-	key.reqid = path->req_id;
+	req = RB_FIND(req_entry_head, &pcc_state->requests, &key);
+	if (req == NULL)
+		return NULL;
+	RB_REMOVE(req_entry_head, &pcc_state->requests, req);
 
-	req_mapping = req_map_find(&pcc_state->req_map, &key);
-	if (req_mapping == NULL)
-		return false;
-
-	req_map_del(&pcc_state->req_map, req_mapping);
-
-	path->nbkey = req_mapping->nbkey;
-
-	XFREE(MTYPE_PCEP, req_mapping);
-	return true;
+	return req;
 }
 
 
@@ -946,16 +1089,4 @@ static int nbkey_map_cmp(const struct nbkey_map_data *a,
 static uint32_t nbkey_map_hash(const struct nbkey_map_data *e)
 {
 	return e->plspid;
-}
-
-static int req_map_cmp(const struct req_map_data *a,
-		       const struct req_map_data *b)
-{
-	CMP_RETURN(a->reqid, b->reqid);
-	return 0;
-}
-
-static uint32_t req_map_hash(const struct req_map_data *e)
-{
-	return e->reqid;
 }

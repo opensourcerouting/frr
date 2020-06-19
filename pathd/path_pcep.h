@@ -267,6 +267,11 @@ struct path {
 	/* Indicate the given path was created by the PCE,
 	   See draft-ietf-pce-pce-initiated-lsp, section-5.3.1, flag C */
 	bool was_created;
+
+	/* The following data is defined for comnputation replies */
+
+	/* Indicate that no path could be computed */
+	bool no_path;
 };
 
 struct pcep_glob {
@@ -287,6 +292,8 @@ extern struct pcep_glob *pcep_g;
 struct path *pcep_new_path(void);
 struct path_hop *pcep_new_hop(void);
 struct path_metric *pcep_new_metric(void);
+struct path *pcep_copy_path(struct path *path);
 void pcep_free_path(struct path *path);
+
 
 #endif // _PATH_PCEP_H_

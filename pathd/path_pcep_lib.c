@@ -351,18 +351,21 @@ struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 	dll_append(rp_tlvs, setup_type_tlv);
 
 	rp = pcep_obj_create_rp(0, false, false, false, reqid, rp_tlvs);
+	rp->header.flag_p = true;
 	if (IS_IPADDR_V6(src)) {
 		endpoints_ipv6 = pcep_obj_create_endpoint_ipv6(&src->ipaddr_v6,
 							       &dst->ipaddr_v6);
+		endpoints_ipv6->header.flag_p = true;
 		return pcep_msg_create_request_ipv6(rp, endpoints_ipv6, NULL);
 	} else {
 		endpoints_ipv4 = pcep_obj_create_endpoint_ipv4(&src->ipaddr_v4,
 							       &dst->ipaddr_v4);
+		endpoints_ipv4->header.flag_p = true;
 		return pcep_msg_create_request(rp, endpoints_ipv4, NULL);
 	}
 }
 
-struct pcep_message *pcep_lib_reject_message(int error_type, int error_value)
+struct pcep_message *pcep_lib_format_error(int error_type, int error_value)
 {
 	return pcep_msg_create_error(error_type, error_value);
 }
@@ -419,6 +422,10 @@ struct path *pcep_lib_parse_path(struct pcep_message *msg)
 			bandwidth = (struct pcep_object_bandwidth *)obj;
 			path->has_bandwidth = true;
 			path->bandwidth = bandwidth->bandwidth;
+			break;
+		case CLASS_TYPE(PCEP_OBJ_CLASS_NOPATH,
+				PCEP_OBJ_TYPE_NOPATH):
+			path->no_path = true;
 			break;
 		default:
 			flog_warn(EC_PATH_PCEP_UNEXPECTED_PCEP_OBJECT,
@@ -519,6 +526,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		dll_append(srp_tlvs, tlv);
 		srp = pcep_obj_create_srp(path->do_remove, path->srp_id, srp_tlvs);
 		assert(srp != NULL);
+		srp->header.flag_p = true;
 		dll_append(objs, srp);
 	}
 
@@ -575,6 +583,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 		path->is_synching /* S Flag */, path->is_delegated /* D Flag */,
 		lsp_tlvs);
 	assert(lsp != NULL);
+	lsp->header.flag_p = true;
 	dll_append(objs, lsp);
 	/*   ERO object */
 	ero_objs = dll_initialize();
@@ -671,6 +680,7 @@ double_linked_list *pcep_lib_format_path(struct path *path)
 	}
 	ero = pcep_obj_create_ero(ero_objs);
 	assert(ero != NULL);
+	ero->header.flag_p = true;
 	dll_append(objs, ero);
 
 	if (path->plsp_id == 0) {

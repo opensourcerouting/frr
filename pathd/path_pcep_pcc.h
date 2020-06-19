@@ -53,6 +53,13 @@ struct req_map_data {
 	struct lsp_nb_key nbkey;
 };
 
+struct req_entry {
+	RB_ENTRY(req_entry) entry;
+	struct path *path;
+};
+RB_HEAD(req_entry_head, req_entry);
+RB_PROTOTYPE(req_entry_head, req_entry, entry, req_entry_compare);
+
 struct pcc_state {
 	int id;
 	char tag[MAX_TAG_SIZE];
@@ -64,6 +71,7 @@ struct pcc_state {
 	struct pce_opts *pce_opts;
 	struct in_addr pcc_addr_v4;
 	struct in6_addr pcc_addr_v6;
+	/* PCC transport source address */
 	struct ipaddr pcc_addr_tr;
 	char *originator;
 	pcep_session *sess;
@@ -75,7 +83,7 @@ struct pcc_state {
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;
 	struct nbkey_map_head nbkey_map;
-	struct req_map_head req_map;
+	struct req_entry_head requests;
 	struct pcep_caps caps;
 };
 
