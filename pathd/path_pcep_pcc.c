@@ -896,18 +896,14 @@ bool validate_incoming_path(struct pcc_state *pcc_state, struct path *path,
 		if (!hop->has_sid) {
 			snprintfrr(errbuff, buffsize, "SR segment without SID");
 			err_type = PCEP_ERRT_RECEPTION_OF_INV_OBJECT;
-			/* FIXME: Use the constant when added to pceplib */
-			/* NAI cannot be resolved to a SID */
-			err_value = 15;
+			err_value = PCEP_ERRV_DISJOINTED_CONF_TLV_MISSING;
 			break;
 		}
 		/* Hops with non-MPLS SID are not supported */
 		if (!hop->is_mpls) {
 			snprintfrr(errbuff, buffsize, "SR segment with non-MPLS SID");
 			err_type = PCEP_ERRT_RECEPTION_OF_INV_OBJECT;
-			/* FIXME: Use the constant when added to pceplib */
-			/* Unsupported NAI Type in the SR-ERO/SR-RRO subobject */
-			err_value = 13;
+			err_value = PCEP_ERRV_UNSUPPORTED_NAI;
 			break;
 		}
 	}
