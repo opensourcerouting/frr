@@ -27,6 +27,7 @@
 #include "sigevent.h"
 #include "libfrr.h"
 #include "vrf.h"
+#include "filter.h"
 
 #include "pathd.h"
 #include "path_nb.h"
@@ -99,6 +100,7 @@ struct quagga_signal_t path_signals[] = {
 };
 
 static const struct frr_yang_module_info *pathd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_interface_info,
 	&frr_pathd_info,
 };
@@ -137,6 +139,8 @@ int main(int argc, char **argv, char **envp)
 	}
 
 	master = frr_init();
+
+	access_list_init();
 
 	path_error_init();
 	path_zebra_init(master);
