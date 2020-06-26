@@ -1234,6 +1234,20 @@ static struct cmd_node pcc_node = {
         .prompt = "%s(config-pcc)# ",
 };
 
+static struct cmd_node pcc_peer_node = {
+	.name = "pcc-peer",
+	.node = PCC_PEER_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pcc-peer)# ",
+};
+
+static struct cmd_node pcep_config_group_node = {
+	.name = "pcep-config-group",
+	.node = PCEP_CONFIG_GROUP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(pcep-config-group)# ",
+};
+
 static struct cmd_node vrf_node = {
 	.name = "vrf",
 	.node = VRF_NODE,
@@ -1952,7 +1966,8 @@ DEFUNSH(VTYSH_PATHD, te_path_sr_policy, te_path_sr_policy_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"pcc [{ip A.B.C.D | ipv6 X:X::X:X}] [port (1024-65535)] [msd (1-16)]",
+	"[no] pcc [{ip A.B.C.D | ipv6 X:X::X:X}] [port (1024-65535)] [msd (1-16)]",
+	NO_STR
 	"PCC configuration\n"
 	"PCC source ip\n"
 	"PCC source IPv4 address\n"
@@ -1964,6 +1979,26 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
 	"PCC maximum SID depth value\n")
 {
 	vty->node = PCC_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, pcep_cli_pcc_peer, pcep_cli_pcc_peer_cmd,
+	"[no] pcc-peer WORD",
+	NO_STR
+	"PCC Peer configuration\n"
+	"Peer name\n")
+{
+	vty->node = PCC_PEER_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_config_group, pcep_cli_pcep_config_group_cmd,
+	"[no] pcep-config-group WORD",
+	NO_STR
+	"PCEP peer Configuration Group\n"
+	"PCEP peer Configuration Group name\n")
+{
+	vty->node = PCEP_CONFIG_GROUP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -3849,6 +3884,8 @@ void vtysh_init_vty(void)
 	install_node(&segment_list_node);
 	install_node(&sr_policy_node);
 	install_node(&pcc_node);
+	install_node(&pcc_peer_node);
+	install_node(&pcep_config_group_node);
 	install_node(&link_params_node);
 	install_node(&vrf_node);
 	install_node(&nh_group_node);
@@ -3993,6 +4030,10 @@ void vtysh_init_vty(void)
 	install_element(SR_POLICY_NODE, &vtysh_quit_pathd_cmd);
 	install_element(PCC_NODE, &vtysh_exit_pathd_cmd);
 	install_element(PCC_NODE, &vtysh_quit_pathd_cmd);
+	install_element(PCC_PEER_NODE, &vtysh_exit_pathd_cmd);
+	install_element(PCC_PEER_NODE, &vtysh_quit_pathd_cmd);
+	install_element(PCEP_CONFIG_GROUP_NODE, &vtysh_exit_pathd_cmd);
+	install_element(PCEP_CONFIG_GROUP_NODE, &vtysh_quit_pathd_cmd);
 	install_element(RMAP_NODE, &vtysh_exit_rmap_cmd);
 	install_element(RMAP_NODE, &vtysh_quit_rmap_cmd);
 	install_element(PBRMAP_NODE, &vtysh_exit_pbr_map_cmd);
@@ -4059,6 +4100,8 @@ void vtysh_init_vty(void)
 	install_element(SEGMENT_LIST_NODE, &vtysh_end_all_cmd);
 	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
 	install_element(PCC_NODE, &vtysh_end_all_cmd);
+	install_element(PCC_PEER_NODE, &vtysh_end_all_cmd);
+	install_element(PCEP_CONFIG_GROUP_NODE, &vtysh_end_all_cmd);
 	install_element(RMAP_NODE, &vtysh_end_all_cmd);
 	install_element(PBRMAP_NODE, &vtysh_end_all_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
@@ -4160,6 +4203,8 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &te_path_segment_list_cmd);
 	install_element(CONFIG_NODE, &te_path_sr_policy_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_pcep_config_group_cmd);
+	install_element(CONFIG_NODE, &pcep_cli_pcc_peer_cmd);
 	install_element(CONFIG_NODE, &vtysh_route_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_pbr_map_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_pbr_map_cmd);

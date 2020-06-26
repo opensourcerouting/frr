@@ -195,8 +195,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	ctrl_state->pcc_opts =
 		XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state->pcc_opts));
 	/* Default to no PCC address defined */
-	UNSET_FLAG(ctrl_state->pcc_opts->flags, F_PCC_OPTS_IPV4);
-	UNSET_FLAG(ctrl_state->pcc_opts->flags, F_PCC_OPTS_IPV6);
+	ctrl_state->pcc_opts->addr.ipa_type = IPADDR_NONE;
 	ctrl_state->pcc_opts->port = PCEP_DEFAULT_PORT;
 
 	/* Keep the state reference for events */
@@ -270,6 +269,30 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 	return args.counters;
 }
 
+int pcep_ctrl_pcc_num_pce(struct frr_pthread *fpt)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	return ctrl_state->pcc_count;
+}
+
+bool pcep_ctrl_pcc_has_pce(struct frr_pthread *fpt, const char *pce_name)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	int i = 0;
+	for (; i < MAX_PCE; i++) {
+		if (ctrl_state->pcc[i] == NULL) {
+			continue;
+		}
+
+		if (strcmp(ctrl_state->pcc[i]->pce_opts->pce_name, pce_name)
+		    == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 			   struct path *path)
 {
@@ -330,7 +353,7 @@ void pcep_thread_cancel_pceplib_timer(struct thread **thread)
 {
 	PCEP_DEBUG("Cancel pceplib timer");
 
-	if (thread == NULL) {
+	if (thread == NULL || *thread == NULL) {
 		return;
 	}
 
