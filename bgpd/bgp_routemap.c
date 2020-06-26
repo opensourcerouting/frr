@@ -1670,22 +1670,14 @@ route_set_srte_color(void *rule, const struct prefix *prefix,
 {
 	uint32_t *srte_color = rule;
 	struct bgp_path_info *path;
-	struct peer *peer;
 
 	if (type != RMAP_BGP)
 		return RMAP_OKAY;
 
 	path = object;
-	peer = path->peer;
 
 	path->attr->srte_color = *srte_color;
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_SRTE_COLOR);
-
-	if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)) && peer->su_remote
-	    && sockunion_family(peer->su_remote) == AF_INET) {
-		path->attr->nexthop.s_addr = sockunion2ip(peer->su_remote);
-		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
-	}
 
 	return RMAP_OKAY;
 }
