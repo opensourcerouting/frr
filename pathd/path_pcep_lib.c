@@ -350,7 +350,7 @@ struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 	setup_type_tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
 	dll_append(rp_tlvs, setup_type_tlv);
 
-	rp = pcep_obj_create_rp(0, false, false, false, reqid, rp_tlvs);
+	rp = pcep_obj_create_rp(0, false, false, false, false, reqid, rp_tlvs);
 	rp->header.flag_p = true;
 	if (IS_IPADDR_V6(src)) {
 		endpoints_ipv6 = pcep_obj_create_endpoint_ipv6(&src->ipaddr_v6,
@@ -839,7 +839,6 @@ void pcep_lib_parse_ero(struct path *path, struct pcep_object_ro *ero)
 	for (node = objs->tail; node != NULL; node = node->prev_node) {
 		obj = (struct pcep_object_ro_subobj *)node->data;
 		switch (obj->ro_subobj_type) {
-		case RO_SUBOBJ_TYPE_SR_DRAFT07:
 		case RO_SUBOBJ_TYPE_SR:
 			hop = pcep_lib_parse_ero_sr(
 				hop, (struct pcep_ro_subobj_sr *)obj);

@@ -733,8 +733,6 @@ const char *pcep_ro_type_name(enum pcep_ro_subobj_types ro_type)
 		return "ASN";
 	case RO_SUBOBJ_TYPE_SR:
 		return "SR";
-	case RO_SUBOBJ_TYPE_SR_DRAFT07:
-		return "SR_DRAFT07";
 	default:
 		return "UNKNOWN";
 	}
@@ -1402,7 +1400,6 @@ void _format_pcep_object_ro_details(int ps, struct pcep_object_ro_subobj *ro)
 		_format_pcep_object_ro_ipv4(ps,
 					    (struct pcep_ro_subobj_ipv4 *)ro);
 		break;
-	case RO_SUBOBJ_TYPE_SR_DRAFT07:
 	case RO_SUBOBJ_TYPE_SR:
 		_format_pcep_object_ro_sr(ps, (struct pcep_ro_subobj_sr *)ro);
 		break;
