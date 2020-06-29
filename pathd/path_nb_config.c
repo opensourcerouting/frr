@@ -132,8 +132,9 @@ int pathd_te_segment_list_segment_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	segment = nb_running_unset_entry(args->dnode);
-	srte_segment_entry_del(segment);
 	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
+
+	srte_segment_entry_del(segment);
 
 	return NB_OK;
 }
