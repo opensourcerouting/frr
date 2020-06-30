@@ -87,6 +87,19 @@ struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 	return bnc;
 }
 
+bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc)
+{
+	struct bgp_nexthop_cache *bnc_tmp;
+
+	RB_FOREACH (bnc_tmp, bgp_nexthop_cache_head, bnc->tree) {
+		if (bnc_tmp == bnc)
+			continue;
+		if (prefix_cmp(&bnc->prefix, &bnc_tmp->prefix) == 0)
+			return true;
+	}
+	return false;
+}
+
 void bnc_free(struct bgp_nexthop_cache *bnc)
 {
 	bnc_nexthop_free(bnc);
