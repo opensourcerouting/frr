@@ -227,10 +227,13 @@ def cmp_json_output_exact(rname, command, reference):
     return cmp_json_output(rname, command, reference, True)
 
 def add_candidate_path(rname, endpoint, pref, name, segment_list='default'):
+    # We use some bandwidth and metrics options here to check
+    # if the daemon at least doesn't crash when setting them.
+    options = " metrics bound abc 16 te 123 bandwidth 1000"
     get_topogen().net[rname].cmd(''' \
         vtysh -c "conf t" \
               -c "sr-policy color 1 endpoint ''' + endpoint + '''" \
-              -c "candidate-path preference ''' + str(pref) + ''' name ''' + name + ''' explicit segment-list ''' + segment_list + '''"''')
+              -c "candidate-path preference ''' + str(pref) + ''' name ''' + name + ''' explicit segment-list ''' + segment_list + options + '''"''')
 
 def delete_candidate_path(rname, endpoint, pref):
     get_topogen().net[rname].cmd(''' \
