@@ -653,7 +653,7 @@ static int path_pcep_cli_peer_sr_draft07(struct vty *vty)
 	if (vty->node == PCC_PEER_NODE) {
 		/* TODO need to see if the pce is in use, and reset the
 		 * connection */
-		config_group = &current_pce_opts_g->pce_opts.config_opts;
+		config_group = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
 	} else if (vty->node == PCEP_CONFIG_GROUP_NODE) {
 		config_group = current_pcep_config_group_opts_g;
@@ -673,7 +673,7 @@ static int path_pcep_cli_peer_pce_initiated(struct vty *vty)
 	if (vty->node == PCC_PEER_NODE) {
 		/* TODO need to see if the pce is in use, and reset the
 		 * connection */
-		config_group = &current_pce_opts_g->pce_opts.config_opts;
+		config_group = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
 	} else if (vty->node == PCEP_CONFIG_GROUP_NODE) {
 		config_group = current_pcep_config_group_opts_g;
@@ -694,7 +694,7 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 	if (vty->node == PCC_PEER_NODE) {
 		/* TODO need to see if the pce is in use, and reset the
 		 * connection */
-		config_group = &current_pce_opts_g->pce_opts.config_opts;
+		config_group = &current_pce_opts_g->pce_config_group_opts;
 		current_pce_opts_g->merged = false;
 	} else if (vty->node == PCEP_CONFIG_GROUP_NODE) {
 		config_group = current_pcep_config_group_opts_g;
