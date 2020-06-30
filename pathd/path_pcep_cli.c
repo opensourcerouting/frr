@@ -39,7 +39,10 @@
 #include "pathd/path_pcep_controller.h"
 #include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_nb.h"
+
+#ifndef VTYSH_EXTRACT_PL
 #include "pathd/path_pcep_cli_clippy.c"
+#endif
 
 #define DEFAULT_PCC_MSD 4
 #define DEFAULT_SR_DRAFT07 false
