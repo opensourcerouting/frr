@@ -94,6 +94,7 @@ struct pcep_config_group_opts {
 	int max_dead_timer_seconds;
 	int pcep_request_time_seconds;
 	int state_timeout_inteval_seconds;
+	int delegation_timeout_seconds;
 };
 
 struct pce_opts {
