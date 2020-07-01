@@ -104,8 +104,10 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 		.free_func = (pceplib_free_func)qfree,
 		/* Timers infrastructure */
 		.external_infra_data = fpt,
-		.timer_create_func = pcep_lib_pceplib_timer_create_cb,
-		.timer_cancel_func = pcep_lib_pceplib_timer_cancel_cb,
+		/* For now only use PCEPlib timers, since FRR timer cancellation
+		   is blocking on a cond_var that never gets notified */
+		/*.timer_create_func = pcep_lib_pceplib_timer_create_cb,*/
+		/*.timer_cancel_func = pcep_lib_pceplib_timer_cancel_cb,*/
 		/* Timers infrastructure */
 		.socket_read_func = pcep_lib_pceplib_socket_read_cb,
 		.socket_write_func = pcep_lib_pceplib_socket_write_cb,
