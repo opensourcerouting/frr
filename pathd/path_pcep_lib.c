@@ -109,7 +109,8 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 		.external_infra_data = fpt,
 		/* For now only use PCEPlib timers, since FRR timer cancellation
 		 * is blocking on a cond_var that never gets notified
-	 * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
+		 * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
+		 */
 		/*.timer_create_func = pcep_lib_pceplib_timer_create_cb,*/
 		/*.timer_cancel_func = pcep_lib_pceplib_timer_cancel_cb,*/
 		/* Timers infrastructure */
@@ -202,7 +203,7 @@ void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread, int delay,
  * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 void pcep_lib_pceplib_timer_cancel_cb(void **thread)
 {
-	pcep_thread_cancel_pceplib_timer((struct thread **)thread);
+	pcep_thread_cancel_timer((struct thread **)thread);
 }
 */
 
@@ -230,7 +231,7 @@ int pcep_lib_pceplib_socket_write_cb(void *fpt, void **thread, int fd,
 				     void *payload)
 {
 	return pcep_thread_socket_write(fpt, thread, fd, payload,
-	        pcep_lib_socket_write_ready);
+					pcep_lib_socket_write_ready);
 }
 
 /* Callback passed to pceplib to read from a socket.
@@ -241,7 +242,7 @@ int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
 				    void *payload)
 {
 	return pcep_thread_socket_read(fpt, thread, fd, payload,
-	        pcep_lib_socket_read_ready);
+				       pcep_lib_socket_read_ready);
 }
 
 /* Callbacks called by path_pcep_controller when a socket is ready to read/write */
@@ -336,23 +337,33 @@ struct pcep_message *pcep_lib_format_report(struct path *path)
 	return pcep_msg_create_report(objs);
 }
 
-struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
-					     struct ipaddr *dst)
+static struct pcep_object_rp *create_rp(uint32_t reqid)
 {
-	assert(src->ipa_type == dst->ipa_type);
-
 	double_linked_list *rp_tlvs;
 	struct pcep_object_tlv_path_setup_type *setup_type_tlv;
 	struct pcep_object_rp *rp;
-	struct pcep_object_endpoints_ipv4 *endpoints_ipv4;
-	struct pcep_object_endpoints_ipv6 *endpoints_ipv6;
 
 	rp_tlvs = dll_initialize();
 	setup_type_tlv = pcep_tlv_create_path_setup_type(SR_TE_PST);
 	dll_append(rp_tlvs, setup_type_tlv);
 
 	rp = pcep_obj_create_rp(0, false, false, false, false, reqid, rp_tlvs);
+
+	return rp;
+}
+
+struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
+					     struct ipaddr *dst)
+{
+	assert(src->ipa_type == dst->ipa_type);
+
+	struct pcep_object_rp *rp;
+	struct pcep_object_endpoints_ipv4 *endpoints_ipv4;
+	struct pcep_object_endpoints_ipv6 *endpoints_ipv6;
+
+	rp = create_rp(reqid);
 	rp->header.flag_p = true;
+
 	if (IS_IPADDR_V6(src)) {
 		endpoints_ipv6 = pcep_obj_create_endpoint_ipv6(&src->ipaddr_v6,
 							       &dst->ipaddr_v6);
@@ -369,6 +380,22 @@ struct pcep_message *pcep_lib_format_request(uint32_t reqid, struct ipaddr *src,
 struct pcep_message *pcep_lib_format_error(int error_type, int error_value)
 {
 	return pcep_msg_create_error(error_type, error_value);
+}
+
+struct pcep_message *pcep_lib_format_request_cancelled(uint32_t reqid)
+{
+	struct pcep_object_notify *notify;
+	double_linked_list *objs;
+	struct pcep_object_rp *rp;
+
+	notify = pcep_obj_create_notify(
+		PCEP_NOTIFY_TYPE_PENDING_REQUEST_CANCELLED,
+		PCEP_NOTIFY_VALUE_PCC_CANCELLED_REQUEST);
+	objs = dll_initialize();
+	rp = create_rp(reqid);
+	dll_append(objs, rp);
+
+	return pcep_msg_create_notify(notify, objs);
 }
 
 struct path *pcep_lib_parse_path(struct pcep_message *msg)
@@ -860,23 +887,31 @@ struct path_hop *pcep_lib_parse_ero_sr(struct path_hop *next,
 				       struct pcep_ro_subobj_sr *sr)
 {
 	struct path_hop *hop = NULL;
+	union sid sid;
 
 	/* Only support IPv4 node with SID */
 	assert(!sr->flag_s);
 
+	if (sr->flag_m) {
+		sid.mpls = (struct sid_mpls){
+			.label = GET_SR_ERO_SID_LABEL(sr->sid),
+			.traffic_class = GET_SR_ERO_SID_TC(sr->sid),
+			.is_bottom = GET_SR_ERO_SID_S(sr->sid),
+			.ttl = GET_SR_ERO_SID_TTL(sr->sid)};
+	} else {
+		sid.value = sr->sid;
+	}
+
 	hop = pcep_new_hop();
-	*hop = (struct path_hop){
-		.next = next,
-		.is_loose = sr->ro_subobj.flag_subobj_loose_hop,
-		.has_sid = !sr->flag_s,
-		.is_mpls = sr->flag_m,
-		.has_attribs = sr->flag_c,
-		.sid = {.mpls = {.label = GET_SR_ERO_SID_LABEL(sr->sid),
-				 .traffic_class = GET_SR_ERO_SID_TC(sr->sid),
-				 .is_bottom = GET_SR_ERO_SID_S(sr->sid),
-				 .ttl = GET_SR_ERO_SID_TTL(sr->sid)}},
-		.has_nai = !sr->flag_f,
-		.nai = {.type = sr->nai_type}};
+	*hop = (struct path_hop){.next = next,
+				 .is_loose =
+					 sr->ro_subobj.flag_subobj_loose_hop,
+				 .has_sid = !sr->flag_s,
+				 .is_mpls = sr->flag_m,
+				 .has_attribs = sr->flag_c,
+				 .sid = sid,
+				 .has_nai = !sr->flag_f,
+				 .nai = {.type = sr->nai_type}};
 
 	if (!sr->flag_f) {
 		assert(sr->nai_list != NULL);

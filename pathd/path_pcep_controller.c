@@ -97,14 +97,15 @@ static int pcep_thread_send_report_callback(struct thread *t);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
-				 enum pcep_ctrl_timer_type type, uint32_t delay,
-				 void *payload, struct thread **thread);
-static int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state,
-					 int pcc_id,
-					 enum pcep_ctrl_timer_type type,
-					 uint32_t delay, void *payload,
-					 struct thread **thread,
-					 pcep_ctrl_thread_callback timer_cb);
+				 enum pcep_ctrl_timer_type timer_type,
+				 enum pcep_ctrl_timeout_type timeout_type,
+				 uint32_t delay, void *payload,
+				 struct thread **thread);
+static int schedule_thread_timer_with_cb(
+	struct ctrl_state *ctrl_state, int pcc_id,
+	enum pcep_ctrl_timer_type timer_type,
+	enum pcep_ctrl_timeout_type timeout_type, uint32_t delay, void *payload,
+	struct thread **thread, pcep_ctrl_thread_callback timer_cb);
 static int pcep_thread_timer_handler(struct thread *thread);
 
 /* Controller Thread Socket read/write Handler */
@@ -153,6 +154,8 @@ static void set_pcc_state(struct ctrl_state *ctrl_state,
 static void remove_pcc_state(struct ctrl_state *ctrl_state,
 			     struct pcc_state *pcc_state);
 static uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t attempt);
+static const char *timer_type_name(enum pcep_ctrl_timer_type type);
+static const char *timeout_type_name(enum pcep_ctrl_timeout_type type);
 
 
 /* ------------ API Functions Called from Main Thread ------------ */
@@ -307,34 +310,15 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 		     path);
 }
 
-void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
-				    int retry_count, struct thread **thread)
+void pcep_thread_cancel_timer(struct thread **thread)
 {
-	uint32_t delay = backoff_delay(MAX_RECONNECT_DELAY, 1, retry_count);
-	PCEP_DEBUG("Schedule reconnection in %us (retry %u)", delay,
-		   retry_count);
-	schedule_thread_timer(ctrl_state, pcc_id, TM_RECONNECT_PCC, delay, NULL,
-			      thread);
-}
-
-void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
-				    int delay, void *payload, struct thread **thread,
-				    pcep_ctrl_thread_callback timer_cb)
-{
-	PCEP_DEBUG("Schedule pceplib timer for %us", delay);
-	schedule_thread_timer_with_cb(ctrl_state, 0, TM_PCEPLIB_TIMER, delay,
-				      payload, thread, timer_cb);
-}
-
-void pcep_thread_cancel_pceplib_timer(struct thread **thread)
-{
-	PCEP_DEBUG("Cancel pceplib timer");
-
-	if (thread == NULL) {
+	if (thread == NULL || *thread == NULL) {
 		return;
 	}
 
 	struct pcep_ctrl_timer_data *data = THREAD_ARG(*thread);
+	PCEP_DEBUG("Timer %s / %s canceled", timer_type_name(data->timer_type),
+		   timeout_type_name(data->timeout_type));
 	if (data != NULL) {
 		XFREE(MTYPE_PCEP, data);
 	}
@@ -345,6 +329,41 @@ void pcep_thread_cancel_pceplib_timer(struct thread **thread)
 		thread_cancel_async((*thread)->master, thread, NULL);
 	}
 }
+
+void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
+				    int retry_count, struct thread **thread)
+{
+	uint32_t delay = backoff_delay(MAX_RECONNECT_DELAY, 1, retry_count);
+	PCEP_DEBUG("Schedule RECONNECT_PCC for %us (retry %u)", delay,
+		   retry_count);
+	schedule_thread_timer(ctrl_state, pcc_id, TM_RECONNECT_PCC,
+			      TO_UNDEFINED, delay, NULL, thread);
+}
+
+void pcep_thread_schedule_timeout(struct ctrl_state *ctrl_state, int pcc_id,
+				  enum pcep_ctrl_timeout_type timeout_type,
+				  uint32_t delay, void *param,
+				  struct thread **thread)
+{
+	assert(timeout_type > TO_UNDEFINED);
+	assert(timeout_type < TO_MAX);
+	PCEP_DEBUG("Schedule timeout %s for %us",
+		   timeout_type_name(timeout_type), delay);
+	schedule_thread_timer(ctrl_state, pcc_id, TM_TIMEOUT, timeout_type,
+			      delay, param, thread);
+}
+
+void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
+					int delay, void *payload,
+					struct thread **thread,
+					pcep_ctrl_thread_callback timer_cb)
+{
+	PCEP_DEBUG("Schedule PCEPLIB_TIMER for %us", delay);
+	schedule_thread_timer_with_cb(ctrl_state, 0, TM_PCEPLIB_TIMER,
+				      TO_UNDEFINED, delay, payload, thread,
+				      timer_cb);
+}
+
 
 /* ------------ Internal Functions Called From Controller Thread ------------ */
 
@@ -412,9 +431,11 @@ int pcep_thread_send_report_callback(struct thread *t)
 /* ------------ Controller Thread Timer Handler ------------ */
 
 int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
-			  enum pcep_ctrl_timer_type type, uint32_t delay,
-			  void *payload, struct thread **thread,
-			  pcep_ctrl_thread_callback timer_cb)
+				  enum pcep_ctrl_timer_type timer_type,
+				  enum pcep_ctrl_timeout_type timeout_type,
+				  uint32_t delay, void *payload,
+				  struct thread **thread,
+				  pcep_ctrl_thread_callback timer_cb)
 {
 	assert(thread != NULL);
 
@@ -422,7 +443,8 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 
 	data = XCALLOC(MTYPE_PCEP, sizeof(*data));
 	data->ctrl_state = ctrl_state;
-	data->type = type;
+	data->timer_type = timer_type;
+	data->timeout_type = timeout_type;
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
@@ -433,12 +455,13 @@ int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 }
 
 int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
-			  enum pcep_ctrl_timer_type type, uint32_t delay,
-			  void *payload, struct thread **thread)
+			  enum pcep_ctrl_timer_type timer_type,
+			  enum pcep_ctrl_timeout_type timeout_type,
+			  uint32_t delay, void *payload, struct thread **thread)
 {
-	return schedule_thread_timer_with_cb(ctrl_state, pcc_id, type, delay,
-					     payload, thread,
-					     pcep_thread_timer_handler);
+	return schedule_thread_timer_with_cb(ctrl_state, pcc_id, timer_type,
+					     timeout_type, delay, payload,
+					     thread, pcep_thread_timer_handler);
 }
 
 int pcep_thread_timer_handler(struct thread *thread)
@@ -448,22 +471,32 @@ int pcep_thread_timer_handler(struct thread *thread)
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
-	enum pcep_ctrl_timer_type type = data->type;
+	enum pcep_ctrl_timer_type timer_type = data->timer_type;
+	enum pcep_ctrl_timeout_type timeout_type = data->timeout_type;
 	int pcc_id = data->pcc_id;
+	void *param = data->payload;
 	XFREE(MTYPE_PCEP, data);
 
 	int ret = 0;
 	struct pcc_state *pcc_state = NULL;
 
-	switch (type) {
+	switch (timer_type) {
 	case TM_RECONNECT_PCC:
 		pcc_state = get_pcc_state(ctrl_state, pcc_id);
-		if (pcc_state)
-			pcep_pcc_reconnect(ctrl_state, pcc_state);
+		if (!pcc_state)
+			return ret;
+		pcep_pcc_reconnect(ctrl_state, pcc_state);
+		break;
+	case TM_TIMEOUT:
+		pcc_state = get_pcc_state(ctrl_state, pcc_id);
+		if (!pcc_state)
+			return ret;
+		pcep_pcc_timeout_handler(ctrl_state, pcc_state, timeout_type,
+					 param);
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
-			  "Unknown controller timer triggered: %u", type);
+			  "Unknown controller timer triggered: %u", timer_type);
 		break;
 	}
 
@@ -822,4 +855,32 @@ uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t retry_count)
 	uint64_t r = rand(), m = RAND_MAX;
 	uint32_t b = (a / 2) + (r * (a / 2)) / m;
 	return b;
+}
+
+const char *timer_type_name(enum pcep_ctrl_timer_type type)
+{
+	switch (type) {
+	case TM_UNDEFINED:
+		return "UNDEFINED";
+	case TM_RECONNECT_PCC:
+		return "RECONNECT_PCC";
+	case TM_PCEPLIB_TIMER:
+		return "PCEPLIB_TIMER";
+	case TM_TIMEOUT:
+		return "TIMEOUT";
+	default:
+		return "UNKNOWN";
+	}
+};
+
+const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
+{
+	switch (type) {
+	case TO_UNDEFINED:
+		return "UNDEFINED";
+	case TO_COMPUTATION_REQUEST:
+		return "COMPUTATION_REQUEST";
+	default:
+		return "UNKNOWN";
+	}
 }

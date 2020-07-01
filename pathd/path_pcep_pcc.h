@@ -55,6 +55,9 @@ struct req_map_data {
 
 struct req_entry {
 	RB_ENTRY(req_entry) entry;
+	struct thread *t_retry;
+	int retry_count;
+	bool was_sent;
 	struct path *path;
 };
 RB_HEAD(req_entry_head, req_entry);
@@ -105,6 +108,9 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 				  struct pcc_state *pcc_state,
 				  enum pcep_pathd_event_type type,
 				  struct path *path);
+void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
+			      struct pcc_state *pcc_state,
+			      enum pcep_ctrl_timer_type type, void *param);
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path);
 void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,

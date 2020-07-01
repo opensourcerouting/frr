@@ -52,6 +52,8 @@
  * address for an inet family different from the selected transport one*/
 #define OTHER_FAMILY_MAX_RETRIES 4
 #define MAX_ERROR_MSG_SIZE 256
+#define MAX_COMPREQ_TRIES 3
+
 
 /* PCEP Event Handler */
 static void handle_pcep_open(struct ctrl_state *ctrl_state,
@@ -85,8 +87,14 @@ static void send_pcep_error(struct pcc_state *pcc_state,
 			    enum pcep_error_type error_type,
 			    enum pcep_error_value error_value);
 static void send_report(struct pcc_state *pcc_state, struct path *path);
-static void send_comp_request(struct pcc_state *pcc_state,
+static void send_comp_request(struct ctrl_state *ctrl_state,
+			      struct pcc_state *pcc_state,
 			      struct req_entry *req);
+static void cancel_comp_requests(struct ctrl_state *ctrl_state,
+				 struct pcc_state *pcc_state);
+static void cancel_comp_request(struct ctrl_state *ctrl_state,
+				struct pcc_state *pcc_state,
+				struct req_entry *req);
 static void specialize_outgoing_path(struct pcc_state *pcc_state,
 				     struct path *path);
 static void specialize_incoming_path(struct pcc_state *pcc_state,
@@ -103,8 +111,9 @@ static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
 static void lookup_plspid(struct pcc_state *pcc_state, struct path *path);
 static void lookup_nbkey(struct pcc_state *pcc_state, struct path *path);
 static void free_req_entry(struct req_entry *req);
-static struct req_entry* push_req(struct pcc_state *pcc_state,
-				  struct path* path);
+static struct req_entry *push_new_req(struct pcc_state *pcc_state,
+				      struct path *path);
+static void repush_req(struct pcc_state *pcc_state, struct req_entry *req);
 static struct req_entry* pop_req(struct pcc_state *pcc_state, uint32_t reqid);
 
 /* Data Structure Callbacks */
@@ -375,6 +384,7 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	case PCEP_PCC_SYNCHRONIZING:
 	case PCEP_PCC_OPERATING:
 		PCEP_DEBUG("%s Disconnecting PCC...", pcc_state->tag);
+		cancel_comp_requests(ctrl_state, pcc_state);
 		pcep_lib_disconnect(pcc_state->sess);
 		pcc_state->sess = NULL;
 		pcc_state->status = PCEP_PCC_DISCONNECTED;
@@ -399,7 +409,7 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 	    && (path->first_hop == NULL)) {
 		PCEP_DEBUG("%s Scheduling computation request for path %s",
 			   pcc_state->tag, path->name);
-		push_req(pcc_state, path);
+		push_new_req(pcc_state, path);
 		return;
 	}
 
@@ -454,7 +464,7 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 
 	/* Start the computation request accumulated during synchronization */
 	RB_FOREACH (req, req_entry_head, &pcc_state->requests) {
-		send_comp_request(pcc_state, req);
+		send_comp_request(ctrl_state, pcc_state, req);
 	}
 }
 
@@ -471,6 +481,45 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 		send_report(pcc_state, path);
 	}
 }
+
+/* ------------ Timeout handler ------------ */
+
+void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
+			      struct pcc_state *pcc_state,
+			      enum pcep_ctrl_timer_type type, void *param)
+{
+	struct req_entry *req;
+
+	switch (type) {
+	case TO_COMPUTATION_REQUEST:
+		assert(param != NULL);
+		req = (struct req_entry *)param;
+		pop_req(pcc_state, req->path->req_id);
+		flog_warn(EC_PATH_PCEP_COMPUTATION_REQUEST_TIMEOUT,
+			  "Computation request %d timeout", req->path->req_id);
+		cancel_comp_request(ctrl_state, pcc_state, req);
+		if (req->retry_count++ < MAX_COMPREQ_TRIES) {
+			repush_req(pcc_state, req);
+			send_comp_request(ctrl_state, pcc_state, req);
+			return;
+		}
+		if (pcc_state->caps.is_stateful) {
+			struct path *path;
+			PCEP_DEBUG(
+				"%s Delegating undefined dynamic path %s to PCE %s",
+				pcc_state->tag, req->path->name,
+				pcc_state->originator);
+			path = pcep_copy_path(req->path);
+			path->is_delegated = true;
+			send_report(pcc_state, path);
+			free_req_entry(req);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 
 /* ------------ Pathd event handler ------------ */
 
@@ -499,8 +548,8 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 			   path->name);
 		if ((path->first_hop == NULL)
 		    && (path->type == SRTE_CANDIDATE_TYPE_DYNAMIC)) {
-			req = push_req(pcc_state, path);
-			send_comp_request(pcc_state, req);
+			req = push_new_req(pcc_state, path);
+			send_comp_request(ctrl_state, pcc_state, req);
 		} else if (pcc_state->caps.is_stateful)
 			send_report(pcc_state, path);
 		return;
@@ -668,6 +717,9 @@ void handle_pcep_comp_reply(struct ctrl_state *ctrl_state,
 		return;
 	}
 
+	/* Cancel the computation request timeout */
+	pcep_thread_cancel_timer(&req->t_retry);
+
 	/* Transfer relevent metadata from the request to the response */
 	path->nbkey = req->path->nbkey;
 	path->plsp_id = req->path->plsp_id;
@@ -822,9 +874,11 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
 {
-	PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
-			format_pcep_message(msg));
-	send_message(pcc_state->sess, msg, true);
+	if (pcc_state->sess != NULL) {
+		PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
+				format_pcep_message(msg));
+		send_message(pcc_state->sess, msg, true);
+	}
 }
 
 void send_pcep_error(struct pcc_state *pcc_state,
@@ -843,6 +897,7 @@ void send_report(struct pcc_state *pcc_state, struct path *path)
 {
 	struct pcep_message *report;
 
+	path->req_id = 0;
 	specialize_outgoing_path(pcc_state, path);
 	PCEP_DEBUG_PATH("%s Sending path %s: %s", pcc_state->tag, path->name,
 			format_path(path));
@@ -925,28 +980,77 @@ bool validate_incoming_path(struct pcc_state *pcc_state, struct path *path,
 	return true;
 }
 
-void send_comp_request(struct pcc_state *pcc_state, struct req_entry *req)
+void send_comp_request(struct ctrl_state *ctrl_state,
+		       struct pcc_state *pcc_state, struct req_entry *req)
 {
 	assert(req != NULL);
+	assert(req->t_retry == NULL);
 	assert(req->path != NULL);
 	assert(req->path->req_id > 0);
 	assert(RB_FIND(req_entry_head, &pcc_state->requests, req) == req);
 
+	int timeout;
 	char buff[40];
 	struct pcep_message *msg;
 
-	/* TODO: Add a timer to retry the computation request ? */
-
 	specialize_outgoing_path(pcc_state, req->path);
 
-	PCEP_DEBUG("%s Sending computation request %d for path %s to %s",
-		   pcc_state->tag, req->path->req_id, req->path->name,
-		   ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)));
+	PCEP_DEBUG(
+		"%s Sending computation request %d for path %s to %s (retry %d)",
+		pcc_state->tag, req->path->req_id, req->path->name,
+		ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)),
+		req->retry_count);
 	PCEP_DEBUG_PATH("%s Computation request path %s: %s", pcc_state->tag,
 			req->path->name, format_path(req->path));
 
 	msg = pcep_lib_format_request(req->path->req_id, &req->path->pcc_addr,
 				      &req->path->nbkey.endpoint);
+	send_pcep_message(pcc_state, msg);
+	req->was_sent = true;
+
+	/* TODO: Enable this back when the pcep config changes are merged back
+	 */
+	// timeout = pcc_state->pce_opts->config_opts.pcep_request_time_seconds;
+	timeout = 30;
+	pcep_thread_schedule_timeout(ctrl_state, pcc_state->id,
+				     TO_COMPUTATION_REQUEST, timeout,
+				     (void *)req, &req->t_retry);
+}
+
+void cancel_comp_requests(struct ctrl_state *ctrl_state,
+			  struct pcc_state *pcc_state)
+{
+	struct req_entry *req, *safe_req;
+
+	RB_FOREACH_SAFE (req, req_entry_head, &pcc_state->requests, safe_req) {
+		cancel_comp_request(ctrl_state, pcc_state, req);
+		RB_REMOVE(req_entry_head, &pcc_state->requests, req);
+		free_req_entry(req);
+	}
+}
+
+void cancel_comp_request(struct ctrl_state *ctrl_state,
+			 struct pcc_state *pcc_state, struct req_entry *req)
+{
+	char buff[40];
+	struct pcep_message *msg;
+
+	if (req->was_sent) {
+		/* TODO: Send a computation request cancelation
+		 * notification to the PCE */
+		pcep_thread_cancel_timer(&req->t_retry);
+	}
+
+	PCEP_DEBUG(
+		"%s Canceling computation request %d for path %s to %s (retry %d)",
+		pcc_state->tag, req->path->req_id, req->path->name,
+		ipaddr2str(&req->path->nbkey.endpoint, buff, sizeof(buff)),
+		req->retry_count);
+	PCEP_DEBUG_PATH("%s Canceled computation request path %s: %s",
+			pcc_state->tag, req->path->name,
+			format_path(req->path));
+
+	msg = pcep_lib_format_request_cancelled(req->path->req_id);
 	send_pcep_message(pcc_state, msg);
 }
 
@@ -1014,16 +1118,24 @@ void free_req_entry(struct req_entry *req)
 	XFREE(MTYPE_PCEP, req);
 }
 
-struct req_entry* push_req(struct pcc_state *pcc_state, struct path* path)
+struct req_entry *push_new_req(struct pcc_state *pcc_state, struct path *path)
 {
-	assert(path->req_id == 0);
-
-	uint32_t reqid = pcc_state->next_reqid;
 	struct req_entry *req;
-	void* res;
 
 	req = XCALLOC(MTYPE_PCEP, sizeof(*req));
+	req->retry_count = 0;
 	req->path = pcep_copy_path(path);
+	repush_req(pcc_state, req);
+
+	return req;
+}
+
+void repush_req(struct pcc_state *pcc_state, struct req_entry *req)
+{
+	uint32_t reqid = pcc_state->next_reqid;
+	void *res;
+
+	req->was_sent = false;
 	req->path->req_id = reqid;
 	res = RB_INSERT(req_entry_head, &pcc_state->requests, req);
 	assert(res == NULL);
@@ -1032,8 +1144,6 @@ struct req_entry* push_req(struct pcc_state *pcc_state, struct path* path)
 	/* Wrapping is allowed, but 0 is not a valid id */
 	if (pcc_state->next_reqid == 0)
 		pcc_state->next_reqid = 1;
-
-	return req;
 }
 
 struct req_entry* pop_req(struct pcc_state *pcc_state, uint32_t reqid)

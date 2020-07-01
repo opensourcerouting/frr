@@ -50,11 +50,20 @@ struct ctrl_state {
 
 /* Timer handling data structures */
 
-enum pcep_ctrl_timer_type { TM_RECONNECT_PCC, TM_PCEPLIB_TIMER };
+enum pcep_ctrl_timeout_type { TO_UNDEFINED, TO_COMPUTATION_REQUEST, TO_MAX };
+
+enum pcep_ctrl_timer_type {
+	TM_UNDEFINED,
+	TM_RECONNECT_PCC,
+	TM_PCEPLIB_TIMER,
+	TM_TIMEOUT,
+	TM_MAX
+};
 
 struct pcep_ctrl_timer_data {
     struct ctrl_state *ctrl_state;
-    enum pcep_ctrl_timer_type type;
+    enum pcep_ctrl_timer_type timer_type;
+    enum pcep_ctrl_timeout_type timeout_type;
     int pcc_id;
     void *payload;
 };
@@ -93,23 +102,28 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 /* Synchronously send a report, the caller is responsible to free the path,
  * If `pcc_id` is `0` the report is sent by all PCCs */
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
-                           struct path *path);
+			   struct path *path);
 
 /* Functions called from the controller thread */
 void pcep_thread_start_sync(struct ctrl_state *ctrl_state, int pcc_id);
 void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 			     struct path *path);
+void pcep_thread_cancel_timer(struct thread **thread);
 void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 				    int retry_count, struct thread **thread);
+void pcep_thread_schedule_timeout(struct ctrl_state *ctrl_state, int pcc_id,
+				  enum pcep_ctrl_timeout_type type,
+				  uint32_t delay, void *param,
+				  struct thread **thread);
 
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
-        int delay, void *payload, struct thread **thread,
-        pcep_ctrl_thread_callback cb);
-void pcep_thread_cancel_pceplib_timer(struct thread **thread);
-int pcep_thread_socket_read(void *fpt, void **thread, int fd,
-        void *payload, pcep_ctrl_thread_callback cb);
-int pcep_thread_socket_write(void *fpt, void **thread, int fd,
-        void *payload, pcep_ctrl_thread_callback cb);
+					int delay, void *payload,
+					struct thread **thread,
+					pcep_ctrl_thread_callback cb);
+int pcep_thread_socket_read(void *fpt, void **thread, int fd, void *payload,
+			    pcep_ctrl_thread_callback cb);
+int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
+			     pcep_ctrl_thread_callback cb);
 
 int pcep_thread_send_ctrl_event(void *fpt, void *payload,
 				pcep_ctrl_thread_callback cb);
