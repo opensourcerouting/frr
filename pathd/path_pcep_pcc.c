@@ -321,11 +321,10 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state, struct path *path)
 {
-	if (pcc_state->status == PCEP_PCC_DISCONNECTED)
+	if (pcc_state->status != PCEP_PCC_SYNCHRONIZING)
 		return;
 
-	assert(pcc_state->status == PCEP_PCC_SYNCHRONIZING);
-	assert(path->is_synching);
+	path->is_synching = true;
 
 	if (pcc_state->caps.is_stateful) {
 		/* PCE supports LSP updates, just sync all the path with
@@ -353,7 +352,7 @@ void pcep_pcc_sync_path(struct ctrl_state *ctrl_state,
 void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 			struct pcc_state *pcc_state)
 {
-	if (pcc_state->status == PCEP_PCC_DISCONNECTED)
+	if (pcc_state->status != PCEP_PCC_SYNCHRONIZING)
 		return;
 
 	if (pcc_state->caps.is_stateful) {
@@ -384,6 +383,9 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state,
 			  struct path *path)
 {
+	if (pcc_state->status != PCEP_PCC_OPERATING)
+		return;
+
 	if (pcc_state->caps.is_stateful) {
 		PCEP_DEBUG("%s Send report for candidate path %s",
 			   pcc_state->tag, path->name);
@@ -398,7 +400,7 @@ void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
 				  enum pcep_pathd_event_type type,
 				  struct path *path)
 {
-	if (!pcc_state->synchronized)
+	if (pcc_state->status != PCEP_PCC_OPERATING)
 		return;
 
 	/* Skipping candidate path with endpoint that do not match the
@@ -501,6 +503,9 @@ void handle_pcep_open(struct ctrl_state *ctrl_state,
 void handle_pcep_message(struct ctrl_state *ctrl_state,
 			 struct pcc_state *pcc_state, struct pcep_message *msg)
 {
+	if (pcc_state->status != PCEP_PCC_OPERATING)
+		return;
+
 	switch (msg->msg_header->type) {
 	case PCEP_TYPE_INITIATE:
 		handle_pcep_lsp_initiate(ctrl_state, pcc_state, msg);

@@ -159,7 +159,9 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 			 * will be comunicated through hook calls.
 			 */
 			enum pcep_lsp_operational_status real_status;
-			if(resp = path_nb_get_path(&path->nbkey)){
+			resp = path_nb_get_path(&path->nbkey);
+			if (!resp)
+				return ret;
 			resp->srp_id = path->srp_id;
 			real_status = resp->status;
 			resp->status = PCEP_LSP_OPERATIONAL_DOWN;
@@ -176,7 +178,6 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 				pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp);
 			}
 			pcep_free_path(resp);
-      }
 		}
 		break;
 	default:
