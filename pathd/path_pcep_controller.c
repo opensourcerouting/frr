@@ -287,11 +287,28 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 	return args.counters;
 }
 
+struct pcc_state *pcep_ctrl_get_pcc_state(struct frr_pthread *fpt,
+					  const char *pce_name)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	for (int i = 0; i < MAX_PCE; i++) {
+		if (ctrl_state->pcc[i] == NULL) {
+			continue;
+		}
+
+		if (strcmp(ctrl_state->pcc[i]->pce_opts->pce_name, pce_name)
+		    == 0) {
+			return ctrl_state->pcc[i];
+		}
+	}
+
+	return NULL;
+}
+
 bool pcep_ctrl_pcc_has_pce(struct frr_pthread *fpt, const char *pce_name)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	int i = 0;
-	for (; i < MAX_PCC; i++) {
+	for (int i = 0; i < MAX_PCC; i++) {
 		if (ctrl_state->pcc[i] == NULL) {
 			continue;
 		}
