@@ -33,10 +33,13 @@
 static int pceplib_logging_cb(int level, const char *fmt, va_list args);
 
 /* Timer callbacks */
+/* Commenting out until issue with FRR timer cancellation resolved:
+ * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 static void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread,
 					     int delay, void *payload);
 static void pcep_lib_pceplib_timer_cancel_cb(void **thread);
 static int pcep_lib_timer_expire(struct thread *thread);
+*/
 
 /* Socket callbacks */
 static int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
@@ -105,7 +108,8 @@ int pcep_lib_initialize(struct frr_pthread *fpt)
 		/* Timers infrastructure */
 		.external_infra_data = fpt,
 		/* For now only use PCEPlib timers, since FRR timer cancellation
-		   is blocking on a cond_var that never gets notified */
+		 * is blocking on a cond_var that never gets notified
+	 * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 		/*.timer_create_func = pcep_lib_pceplib_timer_create_cb,*/
 		/*.timer_cancel_func = pcep_lib_pceplib_timer_cancel_cb,*/
 		/* Timers infrastructure */
@@ -180,26 +184,31 @@ void pcep_lib_disconnect(pcep_session *sess)
 
 /* Callback passed to pceplib to create a timer.
  * When the timer expires, pcep_lib_timer_expire() will be called */
-
+/* Commenting out until issue with FRR timer cancellation resolved:
+ * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread, int delay,
 				      void *payload)
 {
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *) fpt)->data;
 
 	pcep_thread_schedule_pceplib_timer(
-	        ctrl_state, delay, payload, (struct thread **) thread,
-	        pcep_lib_timer_expire);
+		ctrl_state, delay, payload, (struct thread **) thread,
+		pcep_lib_timer_expire);
 }
+*/
 
 /* Callback passed to pceplib to cancel a timer */
-
+/* Commenting out until issue with FRR timer cancellation resolved:
+ * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 void pcep_lib_pceplib_timer_cancel_cb(void **thread)
 {
 	pcep_thread_cancel_pceplib_timer((struct thread **)thread);
 }
+*/
 
 /* Callback called by path_pcep_controller when a timer expires */
-
+/* Commenting out until issue with FRR timer cancellation resolved:
+ * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 int pcep_lib_timer_expire(struct thread *thread)
 {
     struct pcep_ctrl_timer_data *data = THREAD_ARG(thread);
@@ -211,6 +220,7 @@ int pcep_lib_timer_expire(struct thread *thread)
 
     return 0;
 }
+*/
 
 /* Callback passed to pceplib to write to a socket.
  * When the socket is ready to be written to,
