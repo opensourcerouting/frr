@@ -161,16 +161,13 @@ static void remove_pcc_state(struct ctrl_state *ctrl_state,
 static uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t attempt);
 static int calculate_best_pce(struct ctrl_state *ctrl_state);
 static int get_next_id(struct ctrl_state *ctrl_state);
-static bool is_best_pce(struct ctrl_state *ctrl_state, int pce);
 static int get_previous_best_pce(struct ctrl_state *ctrl_state);
 static int get_pcc_id_by_ip_port(struct ctrl_state *ctrl_state,
 			  struct pce_opts *pce_opts);
 static int get_pcc_idx_by_id(struct ctrl_state *ctrl_state, int id);
-static int get_pcc_idx_by_ip_port(struct pce_opts **array_pce_opts,
-			   struct pce_opts *pce_opts);
 static int get_pcc_id_by_idx(struct ctrl_state *ctrl_state, int idx);
 static struct pcc_state *get_pcc_by_id(struct ctrl_state *ctrl_state, int id);
-static int pcep_ctrl_get_free_pcc_idx(struct ctrl_state *ctrl_state);
+static int get_free_pcc_idx(struct ctrl_state *ctrl_state);
 
 
 /* ------------ API Functions Called from Main Thread ------------ */
@@ -935,15 +932,6 @@ int get_next_id(struct ctrl_state *ctrl_state)
 	return ++ctrl_state->pcc_last_id;
 }
 
-bool is_best_pce(struct ctrl_state *ctrl_state, int pce)
-{
-	if (ctrl_state && ctrl_state->pcc[pce]) {
-		return ctrl_state->pcc[pce]->is_best;
-	} else {
-		return false;
-	}
-}
-
 int get_previous_best_pce(struct ctrl_state *ctrl_state)
 {
 	if (!ctrl_state || !ctrl_state->pcc_count)
@@ -1104,31 +1092,6 @@ struct ctrl_state *get_ctrl_state(struct frr_pthread *fpt)
 	ctrl_state = (struct ctrl_state *)fpt->data;
 	assert(ctrl_state != NULL);
 	return ctrl_state;
-}
-
-int get_pcc_idx_by_ip_port(struct pce_opts **array_pce_opts,
-			   struct pce_opts *pce_opts)
-{
-	if (!array_pce_opts || !pce_opts) {
-		return -1;
-	}
-	for (int idx = 0; idx < MAX_PCC; idx++) {
-		if (array_pce_opts[idx]) {
-			if ((ipaddr_cmp(
-				     (const struct ipaddr *)&array_pce_opts[idx]
-					     ->addr,
-				     (const struct ipaddr *)&pce_opts->addr)
-			     == 0)
-			    && array_pce_opts[idx]->port == pce_opts->port) {
-				char buf[50];
-				zlog_debug("found pcc_idx (%d) (%s):(%i)", idx,
-					   ipaddr2str(&pce_opts->addr, buf, 50),
-					   pce_opts->port);
-				return idx;
-			}
-		}
-	}
-	return -1;
 }
 
 int get_pcc_id_by_ip_port(struct ctrl_state *ctrl_state,
