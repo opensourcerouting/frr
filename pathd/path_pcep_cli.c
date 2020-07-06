@@ -85,8 +85,9 @@ static bool pcep_cli_is_pcep_config_group_used(const char *group_name);
 static void pcep_cli_delete_pcep_config_group(const char *group_name);
 static int
 pcep_cli_print_config_group(struct pcep_config_group_opts *group_opts,
-			    char *buf);
-static void print_pcep_capabilities(char *buf, pcep_configuration *config);
+			    char *buf, size_t buf_len);
+static void print_pcep_capabilities(char *buf, size_t buf_len,
+				    pcep_configuration *config);
 static void print_pcep_session(struct vty *vty, struct pcc_state *pcc_state);
 
 /*
@@ -549,7 +550,7 @@ static int path_pcep_cli_show_pcep_config_group(struct vty *vty,
 		}
 
 		vty_out(vty, "peer-config-group: %s\n", group_opts->name);
-		pcep_cli_print_config_group(group_opts, buf);
+		pcep_cli_print_config_group(group_opts, buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
 		return CMD_SUCCESS;
 	}
@@ -562,7 +563,7 @@ static int path_pcep_cli_show_pcep_config_group(struct vty *vty,
 		}
 
 		vty_out(vty, "peer-config-group: %s\n", group_opts->name);
-		pcep_cli_print_config_group(group_opts, buf);
+		pcep_cli_print_config_group(group_opts, buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
 		buf[0] = 0;
 	}
@@ -633,7 +634,7 @@ static void show_pcc_peer(struct vty *vty, struct pce_opts_cli *pce_opts_cli)
 	}
 
 	char buf[1024] = "";
-	pcep_cli_print_config_group(&pce_opts->config_opts, buf);
+	pcep_cli_print_config_group(&pce_opts->config_opts, buf, sizeof(buf));
 	vty_out(vty, "%s", buf);
 }
 
@@ -965,39 +966,29 @@ static int path_pcep_cli_pcc_pcc_peer_delete(struct vty *vty,
 }
 
 /* Internal util function to print pcep capabilities to a buffer */
-static void print_pcep_capabilities(char *buf, pcep_configuration *config)
+static void print_pcep_capabilities(char *buf, size_t buf_len,
+				    pcep_configuration *config)
 {
-	int index = 0;
 	if (config->support_stateful_pce_lsp_update) {
-		index += snprintf(buf + index, strlen(PCEP_CLI_CAP_STATEFUL),
-				  PCEP_CLI_CAP_STATEFUL);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_STATEFUL);
 	}
 	if (config->support_include_db_version) {
-		index += snprintf(buf + index, strlen(PCEP_CLI_CAP_INCL_DB_VER),
-				  PCEP_CLI_CAP_INCL_DB_VER);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_INCL_DB_VER);
 	}
 	if (config->support_lsp_triggered_resync) {
-		index += snprintf(buf + index,
-				  strlen(PCEP_CLI_CAP_LSP_TRIGGERED),
-				  PCEP_CLI_CAP_LSP_TRIGGERED);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_LSP_TRIGGERED);
 	}
 	if (config->support_lsp_delta_sync) {
-		index += snprintf(buf + index, strlen(PCEP_CLI_CAP_LSP_DELTA),
-				  PCEP_CLI_CAP_LSP_DELTA);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_LSP_DELTA);
 	}
 	if (config->support_pce_triggered_initial_sync) {
-		index += snprintf(buf + index,
-				  strlen(PCEP_CLI_CAP_PCE_TRIGGERED),
-				  PCEP_CLI_CAP_PCE_TRIGGERED);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_PCE_TRIGGERED);
 	}
 	if (config->support_sr_te_pst) {
-		index += snprintf(buf + index, strlen(PCEP_CLI_CAP_SR_TE_PST),
-				  PCEP_CLI_CAP_SR_TE_PST);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_SR_TE_PST);
 	}
 	if (config->pcc_can_resolve_nai_to_sid) {
-		index += snprintf(buf + index,
-				  strlen(PCEP_CLI_CAP_PCC_RESOLVE_NAI),
-				  PCEP_CLI_CAP_PCC_RESOLVE_NAI);
+		csnprintfrr(buf, buf_len, "%s", PCEP_CLI_CAP_PCC_RESOLVE_NAI);
 	}
 }
 
@@ -1080,18 +1071,19 @@ static void print_pcep_session(struct vty *vty, struct pcc_state *pcc_state)
 	buf[0] = '\0';
 	int index = 0;
 	if (config_opts->pce_initiated) {
-		index += snprintf(buf, strlen(PCEP_CLI_CAP_PCC_PCE_INITIATED),
-				  PCEP_CLI_CAP_PCC_PCE_INITIATED);
+		index += csnprintfrr(buf, sizeof(buf), "%s",
+				     PCEP_CLI_CAP_PCC_PCE_INITIATED);
 	} else {
-		index += snprintf(buf, strlen(PCEP_CLI_CAP_PCC_INITIATED),
-				  PCEP_CLI_CAP_PCC_INITIATED);
+		index += csnprintfrr(buf, sizeof(buf), "%s",
+				     PCEP_CLI_CAP_PCC_INITIATED);
 	}
-	print_pcep_capabilities(buf + index, &pcep_session->pcc_config);
+	print_pcep_capabilities(buf, sizeof(buf) - index,
+				&pcep_session->pcc_config);
 	vty_out(vty, " PCC Capabilities:%s\n", buf);
 
 	/* PCE capabilities */
 	buf[0] = '\0';
-	print_pcep_capabilities(buf, &pcep_session->pce_config);
+	print_pcep_capabilities(buf, sizeof(buf), &pcep_session->pce_config);
 	if (buf[0] != '\0') {
 		vty_out(vty, " PCE Capabilities:%s\n", buf);
 	}
@@ -1221,7 +1213,6 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	struct pce_opts_cli *pce_opts_cli;
 	char buf[128] = "";
 	int lines = 0;
-	int index = 0;
 
 	/* There is nothing configured for the PCC */
 	if (pcep_g->pcc_opts == NULL) {
@@ -1232,13 +1223,15 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 		return lines;
 	}
 
+	/* Prepare the port and MSD, if present,
+	 * to be printed with the address */
 	if (pcc_opts->port != PCEP_DEFAULT_PORT) {
-		index += snprintf(buf + index, 16, " %s %d",
-				  PCEP_VTYSH_ARG_PORT, pcc_opts->port);
+		csnprintfrr(buf, sizeof(buf), " %s %d", PCEP_VTYSH_ARG_PORT,
+			    pcc_opts->port);
 	}
 	if (pcc_opts->msd != DEFAULT_PCC_MSD) {
-		index += snprintf(buf + index, 16, " %s %d", PCEP_VTYSH_ARG_MSD,
-				  pcc_opts->msd);
+		csnprintfrr(buf, sizeof(buf), " %s %d", PCEP_VTYSH_ARG_MSD,
+			    pcc_opts->msd);
 	}
 
 	if (IS_IPADDR_V4(&pcc_opts->addr)) {
@@ -1265,12 +1258,12 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 			continue;
 		}
 
-		index = snprintf(buf, 32, "  peer %s",
-				 pce_opts_cli->pce_opts.pce_name);
+		csnprintfrr(buf, sizeof(buf), "  peer %s",
+			    pce_opts_cli->pce_opts.pce_name);
 		if (pce_opts_cli->pce_opts.precedence > 0) {
-			snprintf(buf + index, 32, " %s %d",
-				 PCEP_VTYSH_ARG_PRECEDENCE,
-				 pce_opts_cli->pce_opts.precedence);
+			csnprintfrr(buf, sizeof(buf), " %s %d",
+				    PCEP_VTYSH_ARG_PRECEDENCE,
+				    pce_opts_cli->pce_opts.precedence);
 		}
 		vty_out(vty, "%s\n", buf);
 		lines++;
@@ -1283,79 +1276,75 @@ int pcep_cli_pcc_config_write(struct vty *vty)
  * and pcep_cli_pcep_config_group_write() */
 static int
 pcep_cli_print_config_group(struct pcep_config_group_opts *group_opts,
-			    char *buf)
+			    char *buf, size_t buf_len)
 {
 	int lines = 0;
-	int index = 0;
 
 	if (group_opts->keep_alive_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_KEEP_ALIVE,
-				  group_opts->keep_alive_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_KEEP_ALIVE,
+			    group_opts->keep_alive_seconds);
 		lines++;
 	}
 	if (group_opts->min_keep_alive_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_KEEP_ALIVE_MIN,
-				  group_opts->min_keep_alive_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_KEEP_ALIVE_MIN,
+			    group_opts->min_keep_alive_seconds);
 		lines++;
 	}
 	if (group_opts->max_keep_alive_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_KEEP_ALIVE_MAX,
-				  group_opts->max_keep_alive_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_KEEP_ALIVE_MAX,
+			    group_opts->max_keep_alive_seconds);
 		lines++;
 	}
 	if (group_opts->dead_timer_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_DEAD_TIMER,
-				  group_opts->dead_timer_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_DEAD_TIMER,
+			    group_opts->dead_timer_seconds);
 		lines++;
 	}
 	if (group_opts->min_dead_timer_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_DEAD_TIMER_MIN,
-				  group_opts->min_dead_timer_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_DEAD_TIMER_MIN,
+			    group_opts->min_dead_timer_seconds);
 		lines++;
 	}
 	if (group_opts->max_dead_timer_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_DEAD_TIMER_MAX,
-				  group_opts->max_dead_timer_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_DEAD_TIMER_MAX,
+			    group_opts->max_dead_timer_seconds);
 		lines++;
 	}
 	if (group_opts->pcep_request_time_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_PCEP_REQUEST,
-				  group_opts->pcep_request_time_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_PCEP_REQUEST,
+			    group_opts->pcep_request_time_seconds);
 		lines++;
 	}
 	if (group_opts->state_timeout_inteval_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_STATE_TIMEOUT,
-				  group_opts->state_timeout_inteval_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_STATE_TIMEOUT,
+			    group_opts->state_timeout_inteval_seconds);
 		lines++;
 	}
 	if (group_opts->delegation_timeout_seconds > 0) {
-		index += snprintf(buf + index, 32, "  %s %d\n",
-				  PCEP_VTYSH_ARG_DELEGATION_TIMEOUT,
-				  group_opts->delegation_timeout_seconds);
+		csnprintfrr(buf, buf_len, "  %s %d\n",
+			    PCEP_VTYSH_ARG_DELEGATION_TIMEOUT,
+			    group_opts->delegation_timeout_seconds);
 		lines++;
 	}
 	if (group_opts->tcp_md5_auth[0] != '\0') {
-		index += snprintf(buf + index, 32, "  %s %s\n",
-				  PCEP_VTYSH_ARG_TCP_MD5,
-				  group_opts->tcp_md5_auth);
+		csnprintfrr(buf, buf_len, "  %s %s\n", PCEP_VTYSH_ARG_TCP_MD5,
+			    group_opts->tcp_md5_auth);
 		lines++;
 	}
 	if (group_opts->draft07) {
-		index += snprintf(buf + index, 32, "  %s\n",
-				  PCEP_VTYSH_ARG_SR_DRAFT07);
+		csnprintfrr(buf, buf_len, "  %s\n", PCEP_VTYSH_ARG_SR_DRAFT07);
 		lines++;
 	}
 	if (group_opts->pce_initiated) {
-		index += snprintf(buf + index, 32, "  %s\n",
-				  PCEP_VTYSH_ARG_PCE_INIT);
+		csnprintfrr(buf, buf_len, "  %s\n", PCEP_VTYSH_ARG_PCE_INIT);
 		lines++;
 	}
 
@@ -1398,7 +1387,7 @@ int pcep_cli_pcc_peer_config_write(struct vty *vty)
 		/* Only display the values configured on the PCE, not the values
 		 * from its optional pce-config-group, nor the default values */
 		lines += pcep_cli_print_config_group(
-			&pce_opts_cli->pce_config_group_opts, buf);
+			&pce_opts_cli->pce_config_group_opts, buf, sizeof(buf));
 
 		vty_out(vty, "%s", buf);
 		buf[0] = '\0';
@@ -1422,7 +1411,8 @@ int pcep_cli_pcep_config_group_write(struct vty *vty)
 		vty_out(vty, "pce-config-group %s\n", group_opts->name);
 		lines += 1;
 
-		lines += pcep_cli_print_config_group(group_opts, buf);
+		lines += pcep_cli_print_config_group(group_opts, buf,
+						     sizeof(buf));
 		vty_out(vty, "%s", buf);
 		buf[0] = 0;
 	}
