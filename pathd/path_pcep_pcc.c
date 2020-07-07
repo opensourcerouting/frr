@@ -98,6 +98,8 @@ static void set_pcc_address(struct pcc_state *pcc_state,
 			    struct lsp_nb_key *nbkey, struct ipaddr *addr);
 static int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs);
 static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
+static int get_previous_best_pce(struct pcc_state **pcc);
+static bool update_best_pce(struct pcc_state **pcc, int best);
 
 /* Data Structure Helper Functions */
 static void lookup_plspid(struct pcc_state *pcc_state, struct path *path);
@@ -481,10 +483,6 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	}
 }
 
-void pcep_pcc_start_sync(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
-{
-			pcep_thread_start_sync(ctrl_state, pcc_state->id);
-}
 /* ------------ Pathd event handler ------------ */
 
 void pcep_pcc_pathd_event_handler(struct ctrl_state *ctrl_state,
@@ -589,6 +587,330 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		break;
 	}
 }
+
+
+/*------------------ Multi-PCE --------------------- */
+
+/* Internal util function, returns true if sync is necessary, false otherwise */
+bool update_best_pce(struct pcc_state **pcc, int best)
+{
+	PCEP_DEBUG(" recalculating pce precedence ");
+	if (best) {
+		struct pcc_state *best_pcc_state =
+			pcep_pcc_get_pcc_by_id(pcc, best);
+		if (best_pcc_state->previous_best != best_pcc_state->is_best) {
+			PCEP_DEBUG(" %s Resynch best (%i) previous best (%i)",
+				   best_pcc_state->tag, best_pcc_state->id,
+				   best_pcc_state->previous_best);
+			return true;
+		} else {
+			PCEP_DEBUG(
+				" %s No Resynch best (%i) previous best (%i)",
+				best_pcc_state->tag, best_pcc_state->id,
+				best_pcc_state->previous_best);
+		}
+	} else {
+		PCEP_DEBUG(" No best pce available, all pce seem disconnected");
+	}
+
+	return false;
+}
+
+int get_previous_best_pce(struct pcc_state **pcc)
+{
+	int previous_best_pce = -1;
+
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts && pcc[i]->previous_best == true
+		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
+			previous_best_pce = i;
+			break;
+		}
+	}
+	return previous_best_pce != -1 ? pcc[previous_best_pce]->id : 0;
+}
+
+/* Called by path_pcep_controller EV_REMOVE_PCC
+ * Event handler when a PCC is removed. */
+int pcep_pcc_multi_pce_remove_pcc(struct ctrl_state *ctrl_state,
+				  struct pcc_state **pcc)
+{
+	int new_best_pcc_id = -1;
+	new_best_pcc_id = pcep_pcc_calculate_best_pce(pcc);
+	if (new_best_pcc_id) {
+		if (update_best_pce(ctrl_state->pcc, new_best_pcc_id) == true) {
+			pcep_thread_start_sync(ctrl_state, new_best_pcc_id);
+		}
+	}
+
+	return 0;
+}
+
+/* Called by path_pcep_controller EV_SYNC_PATH
+ * Event handler when a path is sync'd. */
+int pcep_pcc_multi_pce_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
+				 struct pcc_state **pcc)
+{
+	int previous_best_pcc_id = -1;
+
+	if (pcc_id == pcep_pcc_calculate_best_pce(pcc)) {
+		previous_best_pcc_id = get_previous_best_pce(pcc);
+		if (previous_best_pcc_id != 0) {
+			/* while adding new pce, path has to resync to the
+			 * previous best. pcep_thread_start_sync() will be
+			 * called by the calling function */
+			if (update_best_pce(ctrl_state->pcc,
+					    previous_best_pcc_id)
+			    == true) {
+				pcep_thread_start_sync(ctrl_state,
+						       previous_best_pcc_id);
+			}
+		}
+	}
+
+	return 0;
+}
+
+/* Called by path_pcep_controller when the TM_CALCULATE_BEST_PCE
+ * timer expires */
+int pcep_pcc_timer_update_best_pce(struct ctrl_state *ctrl_state, int pcc_id)
+{
+	int ret = 0;
+	/* resync whatever was the new best */
+	int best_id = pcep_pcc_calculate_best_pce(ctrl_state->pcc);
+	if (best_id) {
+		struct pcc_state *pcc_state =
+			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, best_id);
+		ret = update_best_pce(ctrl_state->pcc, pcc_state->id);
+	}
+
+	return ret;
+}
+
+/* Called by path_pcep_controller::pcep_thread_event_update_pce_options()
+ * Returns the best PCE id */
+int pcep_pcc_calculate_best_pce(struct pcc_state **pcc)
+{
+	int best_precedence = 255; // DEFAULT_PCE_PRECEDENCE;
+	int best_pce = -1;
+	int one_connected_pce = -1;
+	int previous_best_pce = -1;
+	int step_0_best = -1;
+	int step_0_previous = -1;
+	int pcc_count = 0;
+
+	// Get state
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts) {
+			zlog_debug(
+				"multi-pce: calculate all : i (%i) is_best (%i) previous_best (%i)   ",
+				i, pcc[i]->is_best, pcc[i]->previous_best);
+			pcc_count++;
+
+			if (pcc[i]->is_best == true) {
+				step_0_best = i;
+			}
+			if (pcc[i]->previous_best == true) {
+				step_0_previous = i;
+			}
+		}
+	}
+
+	if (!pcc_count) {
+		return 0;
+	}
+
+	// Calculate best
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts
+		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
+			one_connected_pce = i; // In case none better
+			if (pcc[i]->pce_opts->precedence <= best_precedence) {
+				if (best_pce != -1
+				    && pcc[best_pce]->pce_opts->precedence
+					       == pcc[i]->pce_opts->precedence
+				    && ipaddr_cmp(
+					       &pcc[i]->pce_opts->addr,
+					       &pcc[best_pce]->pce_opts->addr)
+					       > 0) {
+					// collide of precedences so compare ip
+					best_pce = i;
+				} else {
+					if (!pcc[i]->previous_best) {
+						best_precedence =
+							pcc[i]->pce_opts
+								->precedence;
+						best_pce = i;
+					}
+				}
+			}
+		}
+	}
+
+	zlog_debug(
+		"multi-pce: calculate data : sb (%i) sp (%i) oc (%i) b (%i)  ",
+		step_0_best, step_0_previous, one_connected_pce, best_pce);
+
+	// Changed of state so ...
+	if (step_0_best != best_pce) {
+		// Calculate previous
+		previous_best_pce = step_0_best;
+		// Clean state
+		if (step_0_best != -1) {
+			pcc[step_0_best]->is_best = false;
+		}
+		if (step_0_previous != -1) {
+			pcc[step_0_previous]->previous_best = false;
+		}
+
+		// Set previous
+		if (previous_best_pce != -1) {
+			pcc[previous_best_pce]->previous_best = true;
+			zlog_debug("multi-pce: previous best pce (%i) ",
+				   previous_best_pce + 1);
+		}
+
+
+		// Set best
+		if (best_pce != -1) {
+			pcc[best_pce]->is_best = true;
+			zlog_debug("multi-pce: best pce (%i) ", best_pce + 1);
+		} else {
+			if (one_connected_pce != -1) {
+				best_pce = one_connected_pce;
+				pcc[one_connected_pce]->is_best = true;
+				zlog_debug(
+					"multi-pce: one connected best pce (default) (%i) ",
+					one_connected_pce + 1);
+			} else {
+				for (int i = 0; i < MAX_PCC; i++) {
+					if (pcc[i] && pcc[i]->pce_opts) {
+						best_pce = i;
+						pcc[i]->is_best = true;
+						zlog_debug(
+							"(disconnected) best pce (default) (%i) ",
+							i + 1);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	return ((best_pce == -1) ? 0 : pcc[best_pce]->id);
+}
+
+int pcep_pcc_get_pcc_id_by_ip_port(struct pcc_state **pcc,
+				   struct pce_opts *pce_opts)
+{
+	if (pcc == NULL) {
+		return 0;
+	}
+
+	for (int idx = 0; idx < MAX_PCC; idx++) {
+		if (pcc[idx]) {
+			if ((ipaddr_cmp((const struct ipaddr *)&pcc[idx]
+						->pce_opts->addr,
+					(const struct ipaddr *)&pce_opts->addr)
+			     == 0)
+			    && pcc[idx]->pce_opts->port == pce_opts->port) {
+				zlog_debug("found pcc_id (%d) idx (%d)",
+					   pcc[idx]->id, idx);
+				return pcc[idx]->id;
+			}
+		}
+	}
+	return 0;
+}
+
+int pcep_pcc_get_pcc_id_by_idx(struct pcc_state **pcc, int idx)
+{
+	if (pcc == NULL || idx < 0) {
+		return 0;
+	}
+
+	return pcc[idx] ? pcc[idx]->id : 0;
+}
+
+struct pcc_state *pcep_pcc_get_pcc_by_id(struct pcc_state **pcc, int id)
+{
+	if (pcc == NULL || id < 0) {
+		return NULL;
+	}
+
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i]) {
+			if (pcc[i]->id == id) {
+				zlog_debug("found id (%d) pcc_idx (%d)",
+					   pcc[i]->id, i);
+				return pcc[i];
+			}
+		}
+	}
+
+	return NULL;
+}
+
+struct pcc_state *pcep_pcc_get_pcc_by_name(struct pcc_state **pcc,
+					   const char *pce_name)
+{
+	if (pcc == NULL || pce_name == NULL) {
+		return NULL;
+	}
+
+	for (int i = 0; i < MAX_PCE; i++) {
+		if (pcc[i] == NULL) {
+			continue;
+		}
+
+		if (strcmp(pcc[i]->pce_opts->pce_name, pce_name) == 0) {
+			return pcc[i];
+		}
+	}
+
+	return NULL;
+}
+
+int pcep_pcc_get_pcc_idx_by_id(struct pcc_state **pcc, int id)
+{
+	if (pcc == NULL) {
+		return -1;
+	}
+
+	for (int idx = 0; idx < MAX_PCC; idx++) {
+		if (pcc[idx]) {
+			if (pcc[idx]->id == id) {
+				zlog_debug("found pcc_id (%d) array_idx (%d)",
+					   pcc[idx]->id, idx);
+				return idx;
+			}
+		}
+	}
+
+	return -1;
+}
+
+int pcep_pcc_get_free_pcc_idx(struct pcc_state **pcc)
+{
+	assert(pcc != NULL);
+
+	for (int idx = 0; idx < MAX_PCC; idx++) {
+		if (pcc[idx] == NULL) {
+			zlog_debug("new pcc_idx (%d)", idx);
+			return idx;
+		}
+	}
+
+	return -1;
+}
+
+bool pcep_pcc_pcc_has_pce(struct pcc_state **pcc, const char *pce_name)
+{
+	return (pcep_pcc_get_pcc_by_name(pcc, pce_name) != NULL);
+}
+
+
+/*------------------ PCEP Message handlers --------------------- */
 
 void handle_pcep_open(struct ctrl_state *ctrl_state,
 		      struct pcc_state *pcc_state, struct pcep_message *msg)

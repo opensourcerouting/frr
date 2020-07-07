@@ -602,7 +602,8 @@ static int path_pcep_cli_pcc_peer_delete(struct vty *vty,
 		return CMD_WARNING;
 	}
 
-	if (pcep_ctrl_pcc_has_pce(pcep_g->fpt, pcc_peer_name)) {
+	if (pcep_pcc_pcc_has_pce(pcep_ctrl_get_state_by_fpt(pcep_g->fpt),
+				 pcc_peer_name)) {
 		vty_out(vty,
 			"%% Cannot delete PCC peer, since it is in use by a PCC.\n");
 		return CMD_WARNING;
@@ -818,11 +819,11 @@ static int path_pcep_cli_peer_timers(
 	PCEP_VTYSH_INT_ARG_CHECK(max_peer_keep_alive_str, max_peer_keep_alive,
 				 config_group->max_keep_alive_seconds, 59, 241);
 	PCEP_VTYSH_INT_ARG_CHECK(dead_timer_str, dead_timer,
-				 config_group->dead_timer_seconds, 0, 241);
+				 config_group->dead_timer_seconds, 0, 961);
 	PCEP_VTYSH_INT_ARG_CHECK(min_peer_dead_timer_str, min_peer_dead_timer,
 				 config_group->min_dead_timer_seconds, 3, 61);
 	PCEP_VTYSH_INT_ARG_CHECK(max_peer_dead_timer_str, max_peer_dead_timer,
-				 config_group->max_dead_timer_seconds, 59, 481);
+				 config_group->max_dead_timer_seconds, 59, 961);
 	PCEP_VTYSH_INT_ARG_CHECK(pcep_request_str, pcep_request,
 				 config_group->pcep_request_time_seconds, 0,
 				 121);
@@ -909,7 +910,8 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 	struct pce_opts *pce_opts = &pce_opts_cli->pce_opts;
 
 	/* Check if the pcc-peer is duplicated */
-	if (pcep_ctrl_pcc_has_pce(pcep_g->fpt, peer_name)) {
+	if (pcep_pcc_pcc_has_pce(pcep_ctrl_get_state_by_fpt(pcep_g->fpt),
+				 peer_name)) {
 		vty_out(vty, "%% The peer [%s] has already been configured.\n",
 			peer_name);
 		return CMD_WARNING;
@@ -952,7 +954,8 @@ static int path_pcep_cli_pcc_pcc_peer_delete(struct vty *vty,
 					     long precedence)
 {
 	/* Check if the pcc-peer is connected to the PCC */
-	if (!pcep_ctrl_pcc_has_pce(pcep_g->fpt, peer_name)) {
+	if (!pcep_pcc_pcc_has_pce(pcep_ctrl_get_state_by_fpt(pcep_g->fpt),
+				  peer_name)) {
 		vty_out(vty, "%% The peer [%s] is not connected to the PCC.\n",
 			peer_name);
 		return CMD_WARNING;
@@ -1132,7 +1135,8 @@ static int path_pcep_cli_show_pcep_session(struct vty *vty,
 			return CMD_WARNING;
 		}
 
-		pcc_state = pcep_ctrl_get_pcc_state(pcep_g->fpt, pcc_peer);
+		pcc_state = pcep_pcc_get_pcc_by_name(
+			pcep_ctrl_get_state_by_fpt(pcep_g->fpt), pcc_peer);
 		if (pcc_state == NULL) {
 			vty_out(vty, "%% PCC is not connected to PCE [%s]\n",
 				pcc_peer);
@@ -1152,8 +1156,9 @@ static int path_pcep_cli_show_pcep_session(struct vty *vty,
 			continue;
 		}
 
-		pcc_state = pcep_ctrl_get_pcc_state(
-			pcep_g->fpt, pce_opts_cli->pce_opts.pce_name);
+		pcc_state = pcep_pcc_get_pcc_by_name(
+			pcep_ctrl_get_state_by_fpt(pcep_g->fpt),
+			pce_opts_cli->pce_opts.pce_name);
 		if (pcc_state == NULL) {
 			continue;
 		}
@@ -1253,8 +1258,9 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 		}
 
 		/* Only show the PCEs configured in the pcc sub-command */
-		if (!pcep_ctrl_pcc_has_pce(pcep_g->fpt,
-					   pce_opts_cli->pce_opts.pce_name)) {
+		if (!pcep_pcc_pcc_has_pce(
+			    pcep_ctrl_get_state_by_fpt(pcep_g->fpt),
+			    pce_opts_cli->pce_opts.pce_name)) {
 			continue;
 		}
 
