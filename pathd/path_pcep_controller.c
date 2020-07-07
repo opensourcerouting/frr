@@ -94,8 +94,6 @@ static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
 static int pcep_thread_finish_event_handler(struct thread *thread);
 static int pcep_thread_get_counters_callback(struct thread *t);
 static int pcep_thread_send_report_callback(struct thread *t);
-static int pcep_thread_update_best_pce(struct ctrl_state *ctrl_state,
-					     int pcc_id);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
@@ -108,7 +106,6 @@ static int schedule_thread_timer_with_cb(struct ctrl_state *ctrl_state,
 					 struct thread **thread,
 					 pcep_ctrl_thread_callback timer_cb);
 static int pcep_thread_timer_handler(struct thread *thread);
-static int pcep_thread_timer_update_best_pce(struct ctrl_state *ctrl_state, int pcc_id);
 
 /* Controller Thread Socket read/write Handler */
 static int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
@@ -152,22 +149,11 @@ static int pcep_main_event_handler(struct thread *thread);
 static void set_ctrl_state(struct frr_pthread *fpt,
 			   struct ctrl_state *ctrl_state);
 static struct ctrl_state *get_ctrl_state(struct frr_pthread *fpt);
-static struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state,
-				       int pcc_id);
-static int set_pcc_state(struct ctrl_state *ctrl_state,
-			 struct pcc_state *pcc_state);
-static void remove_pcc_state(struct ctrl_state *ctrl_state,
-			     struct pcc_state *pcc_state);
+int get_next_id(struct ctrl_state *ctrl_state);
+int set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state);
+void remove_pcc_state(struct ctrl_state *ctrl_state,
+		      struct pcc_state *pcc_state);
 static uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t attempt);
-static int calculate_best_pce(struct ctrl_state *ctrl_state);
-static int get_next_id(struct ctrl_state *ctrl_state);
-static int get_previous_best_pce(struct ctrl_state *ctrl_state);
-static int get_pcc_id_by_ip_port(struct ctrl_state *ctrl_state,
-			  struct pce_opts *pce_opts);
-static int get_pcc_idx_by_id(struct ctrl_state *ctrl_state, int id);
-static int get_pcc_id_by_idx(struct ctrl_state *ctrl_state, int idx);
-static struct pcc_state *get_pcc_by_id(struct ctrl_state *ctrl_state, int id);
-static int get_free_pcc_idx(struct ctrl_state *ctrl_state);
 
 
 /* ------------ API Functions Called from Main Thread ------------ */
@@ -201,7 +187,7 @@ int pcep_ctrl_initialize(struct thread_master *main_thread,
 	}
 	frr_pthread_wait_running(*fpt);
 
-	/* Initialise the thread state */
+	/* Initialize the thread state */
 	ctrl_state = XCALLOC(MTYPE_PCEP, sizeof(*ctrl_state));
 	ctrl_state->main = main_thread;
 	ctrl_state->self = (*fpt)->master;
@@ -284,41 +270,6 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 	return args.counters;
 }
 
-struct pcc_state *pcep_ctrl_get_pcc_state(struct frr_pthread *fpt,
-					  const char *pce_name)
-{
-	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	for (int i = 0; i < MAX_PCE; i++) {
-		if (ctrl_state->pcc[i] == NULL) {
-			continue;
-		}
-
-		if (strcmp(ctrl_state->pcc[i]->pce_opts->pce_name, pce_name)
-		    == 0) {
-			return ctrl_state->pcc[i];
-		}
-	}
-
-	return NULL;
-}
-
-bool pcep_ctrl_pcc_has_pce(struct frr_pthread *fpt, const char *pce_name)
-{
-	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (ctrl_state->pcc[i] == NULL) {
-			continue;
-		}
-
-		if (strcmp(ctrl_state->pcc[i]->pce_opts->pce_name, pce_name)
-		    == 0) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 			   struct path *path)
 {
@@ -328,6 +279,16 @@ void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 		.ctrl_state = ctrl_state, .pcc_id = pcc_id, .path = path};
 	thread_execute(ctrl_state->self, pcep_thread_send_report_callback,
 		       &args, 0);
+}
+
+struct pcc_state **pcep_ctrl_get_state_by_fpt(struct frr_pthread *fpt)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	if (ctrl_state == NULL) {
+		return NULL;
+	}
+
+	return ctrl_state->pcc;
 }
 
 /* ------------ Internal Functions Called from Main Thread ------------ */
@@ -437,10 +398,9 @@ int pcep_thread_get_counters_callback(struct thread *t)
 	assert(ctrl_state != NULL);
 	struct pcc_state *pcc_state;
 
-		pcc_state = get_pcc_state(ctrl_state, args->pcc_id);
-		if (pcc_state) {
-			args->counters =
-				pcep_lib_copy_counters(pcc_state->sess);
+	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
+	if (pcc_state) {
+		args->counters = pcep_lib_copy_counters(pcc_state->sess);
 		}
 		return 0;
 
@@ -465,7 +425,8 @@ int pcep_thread_send_report_callback(struct thread *t)
 			}
 		}
 	} else {
-		pcc_state = get_pcc_state(ctrl_state, args->pcc_id);
+		pcc_state =
+			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
 		pcep_pcc_send_report(ctrl_state, pcc_state, args->path);
 	}
 
@@ -505,20 +466,6 @@ int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
 					     pcep_thread_timer_handler);
 }
 
-int pcep_thread_timer_update_best_pce(struct ctrl_state *ctrl_state, int pcc_id)
-{
-    int ret=0;
-    // resync whatever were new best
-    int best_id = calculate_best_pce(ctrl_state);
-    if (best_id) {
-        struct pcc_state *pcc_state =
-            get_pcc_state(ctrl_state, best_id);
-        ret = pcep_thread_update_best_pce(ctrl_state, pcc_state->id);
-    }
-
-    return ret;
-}
-
 int pcep_thread_timer_handler(struct thread *thread)
 {
 	/* data unpacking */
@@ -532,18 +479,21 @@ int pcep_thread_timer_handler(struct thread *thread)
 
 	int ret = 0;
 	struct pcc_state *pcc_state = NULL;
-	pcc_state = get_pcc_state(ctrl_state, pcc_id);
+	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
 	if (!pcc_state) {
 		return ret;
 	}
 	switch (type) {
 	case TM_RECONNECT_PCC:
-		pcc_state = get_pcc_state(ctrl_state, pcc_id);
 		if (pcc_state)
 			pcep_pcc_reconnect(ctrl_state, pcc_state);
 		break;
-	case TM_CALCULATE_BEST_PCE://Previous best disconnect so new best should be synced
-		ret = pcep_thread_timer_update_best_pce(ctrl_state, pcc_id);
+	case TM_CALCULATE_BEST_PCE:
+		/* Previous best disconnect so new best should be synced */
+		if (!ctrl_state->pcc_count) {
+			ret = pcep_pcc_timer_update_best_pce(ctrl_state,
+							     pcc_id);
+		}
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
@@ -686,9 +636,6 @@ int pcep_thread_event_handler(struct thread *thread)
 	struct pcc_opts *pcc_opts = NULL;
 	struct pce_opts *pce_opts = NULL;
 
-	int previous_best_pcc_id = -1;
-	int new_best_pcc_id = -1;
-
 	switch (type) {
 	case EV_UPDATE_PCC_OPTS:
 		assert(payload != NULL);
@@ -705,10 +652,9 @@ int pcep_thread_event_handler(struct thread *thread)
 	case EV_REMOVE_PCC:
 		pce_opts = (struct pce_opts *)payload;
 		ret = pcep_thread_event_remove_pcc(ctrl_state, pce_opts);
-		new_best_pcc_id = calculate_best_pce(ctrl_state);
-		if (new_best_pcc_id) {
-			ret = pcep_thread_update_best_pce(
-				ctrl_state, new_best_pcc_id);
+		if (ret == 0) {
+			ret = pcep_pcc_multi_pce_remove_pcc(ctrl_state,
+							    ctrl_state->pcc);
 		}
 		break;
 	case EV_PATHD_EVENT:
@@ -721,16 +667,9 @@ int pcep_thread_event_handler(struct thread *thread)
 	case EV_SYNC_PATH:
 		assert(payload != NULL);
 		path = (struct path *)payload;
-		if (pcc_id == calculate_best_pce(ctrl_state)) {
-			previous_best_pcc_id =
-				get_previous_best_pce(ctrl_state);
-			if (previous_best_pcc_id
-			    != 0) { //while adding new pce, path have to resync the previous best
-				pcep_thread_update_best_pce(ctrl_state,
-							  previous_best_pcc_id);
-			}
-		}
-		ret = pcep_thread_event_sync_path(ctrl_state, pcc_id, path);
+		pcep_pcc_multi_pce_sync_path(ctrl_state, pcc_id,
+					     ctrl_state->pcc);
+		pcep_thread_event_sync_path(ctrl_state, pcc_id, path);
 		break;
 	case EV_SYNC_DONE:
 		ret = pcep_thread_event_sync_done(ctrl_state, pcc_id);
@@ -756,29 +695,6 @@ int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 	return 0;
 }
 
-int pcep_thread_update_best_pce(struct ctrl_state *ctrl_state, int best)
-{
-	PCEP_DEBUG(" recalculating pce precedence ");
-	if (best) {
-		struct pcc_state *best_pcc_state =
-			get_pcc_state(ctrl_state, best);
-		if (best_pcc_state->previous_best != best_pcc_state->is_best) {
-			PCEP_DEBUG(" %s Resynchro best (%i) previous best (%i)",
-				   best_pcc_state->tag, best_pcc_state->id,
-				   best_pcc_state->previous_best);
-			pcep_pcc_start_sync(ctrl_state, best_pcc_state);
-		} else {
-			PCEP_DEBUG(
-				" %s No Resynchro best (%i) previous best (%i)",
-				best_pcc_state->tag, best_pcc_state->id,
-				best_pcc_state->previous_best);
-		}
-	} else {
-		PCEP_DEBUG(" None best pce , all pce seem disconnected");
-	}
-	return 0;
-}
-
 int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 					 int pcc_id, struct pce_opts *pce_opts)
 {
@@ -788,9 +704,11 @@ int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 	struct pcc_state *pcc_state;
 	struct pcc_opts *pcc_opts;
 
-	int current_pcc_id = get_pcc_id_by_ip_port(ctrl_state, pce_opts);
+	int current_pcc_id =
+		pcep_pcc_get_pcc_id_by_ip_port(ctrl_state->pcc, pce_opts);
 	if (current_pcc_id) {
-		pcc_state = get_pcc_state(ctrl_state, current_pcc_id);
+		pcc_state =
+			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, current_pcc_id);
 	} else {
 		pcc_state = pcep_pcc_initialize(ctrl_state,
 						get_next_id(ctrl_state));
@@ -809,7 +727,8 @@ int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
 			 "failed to update PCC configuration");
 	}
 
-	calculate_best_pce(ctrl_state);
+	pcep_pcc_calculate_best_pce(ctrl_state->pcc);
+
 	return 0;
 }
 
@@ -817,7 +736,8 @@ int pcep_thread_event_remove_pcc_by_id(struct ctrl_state *ctrl_state,
 				       int pcc_id)
 {
 	if (pcc_id) {
-		struct pcc_state *pcc_state = get_pcc_state(ctrl_state, pcc_id);
+		struct pcc_state *pcc_state =
+			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
 		if (pcc_state) {
 			remove_pcc_state(ctrl_state, pcc_state);
 			pcep_pcc_finalize(ctrl_state, pcc_state);
@@ -832,7 +752,8 @@ int pcep_thread_event_remove_pcc_all(struct ctrl_state *ctrl_state)
 
 	for (int i = 0; i < MAX_PCC; i++) {
 		pcep_thread_event_remove_pcc_by_id(
-			ctrl_state, get_pcc_id_by_idx(ctrl_state, i));
+			ctrl_state,
+			pcep_pcc_get_pcc_id_by_idx(ctrl_state->pcc, i));
 	}
 	return 0;
 }
@@ -843,7 +764,8 @@ int pcep_thread_event_remove_pcc(struct ctrl_state *ctrl_state,
 	assert(ctrl_state != NULL);
 
 	if (pce_opts) {
-		int pcc_id = get_pcc_id_by_ip_port(ctrl_state, pce_opts);
+		int pcc_id = pcep_pcc_get_pcc_id_by_ip_port(ctrl_state->pcc,
+							    pce_opts);
 		if (pcc_id) {
 			pcep_thread_event_remove_pcc_by_id(ctrl_state, pcc_id);
 		} else {
@@ -860,7 +782,8 @@ int pcep_thread_event_remove_pcc(struct ctrl_state *ctrl_state,
 int pcep_thread_event_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
 				struct path *path)
 {
-	struct pcc_state *pcc_state = get_pcc_state(ctrl_state, pcc_id);
+	struct pcc_state *pcc_state =
+		pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
 	pcep_pcc_sync_path(ctrl_state, pcc_state, path);
 	pcep_free_path(path);
 	return 0;
@@ -868,7 +791,8 @@ int pcep_thread_event_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
 
 int pcep_thread_event_sync_done(struct ctrl_state *ctrl_state, int pcc_id)
 {
-	struct pcc_state *pcc_state = get_pcc_state(ctrl_state, pcc_id);
+	struct pcc_state *pcc_state =
+		pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
 	pcep_pcc_sync_done(ctrl_state, pcc_state);
 	return 0;
 }
@@ -927,156 +851,6 @@ int pcep_main_event_handler(struct thread *thread)
 
 
 /* ------------ Helper functions ------------ */
-int get_next_id(struct ctrl_state *ctrl_state)
-{
-	return ++ctrl_state->pcc_last_id;
-}
-
-int get_previous_best_pce(struct ctrl_state *ctrl_state)
-{
-	if (!ctrl_state || !ctrl_state->pcc_count)
-		return 0;
-
-	int previous_best_pce = -1;
-	struct pcc_state **pcc = &ctrl_state->pcc[0];
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (pcc[i] && pcc[i]->pce_opts && pcc[i]->previous_best == true
-		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
-			previous_best_pce = i;
-			break;
-		}
-	}
-	return previous_best_pce != -1 ? pcc[previous_best_pce]->id : 0;
-}
-
-int calculate_best_pce(struct ctrl_state *ctrl_state)
-{
-	int best_precedence = 255; // DEFAULT_PCE_PRECEDENCE;
-	int best_pce = -1;
-	int one_connected_pce = -1;
-	int previous_best_pce = -1;
-	int step_0_best = -1;
-	int step_0_previous = -1;
-
-	if (!ctrl_state || !ctrl_state->pcc_count)
-		return 0;
-
-	struct pcc_state **pcc = &ctrl_state->pcc[0];
-
-	// Get state
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (pcc[i] && pcc[i]->pce_opts) {
-			if (pcc[i]->is_best == true) {
-				step_0_best = i;
-			}
-			if (pcc[i]->previous_best == true) {
-				step_0_previous = i;
-			}
-		}
-	}
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (pcc[i] && pcc[i]->pce_opts) {
-			zlog_debug(
-				"calculate all : i (%i) is_best (%i) previous_best (%i)   ",
-				i, pcc[i]->is_best, pcc[i]->previous_best);
-		}
-	}
-
-	// Calculate best
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (pcc[i] && pcc[i]->pce_opts
-		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
-			one_connected_pce = i; // In case none better
-			if (pcc[i]->pce_opts->precedence <= best_precedence) {
-				if (best_pce != -1
-				    && pcc[best_pce]->pce_opts->precedence
-					       == pcc[i]->pce_opts->precedence
-				    && ipaddr_cmp(
-					       &pcc[i]->pce_opts->addr,
-					       &pcc[best_pce]->pce_opts->addr)
-					       > 0) {
-					// collide of precedences so compare ip
-					best_pce = i;
-				} else {
-					if (!pcc[i]->previous_best) {
-						best_precedence =
-							pcc[i]->pce_opts
-								->precedence;
-						best_pce = i;
-					}
-				}
-			}
-		}
-	}
-
-	zlog_debug("calculate data : sb (%i) sp (%i) oc (%i) b (%i)  ",
-		   step_0_best, step_0_previous, one_connected_pce, best_pce);
-
-	// Changed of state so ...
-	if (step_0_best != best_pce) {
-		// Calculate previous
-		previous_best_pce = step_0_best;
-		// Clean state
-		if (step_0_best != -1) {
-			pcc[step_0_best]->is_best = false;
-		}
-		if (step_0_previous != -1) {
-			pcc[step_0_previous]->previous_best = false;
-		}
-
-		// Set previous
-		if (previous_best_pce != -1) {
-			pcc[previous_best_pce]->previous_best = true;
-			zlog_debug("previous best pce (%i) ",
-				   previous_best_pce + 1);
-		}
-
-
-		// Set best
-		if (best_pce != -1) {
-			pcc[best_pce]->is_best = true;
-			zlog_debug("best pce (%i) ", best_pce + 1);
-		} else {
-			if (one_connected_pce != -1) {
-				best_pce = one_connected_pce;
-				pcc[one_connected_pce]->is_best = true;
-				zlog_debug(
-					"one connected best pce (default) (%i) ",
-					one_connected_pce + 1);
-			} else {
-				for (int i = 0; i < MAX_PCC; i++) {
-					if (pcc[i] && pcc[i]->pce_opts) {
-						best_pce = i;
-						pcc[i]->is_best = true;
-						zlog_debug(
-							"(disconnected) best pce (default) (%i) ",
-							i + 1);
-						break;
-					}
-				}
-			}
-		}
-	}
-
-
-	return best_pce == -1 ? 0 : pcc[best_pce]->id;
-}
-
-int get_free_pcc_idx(struct ctrl_state *ctrl_state)
-{
-	assert(ctrl_state != NULL);
-
-	struct pcc_state **pcc_state = &ctrl_state->pcc[0];
-	for (int idx = 0; idx < MAX_PCC; idx++) {
-		if (pcc_state[idx] == NULL) {
-			zlog_debug("new pcc_idx (%d)", idx);
-			return idx;
-		}
-	}
-
-	return -1;
-}
-
 void set_ctrl_state(struct frr_pthread *fpt, struct ctrl_state *ctrl_state)
 {
 	assert(fpt != NULL);
@@ -1094,74 +868,9 @@ struct ctrl_state *get_ctrl_state(struct frr_pthread *fpt)
 	return ctrl_state;
 }
 
-int get_pcc_id_by_ip_port(struct ctrl_state *ctrl_state,
-			  struct pce_opts *pce_opts)
+int get_next_id(struct ctrl_state *ctrl_state)
 {
-	for (int idx = 0; idx < MAX_PCC; idx++) {
-		if (ctrl_state->pcc[idx]) {
-			if ((ipaddr_cmp((const struct ipaddr *)&ctrl_state
-						->pcc[idx]
-						->pce_opts->addr,
-					(const struct ipaddr *)&pce_opts->addr)
-			     == 0)
-			    && ctrl_state->pcc[idx]->pce_opts->port
-				       == pce_opts->port) {
-				zlog_debug("found pcc_id (%d) idx (%d)",
-					   ctrl_state->pcc[idx]->id, idx);
-				return ctrl_state->pcc[idx]->id;
-			}
-		}
-	}
-	return 0;
-}
-
-int get_pcc_id_by_idx(struct ctrl_state *ctrl_state, int idx)
-{
-	if (idx>=0) {
-		return ctrl_state->pcc[idx]?ctrl_state->pcc[idx]->id:0;
-	} else {
-		return 0;
-	}
-}
-
-struct pcc_state *get_pcc_by_id(struct ctrl_state *ctrl_state, int id)
-{
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (ctrl_state->pcc[i]) {
-			if (ctrl_state->pcc[i]->id == id) {
-				zlog_debug("found id (%d) pcc_idx (%d)",
-					   ctrl_state->pcc[i]->id, i);
-				return ctrl_state->pcc[i];
-			}
-		}
-	}
-	return NULL;
-}
-
-int get_pcc_idx_by_id(struct ctrl_state *ctrl_state, int id)
-{
-	for (int idx = 0; idx < MAX_PCC; idx++) {
-		if (ctrl_state->pcc[idx]) {
-			if (ctrl_state->pcc[idx]->id == id) {
-				zlog_debug("found pcc_id (%d) array_idx (%d)",
-					   ctrl_state->pcc[idx]->id, idx);
-				return idx;
-			}
-		}
-	}
-	return -1;
-}
-
-struct pcc_state *get_pcc_state(struct ctrl_state *ctrl_state, int id)
-{
-	assert(ctrl_state != NULL);
-	struct pcc_state *pcc_state;
-
-	if (!id)
-		return NULL;
-
-	pcc_state = get_pcc_by_id(ctrl_state, id);
-	return pcc_state;
+	return ++ctrl_state->pcc_last_id;
 }
 
 int set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
@@ -1169,7 +878,7 @@ int set_pcc_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 	assert(ctrl_state != NULL);
 	assert(pcc_state->id != 0);
 
-	int current_pcc_idx = get_free_pcc_idx(ctrl_state);
+	int current_pcc_idx = pcep_pcc_get_free_pcc_idx(ctrl_state->pcc);
 	if (current_pcc_idx >= 0) {
 		ctrl_state->pcc[current_pcc_idx] = pcc_state;
 		ctrl_state->pcc_count++;
@@ -1189,7 +898,7 @@ void remove_pcc_state(struct ctrl_state *ctrl_state,
 	assert(pcc_state->id != 0);
 
 	int idx = 0;
-	idx = get_pcc_idx_by_id(ctrl_state, pcc_state->id);
+	idx = pcep_pcc_get_pcc_idx_by_id(ctrl_state->pcc, pcc_state->id);
 	if (idx != -1) {
 		ctrl_state->pcc[idx] = NULL;
 		ctrl_state->pcc_count--;

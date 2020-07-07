@@ -95,9 +95,7 @@ int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);
 int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id);
 struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 					      int pcc_id);
-bool pcep_ctrl_pcc_has_pce(struct frr_pthread *fpt, const char *pce_name);
-struct pcc_state *pcep_ctrl_get_pcc_state(struct frr_pthread *fpt,
-					  const char *pce_name);
+struct pcc_state **pcep_ctrl_get_state_by_fpt(struct frr_pthread *fpt);
 /* Synchronously send a report, the caller is responsible to free the path,
  * If `pcc_id` is `0` the report is sent by all PCCs */
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,

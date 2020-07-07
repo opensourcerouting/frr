@@ -114,8 +114,20 @@ void pcep_pcc_sync_done(struct ctrl_state *ctrl_state,
 void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 			  struct pcc_state *pcc_state,
 			  struct path *path);
-void pcep_pcc_start_sync(struct ctrl_state *ctrl_state,
-		       struct pcc_state *pcc_state);
-
+int pcep_pcc_multi_pce_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
+				 struct pcc_state **pcc_state_list);
+int pcep_pcc_multi_pce_remove_pcc(struct ctrl_state *ctrl_state,
+				  struct pcc_state **pcc_state_list);
+int pcep_pcc_timer_update_best_pce(struct ctrl_state *ctrl_state, int pcc_id);
+int pcep_pcc_calculate_best_pce(struct pcc_state **pcc);
+int pcep_pcc_get_pcc_id_by_ip_port(struct pcc_state **pcc,
+				   struct pce_opts *pce_opts);
+int pcep_pcc_get_pcc_id_by_idx(struct pcc_state **pcc, int idx);
+struct pcc_state *pcep_pcc_get_pcc_by_id(struct pcc_state **pcc, int id);
+struct pcc_state *pcep_pcc_get_pcc_by_name(struct pcc_state **pcc,
+					   const char *pce_name);
+int pcep_pcc_get_pcc_idx_by_id(struct pcc_state **pcc, int id);
+int pcep_pcc_get_free_pcc_idx(struct pcc_state **pcc);
+bool pcep_pcc_pcc_has_pce(struct pcc_state **pcc, const char *pce_name);
 
 #endif // _PATH_PCEP_PCC_H_
