@@ -904,9 +904,27 @@ int pcep_pcc_get_free_pcc_idx(struct pcc_state **pcc)
 	return -1;
 }
 
-bool pcep_pcc_pcc_has_pce(struct pcc_state **pcc, const char *pce_name)
+void pcep_pcc_copy_pcc_info(struct pcc_state **pcc,
+			    struct pcep_pcc_info *pcc_info)
 {
-	return (pcep_pcc_get_pcc_by_name(pcc, pce_name) != NULL);
+	struct pcc_state *pcc_state =
+		pcep_pcc_get_pcc_by_name(pcc, pcc_info->pce_name);
+	if (!pcc_state) {
+		return;
+	}
+
+	pcc_info->ctrl_state = NULL;
+	pcc_info->msd = pcc_state->pcc_opts->msd;
+	pcc_info->pcc_port = pcc_state->pcc_opts->port;
+	pcc_info->next_plspid = pcc_state->next_plspid;
+	pcc_info->next_reqid = pcc_state->next_reqid;
+	pcc_info->status = pcc_state->status;
+	pcc_info->pcc_id = pcc_state->id;
+	pcc_info->is_best_multi_pce = pcc_state->is_best;
+	pcc_info->precedence =
+		pcc_state->pce_opts ? pcc_state->pce_opts->precedence : 0;
+	memcpy(&pcc_info->pcc_addr, &pcc_state->pcc_addr_tr,
+	       sizeof(struct ipaddr));
 }
 
 
@@ -1154,9 +1172,10 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 				       pcc_state->retry_count,
 				       &pcc_state->t_reconnect);
   if (pcc_state->retry_count == 1) {
-          pcep_thread_schedule_sync_best_pce(
-                  ctrl_state, pcc_state->id, pcc_state->pce_opts->config_opts.delegation_timeout_seconds ,
-                  &pcc_state->t_update_best);
+	  pcep_thread_schedule_sync_best_pce(
+		  ctrl_state, pcc_state->id,
+		  pcc_state->pce_opts->config_opts.delegation_timeout_seconds,
+		  &pcc_state->t_update_best);
       }
 }
 

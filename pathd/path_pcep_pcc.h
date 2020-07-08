@@ -128,6 +128,7 @@ struct pcc_state *pcep_pcc_get_pcc_by_name(struct pcc_state **pcc,
 					   const char *pce_name);
 int pcep_pcc_get_pcc_idx_by_id(struct pcc_state **pcc, int id);
 int pcep_pcc_get_free_pcc_idx(struct pcc_state **pcc);
-bool pcep_pcc_pcc_has_pce(struct pcc_state **pcc, const char *pce_name);
+void pcep_pcc_copy_pcc_info(struct pcc_state **pcc,
+			    struct pcep_pcc_info *pcc_info);
 
 #endif // _PATH_PCEP_PCC_H_

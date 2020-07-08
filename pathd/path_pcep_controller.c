@@ -86,6 +86,11 @@ struct send_report_args {
 	struct path *path;
 };
 
+struct get_pcep_session_args {
+	struct ctrl_state *ctrl_state;
+	int pcc_id;
+	pcep_session *pcep_session;
+};
 
 /* Internal Functions Called From Main Thread */
 static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
@@ -94,6 +99,8 @@ static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
 static int pcep_thread_finish_event_handler(struct thread *thread);
 static int pcep_thread_get_counters_callback(struct thread *t);
 static int pcep_thread_send_report_callback(struct thread *t);
+static int pcep_thread_get_pcep_session_callback(struct thread *t);
+static int pcep_thread_get_pcc_info_callback(struct thread *t);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
@@ -270,6 +277,30 @@ struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 	return args.counters;
 }
 
+pcep_session *pcep_ctrl_get_pcep_session(struct frr_pthread *fpt, int pcc_id)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	struct get_pcep_session_args args = {.ctrl_state = ctrl_state,
+					     .pcc_id = pcc_id,
+					     .pcep_session = NULL};
+	thread_execute(ctrl_state->self, pcep_thread_get_pcep_session_callback,
+		       &args, 0);
+	return args.pcep_session;
+}
+
+struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
+					     const char *pce_name)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	struct pcep_pcc_info *args = XCALLOC(MTYPE_PCEP, sizeof(*args));
+	args->ctrl_state = ctrl_state;
+	strncpy(args->pce_name, pce_name, sizeof(args->pce_name));
+	thread_execute(ctrl_state->self, pcep_thread_get_pcc_info_callback,
+		       args, 0);
+
+	return args;
+}
+
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 			   struct path *path)
 {
@@ -279,16 +310,6 @@ void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,
 		.ctrl_state = ctrl_state, .pcc_id = pcc_id, .path = path};
 	thread_execute(ctrl_state->self, pcep_thread_send_report_callback,
 		       &args, 0);
-}
-
-struct pcc_state **pcep_ctrl_get_state_by_fpt(struct frr_pthread *fpt)
-{
-	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
-	if (ctrl_state == NULL) {
-		return NULL;
-	}
-
-	return ctrl_state->pcc;
 }
 
 /* ------------ Internal Functions Called from Main Thread ------------ */
@@ -401,10 +422,10 @@ int pcep_thread_get_counters_callback(struct thread *t)
 	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
 	if (pcc_state) {
 		args->counters = pcep_lib_copy_counters(pcc_state->sess);
-		}
-		return 0;
+	} else {
+		args->counters = NULL;
+	}
 
-	args->counters = NULL;
 	return 0;
 }
 
@@ -433,6 +454,34 @@ int pcep_thread_send_report_callback(struct thread *t)
 	return 0;
 }
 
+int pcep_thread_get_pcep_session_callback(struct thread *t)
+{
+	struct get_pcep_session_args *args = THREAD_ARG(t);
+	assert(args != NULL);
+	struct ctrl_state *ctrl_state = args->ctrl_state;
+	assert(ctrl_state != NULL);
+	struct pcc_state *pcc_state;
+
+	pcc_state = pcep_pcc_get_pcc_by_id(ctrl_state->pcc, args->pcc_id);
+	if (pcc_state) {
+		args->pcep_session =
+			pcep_lib_copy_pcep_session(pcc_state->sess);
+	}
+
+	return 0;
+}
+
+int pcep_thread_get_pcc_info_callback(struct thread *t)
+{
+	struct pcep_pcc_info *args = THREAD_ARG(t);
+	assert(args != NULL);
+	struct ctrl_state *ctrl_state = args->ctrl_state;
+	assert(ctrl_state != NULL);
+
+	pcep_pcc_copy_pcc_info(ctrl_state->pcc, args);
+
+	return 0;
+}
 
 /* ------------ Controller Thread Timer Handler ------------ */
 
