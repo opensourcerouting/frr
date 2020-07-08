@@ -79,6 +79,22 @@ struct pcep_ctrl_socket_data {
 
 typedef int (*pcep_ctrl_thread_callback)(struct thread *);
 
+/* PCC connection information, populated in a thread-safe
+ * manner with pcep_ctrl_get_pcc_info() */
+struct pcep_pcc_info {
+	struct ctrl_state *ctrl_state; /* will be NULL when returned */
+	char pce_name[64];
+	int pcc_id;
+	struct ipaddr pcc_addr;
+	uint16_t pcc_port;
+	int status;
+	short msd;
+	uint32_t next_reqid;
+	uint32_t next_plspid;
+	bool is_best_multi_pce;
+	uint8_t precedence;
+};
+
 /* Functions called from the main thread */
 int pcep_ctrl_initialize(struct thread_master *main_thread,
 			 struct frr_pthread **fpt,
@@ -95,7 +111,9 @@ int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);
 int pcep_ctrl_sync_done(struct frr_pthread *fpt, int pcc_id);
 struct counters_group *pcep_ctrl_get_counters(struct frr_pthread *fpt,
 					      int pcc_id);
-struct pcc_state **pcep_ctrl_get_state_by_fpt(struct frr_pthread *fpt);
+pcep_session *pcep_ctrl_get_pcep_session(struct frr_pthread *fpt, int pcc_id);
+struct pcep_pcc_info *pcep_ctrl_get_pcc_info(struct frr_pthread *fpt,
+					     const char *pce_name);
 /* Synchronously send a report, the caller is responsible to free the path,
  * If `pcc_id` is `0` the report is sent by all PCCs */
 void pcep_ctrl_send_report(struct frr_pthread *fpt, int pcc_id,

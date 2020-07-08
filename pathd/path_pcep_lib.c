@@ -500,6 +500,22 @@ void pcep_lib_free_counters(struct counters_group *counters)
 	free_counter_group(counters);
 }
 
+pcep_session *pcep_lib_copy_pcep_session(pcep_session *sess)
+{
+	if (!sess) {
+		return NULL;
+	}
+
+	pcep_session *copy;
+	copy = XCALLOC(MTYPE_PCEP, sizeof(*copy));
+	memcpy(copy, sess, sizeof(*copy));
+	/* These fields should not be accessed */
+	copy->num_unknown_messages_time_queue = NULL;
+	copy->socket_comm_session = NULL;
+	copy->pcep_session_counters = NULL;
+
+	return copy;
+}
 
 /* ------------ pceplib logging callback ------------ */
 
@@ -970,9 +986,9 @@ struct counters_group *copy_counter_group(struct counters_group *from)
 	assert(from->max_subgroups >= from->num_subgroups);
 	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
 	memcpy(result, from, sizeof(*result));
-	size = sizeof(struct counters_subgroup *) * from->max_subgroups;
+	size = sizeof(struct counters_subgroup *) * (from->max_subgroups + 1);
 	result->subgroups = XCALLOC(MTYPE_PCEP, size);
-	for (i = 0; i <= from->num_subgroups; i++)
+	for (i = 0; i <= from->max_subgroups; i++)
 		result->subgroups[i] =
 			copy_counter_subgroup(from->subgroups[i]);
 	return result;
@@ -987,9 +1003,9 @@ struct counters_subgroup *copy_counter_subgroup(struct counters_subgroup *from)
 	assert(from->max_counters >= from->num_counters);
 	result = XCALLOC(MTYPE_PCEP, sizeof(*result));
 	memcpy(result, from, sizeof(*result));
-	size = sizeof(struct counter *) * from->max_counters;
+	size = sizeof(struct counter *) * (from->max_counters + 1);
 	result->counters = XCALLOC(MTYPE_PCEP, size);
-	for (i = 0; i <= from->num_counters; i++)
+	for (i = 0; i <= from->max_counters; i++)
 		result->counters[i] = copy_counter(from->counters[i]);
 	return result;
 }
@@ -1009,8 +1025,9 @@ void free_counter_group(struct counters_group *group)
 	int i;
 	if (group == NULL)
 		return;
-	for (i = 0; i <= group->num_subgroups; i++)
+	for (i = 0; i <= group->max_subgroups; i++)
 		free_counter_subgroup(group->subgroups[i]);
+	XFREE(MTYPE_PCEP, group->subgroups);
 	XFREE(MTYPE_PCEP, group);
 }
 
@@ -1019,8 +1036,9 @@ void free_counter_subgroup(struct counters_subgroup *subgroup)
 	int i;
 	if (subgroup == NULL)
 		return;
-	for (i = 0; i <= subgroup->num_counters; i++)
+	for (i = 0; i <= subgroup->max_counters; i++)
 		free_counter(subgroup->counters[i]);
+	XFREE(MTYPE_PCEP, subgroup->counters);
 	XFREE(MTYPE_PCEP, subgroup);
 }
 
