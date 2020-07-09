@@ -84,6 +84,8 @@
 struct pcep_config_group_opts {
 	char name[64];
 	char tcp_md5_auth[TCP_MD5SIG_MAXKEYLEN];
+	struct ipaddr source_ip;
+	short source_port;
 	bool draft07;
 	bool pce_initiated;
 	int keep_alive_seconds;
@@ -105,6 +107,12 @@ struct pce_opts {
 	uint8_t precedence; /* Multi-PCE precedence */
 };
 
+struct pcc_opts {
+	struct ipaddr addr;
+	short port;
+	short msd;
+};
+
 /* Encapsulate the pce_opts with needed CLI information */
 struct pce_opts_cli {
 	struct pce_opts pce_opts;
@@ -119,12 +127,6 @@ struct pce_opts_cli {
 	 * both default and config_group values). This flag indicates of the
 	 * values need to be merged or not. */
 	bool merged;
-};
-
-struct pcc_opts {
-	struct ipaddr addr;
-	short port;
-	short msd;
 };
 
 struct lsp_nb_key {
@@ -279,8 +281,6 @@ struct pcep_glob {
 	struct debug dbg;
 	struct thread_master *master;
 	struct frr_pthread *fpt;
-	/* Copy of the PCC/PCE configurations for display purpose */
-	struct pcc_opts *pcc_opts;
 	uint8_t num_pce_opts_cli;
 	struct pce_opts_cli *pce_opts_cli[MAX_PCE];
 	uint8_t num_config_group_opts;

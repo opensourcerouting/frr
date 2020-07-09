@@ -99,6 +99,7 @@ static void pcep_cli_remove_pce_connection(struct pce_opts *pce_opts);
  */
 
 static const char PCEP_VTYSH_ARG_ADDRESS[] = "address";
+static const char PCEP_VTYSH_ARG_SOURCE_ADDRESS[] = "source-address";
 static const char PCEP_VTYSH_ARG_IP[] = "ip";
 static const char PCEP_VTYSH_ARG_IPV6[] = "ipv6";
 static const char PCEP_VTYSH_ARG_PORT[] = "port";
@@ -141,7 +142,7 @@ struct pce_connections {
 struct pce_connections pce_connections_g = {.num_connections = 0};
 
 /* Default PCE group that all PCE-Groups and PCEs will inherit from */
-struct pcep_config_group_opts default_pcep_config_group_opts = {
+struct pcep_config_group_opts default_pcep_config_group_opts_g = {
 	.name = "default",
 	.tcp_md5_auth = "\0",
 	.draft07 = DEFAULT_SR_DRAFT07,
@@ -155,12 +156,16 @@ struct pcep_config_group_opts default_pcep_config_group_opts = {
 	.pcep_request_time_seconds = DEFAULT_TIMER_PCEP_REQUEST,
 	.state_timeout_inteval_seconds = DEFAULT_TIMER_TIMEOUT_INTERVAL,
 	.delegation_timeout_seconds = DEFAULT_DELEGATION_TIMEOUT_INTERVAL,
+	.source_port = DEFAULT_PCEP_TCP_PORT,
+	.source_ip.ipa_type = IPADDR_NONE,
 };
 
 /* Used by PCE_GROUP_NODE sub-commands to operate on the current pce group */
 struct pcep_config_group_opts *current_pcep_config_group_opts_g = NULL;
 /* Used by PCC_PEER_NODE sub-commands to operate on the current pce opts */
 struct pce_opts_cli *current_pce_opts_g = NULL;
+short pcc_msd_g = DEFAULT_PCC_MSD;
+bool pcc_msd_configured_g = false;
 
 static struct cmd_node pcc_node = {.name = "pcep_pcc_node",
 				   .node = PCC_NODE,
@@ -202,7 +207,7 @@ static struct cmd_node pcep_config_group_node = {
 			((config_group != NULL                                 \
 			  && config_group->config_param != not_set_value)      \
 				 ? config_group->config_param                  \
-				 : default_pcep_config_group_opts              \
+				 : default_pcep_config_group_opts_g            \
 					   .config_param);                     \
 	}
 
@@ -288,18 +293,32 @@ pcep_cli_merge_pcep_config_group_options(struct pce_opts_cli *pce_opts_cli)
 	 */
 
 	const char *tcp_md5_auth_str =
-		pce_opts_cli->pce_opts.config_opts.tcp_md5_auth;
-	if (pce_opts_cli->pce_opts.config_opts.tcp_md5_auth[0] == '\0') {
+		pce_opts_cli->pce_config_group_opts.tcp_md5_auth;
+	if (pce_opts_cli->pce_config_group_opts.tcp_md5_auth[0] == '\0') {
 		if (config_group != NULL
 		    && config_group->tcp_md5_auth[0] != '\0') {
 			tcp_md5_auth_str = config_group->tcp_md5_auth;
 		} else {
 			tcp_md5_auth_str =
-				default_pcep_config_group_opts.tcp_md5_auth;
+				default_pcep_config_group_opts_g.tcp_md5_auth;
 		}
 	}
 	strncpy(pce_opts_cli->pce_opts.config_opts.tcp_md5_auth,
 		tcp_md5_auth_str, TCP_MD5SIG_MAXKEYLEN);
+
+	struct ipaddr *source_ip =
+		&pce_opts_cli->pce_config_group_opts.source_ip;
+	if (pce_opts_cli->pce_config_group_opts.source_ip.ipa_type
+	    == IPADDR_NONE) {
+		if (config_group != NULL
+		    && config_group->source_ip.ipa_type != IPADDR_NONE) {
+			source_ip = &config_group->source_ip;
+		} else {
+			source_ip = &default_pcep_config_group_opts_g.source_ip;
+		}
+	}
+	memcpy(&pce_opts_cli->pce_opts.config_opts.source_ip, source_ip,
+	       sizeof(struct ipaddr));
 
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(draft07, false);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(pce_initiated, false);
@@ -312,6 +331,7 @@ pcep_cli_merge_pcep_config_group_options(struct pce_opts_cli *pce_opts_cli)
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(pcep_request_time_seconds, 0);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(state_timeout_inteval_seconds, 0);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(delegation_timeout_seconds, 0);
+	MERGE_COMPARE_CONFIG_GROUP_VALUE(source_port, 0);
 
 	pce_opts_cli->merged = true;
 }
@@ -586,7 +606,7 @@ static int path_pcep_cli_show_pcep_config_group(struct vty *vty,
 	struct pcep_config_group_opts *group_opts;
 	if (pcep_config_group != NULL) {
 		if (strcmp(pcep_config_group, "default") == 0) {
-			group_opts = &default_pcep_config_group_opts;
+			group_opts = &default_pcep_config_group_opts_g;
 		} else {
 			group_opts = pcep_cli_find_pcep_config_group(
 				pcep_config_group);
@@ -668,6 +688,8 @@ static void show_pcc_peer(struct vty *vty, struct pce_opts_cli *pce_opts_cli)
 {
 	struct pce_opts *pce_opts = &pce_opts_cli->pce_opts;
 	vty_out(vty, "PCC Peer: %s\n", pce_opts->pce_name);
+
+	/* Remote PCE IP address */
 	if (IS_IPADDR_V6(&pce_opts->addr)) {
 		vty_out(vty, "  %s %s %pI6 %s %d\n", PCEP_VTYSH_ARG_ADDRESS,
 			PCEP_VTYSH_ARG_IPV6, &pce_opts->addr.ipaddr_v6,
@@ -677,6 +699,7 @@ static void show_pcc_peer(struct vty *vty, struct pce_opts_cli *pce_opts_cli)
 			PCEP_VTYSH_ARG_IP, &pce_opts->addr.ipaddr_v4,
 			PCEP_VTYSH_ARG_PORT, pce_opts->port);
 	}
+
 	if (pce_opts_cli->config_group_name[0] != '\0') {
 		vty_out(vty, "  peer-config-group: %s\n",
 			pce_opts_cli->config_group_name);
@@ -812,6 +835,43 @@ static int path_pcep_cli_peer_address(struct vty *vty, const char *ip_str,
 	return CMD_SUCCESS;
 }
 
+static int path_pcep_cli_peer_source_address(struct vty *vty,
+					     const char *ip_str,
+					     struct in_addr *ip,
+					     const char *ipv6_str,
+					     struct in6_addr *ipv6,
+					     const char *port_str, long port)
+{
+	struct pcep_config_group_opts *config_group = NULL;
+	if (vty->node == PCC_PEER_NODE) {
+		/* TODO need to see if the pce is in use, and reset the
+		 * connection */
+		config_group = &current_pce_opts_g->pce_config_group_opts;
+		current_pce_opts_g->merged = false;
+	} else if (vty->node == PCEP_CONFIG_GROUP_NODE) {
+		config_group = current_pcep_config_group_opts_g;
+	} else {
+		return CMD_ERR_NO_MATCH;
+	}
+
+	/* Handle the optional source IP */
+	if (ipv6_str != NULL) {
+		config_group->source_ip.ipa_type = IPADDR_V6;
+		memcpy(&config_group->source_ip.ipaddr_v6, ipv6,
+		       sizeof(struct in6_addr));
+	} else if (ip_str != NULL) {
+		config_group->source_ip.ipa_type = IPADDR_V4;
+		memcpy(&config_group->source_ip.ipaddr_v4, ip,
+		       sizeof(struct in_addr));
+	}
+
+	/* Handle the optional port */
+	PCEP_VTYSH_INT_ARG_CHECK(port_str, port, config_group->source_port, 0,
+				 65535);
+
+	return CMD_SUCCESS;
+}
+
 static int path_pcep_cli_peer_pcep_config_group(struct vty *vty,
 						const char *config_group_name)
 {
@@ -885,65 +945,29 @@ static int path_pcep_cli_peer_timers(
 	return CMD_SUCCESS;
 }
 
-static int path_pcep_cli_pcc(struct vty *vty, const char *ip_str,
-			     struct in_addr *ip, const char *ipv6_str,
-			     struct in6_addr *ipv6, const char *port_str,
-			     long port, const char *msd_str, long msd)
+static int path_pcep_cli_pcc(struct vty *vty)
 {
-	struct pcc_opts local_opts, *opts, *opts_copy;
-
-	memset(&local_opts, 0, sizeof(local_opts));
-	local_opts.port = PCEP_DEFAULT_PORT;
-	local_opts.msd = DEFAULT_PCC_MSD;
-
-	/* Handle the rest of the arguments */
-	if (ip_str != NULL) {
-		SET_IPADDR_V4(&local_opts.addr);
-		memcpy(&local_opts.addr.ipaddr_v4, ip, sizeof(struct in_addr));
-	} else if (ipv6_str != NULL) {
-		SET_IPADDR_V6(&local_opts.addr);
-		memcpy(&local_opts.addr.ipaddr_v6, ipv6,
-		       sizeof(struct in6_addr));
-	}
-
-	PCEP_VTYSH_INT_ARG_CHECK(port_str, port, local_opts.port, 0, 65535);
-	PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, local_opts.msd, 0, 16);
-
-	/* This copy of the opts is sent to the pcep controller thread */
-	opts = XCALLOC(MTYPE_PCEP, sizeof(*opts));
-	memcpy(opts, &local_opts, sizeof(*opts));
-
-	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, opts)) {
-		return CMD_WARNING;
-	}
-
-	/* This copy of the opts is stored in the global opts */
-	if (pcep_g->pcc_opts != NULL) {
-		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
-	}
-	opts_copy = XCALLOC(MTYPE_PCEP, sizeof(*opts));
-	opts_copy = memcpy(opts_copy, opts, sizeof(*opts));
-	pcep_g->pcc_opts = opts_copy;
-
 	VTY_PUSH_CONTEXT_NULL(PCC_NODE);
 
 	return CMD_SUCCESS;
 }
 
-static int path_pcep_cli_pcc_delete(struct vty *vty, const char *ip_str,
-				    struct in_addr *ip, const char *ipv6_str,
-				    struct in6_addr *ipv6, const char *port_str,
-				    long port, const char *msd_str, long msd)
+static int path_pcep_cli_pcc_delete(struct vty *vty)
 {
 	/* Clear the pce_connections */
 	memset(&pce_connections_g, 0, sizeof(pce_connections_g));
+	pcc_msd_configured_g = false;
 
 	pcep_ctrl_remove_pcc(pcep_g->fpt, NULL);
 
-	if (pcep_g->pcc_opts != NULL) {
-		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
-		pcep_g->pcc_opts = NULL;
-	}
+	return CMD_SUCCESS;
+}
+
+static int path_pcep_cli_pcc_pcc_msd(struct vty *vty, const char *msd_str,
+				     long msd)
+{
+	pcc_msd_configured_g = true;
+	PCEP_VTYSH_INT_ARG_CHECK(msd_str, msd, pcc_msd_g, 0, 17);
 
 	return CMD_SUCCESS;
 }
@@ -987,8 +1011,19 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 		return CMD_WARNING;
 	}
 
-	/* The PCC will use a copy of the pce_opts, which is used for CLI only
-	 */
+	/* Update the pcc_opts with the source ip, port, and msd */
+	struct pcc_opts *pcc_opts_copy =
+		XMALLOC(MTYPE_PCEP, sizeof(struct pcc_opts));
+	memcpy(&pcc_opts_copy->addr,
+	       &pce_opts_cli->pce_opts.config_opts.source_ip,
+	       sizeof(struct pcc_opts));
+	pcc_opts_copy->msd = pcc_msd_g;
+	pcc_opts_copy->port = pce_opts_cli->pce_opts.config_opts.source_port;
+	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, pcc_opts_copy)) {
+		return CMD_WARNING;
+	}
+
+	/* Send a copy of the pce_opts, this one is only used for the CLI */
 	struct pce_opts *pce_opts_copy =
 		XMALLOC(MTYPE_PCEP, sizeof(struct pce_opts));
 	memcpy(pce_opts_copy, pce_opts, sizeof(struct pce_opts));
@@ -1013,7 +1048,19 @@ static int path_pcep_cli_pcc_pcc_peer_delete(struct vty *vty,
 
 	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(peer_name);
 	pcep_cli_remove_pce_connection(&pce_opts_cli->pce_opts);
-	pcep_ctrl_remove_pcc(pcep_g->fpt, &pce_opts_cli->pce_opts);
+
+	/* Send a copy of the pce_opts, this one is used for CLI only */
+	struct pce_opts *pce_opts_copy =
+		XMALLOC(MTYPE_PCEP, sizeof(struct pce_opts));
+	memcpy(pce_opts_copy, &pce_opts_cli->pce_opts, sizeof(struct pce_opts));
+	pcep_ctrl_remove_pcc(pcep_g->fpt, pce_opts_copy);
+
+	return CMD_SUCCESS;
+}
+
+static int path_pcep_cli_show_pcc(struct vty *vty)
+{
+	vty_out(vty, "pcc msd %d\n", pcc_msd_g);
 
 	return CMD_SUCCESS;
 }
@@ -1052,7 +1099,7 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 	char buf[1024];
 	buf[0] = '\0';
 
-	vty_out(vty, "PCE %s\n", pce_opts->pce_name);
+	vty_out(vty, "\nPCE %s\n", pce_opts->pce_name);
 
 	/* PCE IP */
 	if (IS_IPADDR_V4(&pce_opts->addr)) {
@@ -1107,82 +1154,93 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 		vty_out(vty, " No TCP MD5 Auth\n");
 	}
 
-	/* PCEPlib pcep session values, get a thread safe copy of the counters
-	 */
-	pcep_session *session =
-		pcep_ctrl_get_pcep_session(pcep_g->fpt, pcc_info->pcc_id);
-	if (pcc_info->status == PCEP_PCC_SYNCHRONIZING
-	    || pcc_info->status == PCEP_PCC_OPERATING) {
-		time_t current_time = time(NULL);
-		struct tm lt;
-		lt.tm_zone = __tzname[0];
-		gmtime_r(&session->time_connected, &lt);
-		vty_out(vty,
-			" Connected for %ld seconds, since %d-%02d-%02d %02d:%02d:%02d UTC\n",
-			(current_time - session->time_connected),
-			lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday,
-			lt.tm_hour, lt.tm_min, lt.tm_sec);
-	}
-
 	if (config_opts->draft07) {
 		vty_out(vty, " PCE SR Version draft07\n");
 	} else {
 		vty_out(vty, " PCE SR Version draft16 and RFC8408\n");
 	}
 
-	/* PCC capabilities */
-	buf[0] = '\0';
-	int index = 0;
-	if (config_opts->pce_initiated) {
-		index += csnprintfrr(buf, sizeof(buf), "%s",
-				     PCEP_CLI_CAP_PCC_PCE_INITIATED);
-	} else {
-		index += csnprintfrr(buf, sizeof(buf), "%s",
-				     PCEP_CLI_CAP_PCC_INITIATED);
-	}
-	print_pcep_capabilities(buf, sizeof(buf) - index, &session->pcc_config);
-	vty_out(vty, " PCC Capabilities:%s\n", buf);
-
-	/* PCE capabilities */
-	buf[0] = '\0';
-	print_pcep_capabilities(buf, sizeof(buf), &session->pce_config);
-	if (buf[0] != '\0') {
-		vty_out(vty, " PCE Capabilities:%s\n", buf);
-	}
-
 	vty_out(vty, " Next PcReq ID %d\n", pcc_info->next_reqid);
 	vty_out(vty, " Next PLSP  ID %d\n", pcc_info->next_plspid);
+
+	/* PCEPlib pcep session values, get a thread safe copy of the counters
+	 */
+	pcep_session *session =
+		pcep_ctrl_get_pcep_session(pcep_g->fpt, pcc_info->pcc_id);
+	if (session != NULL) {
+		if (pcc_info->status == PCEP_PCC_SYNCHRONIZING
+		    || pcc_info->status == PCEP_PCC_OPERATING) {
+			time_t current_time = time(NULL);
+			struct tm lt;
+			lt.tm_zone = __tzname[0];
+			gmtime_r(&session->time_connected, &lt);
+			vty_out(vty,
+				" Connected for %ld seconds, since %d-%02d-%02d %02d:%02d:%02d UTC\n",
+				(current_time - session->time_connected),
+				lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday,
+				lt.tm_hour, lt.tm_min, lt.tm_sec);
+		}
+
+		/* PCC capabilities */
+		buf[0] = '\0';
+		int index = 0;
+		if (config_opts->pce_initiated) {
+			index += csnprintfrr(buf, sizeof(buf), "%s",
+					     PCEP_CLI_CAP_PCC_PCE_INITIATED);
+		} else {
+			index += csnprintfrr(buf, sizeof(buf), "%s",
+					     PCEP_CLI_CAP_PCC_INITIATED);
+		}
+		print_pcep_capabilities(buf, sizeof(buf) - index,
+					&session->pcc_config);
+		vty_out(vty, " PCC Capabilities:%s\n", buf);
+
+		/* PCE capabilities */
+		buf[0] = '\0';
+		print_pcep_capabilities(buf, sizeof(buf), &session->pce_config);
+		if (buf[0] != '\0') {
+			vty_out(vty, " PCE Capabilities:%s\n", buf);
+		}
+		XFREE(MTYPE_PCEP, session);
+	} else {
+		vty_out(vty, " Detailed session information not available\n");
+	}
 
 	/* Message Counters, get a thread safe copy of the counters */
 	struct counters_group *group =
 		pcep_ctrl_get_counters(pcep_g->fpt, pcc_info->pcc_id);
 
-	struct counters_subgroup *rx_msgs =
-		find_subgroup(group, COUNTER_SUBGROUP_ID_RX_MSG);
-	struct counters_subgroup *tx_msgs =
-		find_subgroup(group, COUNTER_SUBGROUP_ID_TX_MSG);
+	if (group != NULL) {
+		struct counters_subgroup *rx_msgs =
+			find_subgroup(group, COUNTER_SUBGROUP_ID_RX_MSG);
+		struct counters_subgroup *tx_msgs =
+			find_subgroup(group, COUNTER_SUBGROUP_ID_TX_MSG);
 
-	if (rx_msgs != NULL && tx_msgs != NULL) {
-		vty_out(vty, " PCEP Message Statistics\n");
-		vty_out(vty, " %27s %6s\n", "Sent", "Rcvd");
-		for (int i = 0; i < rx_msgs->max_counters; i++) {
-			struct counter *rx_counter = rx_msgs->counters[i];
-			struct counter *tx_counter = tx_msgs->counters[i];
-			if (rx_counter != NULL && tx_counter != NULL) {
-				vty_out(vty, " %20s: %5d  %5d\n",
-					tx_counter->counter_name,
-					tx_counter->counter_value,
-					rx_counter->counter_value);
+		if (rx_msgs != NULL && tx_msgs != NULL) {
+			vty_out(vty, " PCEP Message Statistics\n");
+			vty_out(vty, " %27s %6s\n", "Sent", "Rcvd");
+			for (int i = 0; i < rx_msgs->max_counters; i++) {
+				struct counter *rx_counter =
+					rx_msgs->counters[i];
+				struct counter *tx_counter =
+					tx_msgs->counters[i];
+				if (rx_counter != NULL && tx_counter != NULL) {
+					vty_out(vty, " %20s: %5d  %5d\n",
+						tx_counter->counter_name,
+						tx_counter->counter_value,
+						rx_counter->counter_value);
+				}
 			}
+			vty_out(vty, " %20s: %5d  %5d\n", "Total",
+				subgroup_counters_total(tx_msgs),
+				subgroup_counters_total(rx_msgs));
 		}
-		vty_out(vty, " %20s: %5d  %5d\n", "Total",
-			subgroup_counters_total(tx_msgs),
-			subgroup_counters_total(rx_msgs));
+		pcep_lib_free_counters(group);
+	} else {
+		vty_out(vty, " Counters not available\n");
 	}
 
-	XFREE(MTYPE_PCEP, session);
 	XFREE(MTYPE_PCEP, pcc_info);
-	pcep_lib_free_counters(group);
 }
 
 static int path_pcep_cli_show_pcep_session(struct vty *vty,
@@ -1287,63 +1345,49 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 
 int pcep_cli_pcc_config_write(struct vty *vty)
 {
-	struct pcc_opts *pcc_opts = pcep_g->pcc_opts;
-	struct pce_opts_cli *pce_opts_cli;
+	struct pce_opts *pce_opts;
 	char buf[128] = "";
 	int lines = 0;
 
-	/* There is nothing configured for the PCC */
-	if (pcep_g->pcc_opts == NULL) {
-		return lines;
-	}
-	/* No PCE peers have been configured on the PCC */
-	if (pcep_g->num_pce_opts_cli == 0) {
+	/* The MSD, nor any PCE peers have been configured on the PCC */
+	if (!pcc_msd_configured_g && pce_connections_g.num_connections == 0) {
 		return lines;
 	}
 
-	/* Prepare the port and MSD, if present,
-	 * to be printed with the address */
-	if (pcc_opts->port != PCEP_DEFAULT_PORT) {
-		csnprintfrr(buf, sizeof(buf), " %s %d", PCEP_VTYSH_ARG_PORT,
-			    pcc_opts->port);
-	}
-	if (pcc_opts->msd != DEFAULT_PCC_MSD) {
-		csnprintfrr(buf, sizeof(buf), " %s %d", PCEP_VTYSH_ARG_MSD,
-			    pcc_opts->msd);
-	}
-
-	if (IS_IPADDR_V4(&pcc_opts->addr)) {
-		vty_out(vty, "pcc %s %pI4 %s\n", PCEP_VTYSH_ARG_IP,
-			&pcc_opts->addr.ipaddr_v4, buf);
-	} else if (IS_IPADDR_V6(&pcc_opts->addr)) {
-		vty_out(vty, "pcc %s %pI6 %s\n", PCEP_VTYSH_ARG_IPV6,
-			&pcc_opts->addr.ipaddr_v6, buf);
-	} else {
-		vty_out(vty, "pcc\n");
-	}
-	buf[0] = 0;
+	vty_out(vty, "pcc\n");
 	lines++;
 
-	for (int i = 0; i < MAX_PCE; i++) {
-		pce_opts_cli = pcep_g->pce_opts_cli[i];
-		if (pce_opts_cli == NULL) {
+	/* Prepare the MSD, if present */
+	if (pcc_msd_configured_g) {
+		vty_out(vty, " %s %d\n", PCEP_VTYSH_ARG_MSD, pcc_msd_g);
+		lines++;
+	}
+
+	if (pce_connections_g.num_connections == 0) {
+		return lines;
+	}
+
+	buf[0] = 0;
+	for (int i = 0; i < MAX_PCC; i++) {
+		pce_opts = pce_connections_g.connections[i];
+		if (pce_opts == NULL) {
 			continue;
 		}
 
 		/* Only show the PCEs configured in the pcc sub-command */
-		if (!pcep_cli_pcc_has_pce(pce_opts_cli->pce_opts.pce_name)) {
+		if (!pcep_cli_pcc_has_pce(pce_opts->pce_name)) {
 			continue;
 		}
 
-		csnprintfrr(buf, sizeof(buf), "  peer %s",
-			    pce_opts_cli->pce_opts.pce_name);
-		if (pce_opts_cli->pce_opts.precedence > 0) {
+		csnprintfrr(buf, sizeof(buf), "  peer %s", pce_opts->pce_name);
+		if (pce_opts->precedence > 0) {
 			csnprintfrr(buf, sizeof(buf), " %s %d",
 				    PCEP_VTYSH_ARG_PRECEDENCE,
-				    pce_opts_cli->pce_opts.precedence);
+				    pce_opts->precedence);
 		}
 		vty_out(vty, "%s\n", buf);
 		lines++;
+		buf[0] = 0;
 	}
 
 	return lines;
@@ -1357,6 +1401,27 @@ pcep_cli_print_config_group(struct pcep_config_group_opts *group_opts,
 {
 	int lines = 0;
 
+	if (group_opts->source_ip.ipa_type != IPADDR_NONE
+	    || group_opts->source_port != 0) {
+		if (IS_IPADDR_V4(&group_opts->source_ip)) {
+			csnprintfrr(buf, buf_len, "  %s %s %pI4",
+				    PCEP_VTYSH_ARG_SOURCE_ADDRESS,
+				    PCEP_VTYSH_ARG_IP,
+				    &group_opts->source_ip.ipaddr_v4);
+		} else if (IS_IPADDR_V6(&group_opts->source_ip)) {
+			csnprintfrr(buf, buf_len, "  %s %s %pI6",
+				    PCEP_VTYSH_ARG_SOURCE_ADDRESS,
+				    PCEP_VTYSH_ARG_IPV6,
+				    &group_opts->source_ip.ipaddr_v6);
+		}
+		if (group_opts->source_port > 0) {
+			csnprintfrr(buf, buf_len, "  %s %d",
+				    PCEP_VTYSH_ARG_PORT,
+				    group_opts->source_port);
+		}
+		csnprintfrr(buf, buf_len, "\n");
+		lines++;
+	}
 	if (group_opts->keep_alive_seconds > 0) {
 		csnprintfrr(buf, buf_len, "  %s %d\n",
 			    PCEP_VTYSH_ARG_KEEP_ALIVE,
@@ -1444,7 +1509,7 @@ int pcep_cli_pcc_peer_config_write(struct vty *vty)
 		if (IS_IPADDR_V6(&pce_opts->addr)) {
 			vty_out(vty, "  %s %s %pI6", PCEP_VTYSH_ARG_ADDRESS,
 				PCEP_VTYSH_ARG_IPV6, &pce_opts->addr.ipaddr_v6);
-		} else {
+		} else if (IS_IPADDR_V4(&pce_opts->addr)) {
 			vty_out(vty, "  address %s %pI4", PCEP_VTYSH_ARG_IP,
 				&pce_opts->addr.ipaddr_v4);
 		}
@@ -1604,6 +1669,20 @@ DEFPY(pcep_cli_peer_address, pcep_cli_peer_address_cmd,
 					  port_str, port);
 }
 
+DEFPY(pcep_cli_peer_source_address, pcep_cli_peer_source_address_cmd,
+      "source-address <ip A.B.C.D | ipv6 X:X::X:X> [port (1024-65535)]",
+      "PCE source IP Address configuration\n"
+      "PCE source IPv4 address\n"
+      "PCE source IPv4 address value\n"
+      "PCE source IPv6 address\n"
+      "PCE source IPv6 address value\n"
+      "Source PCE server port\n"
+      "Source PCE server port value\n")
+{
+	return path_pcep_cli_peer_source_address(vty, ip_str, &ip, ipv6_str,
+						 &ipv6, port_str, port);
+}
+
 DEFPY(pcep_cli_peer_pcep_config_group, pcep_cli_peer_pcep_config_group_cmd,
       "config-group WORD",
       "PCE Configuration Group\n"
@@ -1647,28 +1726,21 @@ DEFPY(pcep_cli_peer_timers, pcep_cli_peer_timers_cmd,
 		delegation_timeout);
 }
 
-DEFPY_NOSH(
-	pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"[no] pcc [{ip A.B.C.D | ipv6 X:X::X:X}] [port (1024-65535)] [msd (1-16)]",
-	NO_STR
-	"PCC configuration\n"
-	"PCC source ip\n"
-	"PCC source IPv4 address\n"
-	"PCC source ip\n"
-	"PCC source IPv6 address\n"
-	"PCC source port\n"
-	"PCC source port value\n"
-	"PCC maximum SID depth \n"
-	"PCC maximum SID depth value\n")
+DEFPY_NOSH(pcep_cli_pcc, pcep_cli_pcc_cmd, "[no] pcc",
+	   NO_STR "PCC configuration\n")
 {
 	if (no != NULL) {
-		return path_pcep_cli_pcc_delete(vty, ip_str, &ip, ipv6_str,
-						&ipv6, port_str, port, msd_str,
-						msd);
+		return path_pcep_cli_pcc_delete(vty);
 	} else {
-		return path_pcep_cli_pcc(vty, ip_str, &ip, ipv6_str, &ipv6,
-					 port_str, port, msd_str, msd);
+		return path_pcep_cli_pcc(vty);
 	}
+}
+
+DEFPY(pcep_cli_pcc_pcc_msd, pcep_cli_pcc_pcc_msd_cmd, "msd (1-16)",
+      "PCC maximum SID depth \n"
+      "PCC maximum SID depth value\n")
+{
+	return path_pcep_cli_pcc_pcc_msd(vty, msd_str, msd);
 }
 
 DEFPY(pcep_cli_pcc_pcc_peer, pcep_cli_pcc_pcc_peer_cmd,
@@ -1686,6 +1758,12 @@ DEFPY(pcep_cli_pcc_pcc_peer, pcep_cli_pcc_pcc_peer_cmd,
 		return path_pcep_cli_pcc_pcc_peer(vty, peer, precedence_str,
 						  precedence);
 	}
+}
+
+DEFPY_NOSH(pcep_cli_pcc_show, pcep_cli_pcc_show_cmd, "show pcc",
+	   SHOW_STR "Show current PCC configuration\n")
+{
+	return path_pcep_cli_show_pcc(vty);
 }
 
 DEFPY(pcep_cli_show_pcep_session, pcep_cli_show_pcep_session_cmd,
@@ -1717,9 +1795,11 @@ void pcep_cli_init(void)
 	install_element(ENABLE_NODE, &pcep_cli_debug_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_pcep_counters_cmd);
 
-	/* PCE-Group related commands */
+	/* PCEP-Group related commands */
 	install_element(CONFIG_NODE, &pcep_cli_pcep_config_group_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_pcep_config_group_cmd);
+	install_element(PCEP_CONFIG_GROUP_NODE,
+			&pcep_cli_peer_source_address_cmd);
 	install_element(PCEP_CONFIG_GROUP_NODE, &pcep_cli_peer_timers_cmd);
 	install_element(PCEP_CONFIG_GROUP_NODE, &pcep_cli_peer_sr_draft07_cmd);
 	install_element(PCEP_CONFIG_GROUP_NODE,
@@ -1731,6 +1811,7 @@ void pcep_cli_init(void)
 	install_element(CONFIG_NODE, &pcep_cli_pcc_peer_cmd);
 	install_element(ENABLE_NODE, &pcep_cli_show_pcc_peer_cmd);
 	install_element(PCC_PEER_NODE, &pcep_cli_peer_address_cmd);
+	install_element(PCC_PEER_NODE, &pcep_cli_peer_source_address_cmd);
 	install_element(PCC_PEER_NODE, &pcep_cli_peer_pcep_config_group_cmd);
 	install_element(PCC_PEER_NODE, &pcep_cli_peer_timers_cmd);
 	install_element(PCC_PEER_NODE, &pcep_cli_peer_sr_draft07_cmd);
@@ -1738,8 +1819,10 @@ void pcep_cli_init(void)
 	install_element(PCC_PEER_NODE, &pcep_cli_peer_tcp_md5_auth_cmd);
 
 	/* PCC related commands */
+	install_element(ENABLE_NODE, &pcep_cli_pcc_show_cmd);
 	install_element(CONFIG_NODE, &pcep_cli_pcc_cmd);
 	install_element(PCC_NODE, &pcep_cli_pcc_pcc_peer_cmd);
+	install_element(PCC_NODE, &pcep_cli_pcc_pcc_msd_cmd);
 
 	install_element(ENABLE_NODE, &pcep_cli_show_pcep_session_cmd);
 }
