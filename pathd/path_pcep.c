@@ -295,8 +295,6 @@ int pcep_module_finish(void)
 	pcep_ctrl_finalize(&pcep_g->fpt);
 	pcep_lib_finalize();
 
-	if (pcep_g->pcc_opts != NULL)
-		XFREE(MTYPE_PCEP, pcep_g->pcc_opts);
 	for (int i = 0; i < MAX_PCC; i++)
 		if (pcep_g->pce_opts_cli[i] != NULL)
 			XFREE(MTYPE_PCEP, pcep_g->pce_opts_cli[i]);
@@ -306,7 +304,6 @@ int pcep_module_finish(void)
 
 int pcep_module_init(void)
 {
-	pcep_g->pcc_opts = NULL;
 	pcep_g->num_pce_opts_cli = 0;
 	for (int i = 0; i < MAX_PCE; i++)
 		pcep_g->pce_opts_cli[i] = NULL;
