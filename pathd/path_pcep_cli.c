@@ -58,8 +58,8 @@
 #define DEFAULT_TIMER_DEADTIMER_MIN 4
 #define DEFAULT_TIMER_DEADTIMER_MAX 480
 #define DEFAULT_TIMER_PCEP_REQUEST 30
-#define DEFAULT_TIMER_TIMEOUT_INTERVAL 30
-#define DEFAULT_DELEGATION_TIMEOUT_INTERVAL 30
+#define DEFAULT_TIMER_STATE_TIMEOUT_INTERVAL 30
+#define DEFAULT_DELEGATION_TIMEOUT_INTERVAL 10
 
 /* CLI Function declarations */
 static int pcep_cli_debug_config_write(struct vty *vty);
@@ -154,7 +154,7 @@ struct pcep_config_group_opts default_pcep_config_group_opts_g = {
 	.min_dead_timer_seconds = DEFAULT_TIMER_DEADTIMER_MIN,
 	.max_dead_timer_seconds = DEFAULT_TIMER_DEADTIMER_MAX,
 	.pcep_request_time_seconds = DEFAULT_TIMER_PCEP_REQUEST,
-	.state_timeout_inteval_seconds = DEFAULT_TIMER_TIMEOUT_INTERVAL,
+	.state_timeout_inteval_seconds = DEFAULT_TIMER_STATE_TIMEOUT_INTERVAL,
 	.delegation_timeout_seconds = DEFAULT_DELEGATION_TIMEOUT_INTERVAL,
 	.source_port = DEFAULT_PCEP_TCP_PORT,
 	.source_ip.ipa_type = IPADDR_NONE,
