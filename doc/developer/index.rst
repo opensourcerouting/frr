@@ -15,3 +15,4 @@ FRRouting Developer's Guide
    ospf
    zebra
    vtysh
+   path
