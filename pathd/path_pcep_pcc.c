@@ -99,6 +99,7 @@ static void set_pcc_address(struct pcc_state *pcc_state,
 static int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs);
 static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
 static int get_previous_best_pce(struct pcc_state **pcc);
+static int get_best_pce(struct pcc_state **pcc);
 static bool update_best_pce(struct pcc_state **pcc, int best);
 
 /* Data Structure Helper Functions */
@@ -616,6 +617,18 @@ bool update_best_pce(struct pcc_state **pcc, int best)
 	return false;
 }
 
+int get_best_pce(struct pcc_state **pcc)
+{
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcc[i] && pcc[i]->pce_opts) {
+			if (pcc[i]->is_best == true) {
+				return pcc[i]->id;
+			}
+		}
+	}
+	return 0;
+}
+
 int get_previous_best_pce(struct pcc_state **pcc)
 {
 	int previous_best_pce = -1;
@@ -653,7 +666,7 @@ int pcep_pcc_multi_pce_sync_path(struct ctrl_state *ctrl_state, int pcc_id,
 {
 	int previous_best_pcc_id = -1;
 
-	if (pcc_id == pcep_pcc_calculate_best_pce(pcc)) {
+	if (pcc_id == get_best_pce(pcc)) {
 		previous_best_pcc_id = get_previous_best_pce(pcc);
 		if (previous_best_pcc_id != 0) {
 			/* while adding new pce, path has to resync to the
@@ -681,7 +694,9 @@ int pcep_pcc_timer_update_best_pce(struct ctrl_state *ctrl_state, int pcc_id)
 	if (best_id) {
 		struct pcc_state *pcc_state =
 			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, best_id);
-		ret = update_best_pce(ctrl_state->pcc, pcc_state->id);
+		if (update_best_pce(ctrl_state->pcc, pcc_state->id) == true) {
+			pcep_thread_start_sync(ctrl_state, pcc_state->id);
+		}
 	}
 
 	return ret;

@@ -539,10 +539,7 @@ int pcep_thread_timer_handler(struct thread *thread)
 		break;
 	case TM_CALCULATE_BEST_PCE:
 		/* Previous best disconnect so new best should be synced */
-		if (!ctrl_state->pcc_count) {
-			ret = pcep_pcc_timer_update_best_pce(ctrl_state,
-							     pcc_id);
-		}
+		ret = pcep_pcc_timer_update_best_pce(ctrl_state, pcc_id);
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
