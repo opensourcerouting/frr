@@ -29,6 +29,7 @@ sr-policy color 2 endpoint 2.2.2.2
 !
 !pcc-peer pce1
 !  address ip 10.0.12.1
+!  source-address ip 1.1.1.1
 !pcc
 !  peer pce1
 !
@@ -36,6 +37,7 @@ sr-policy color 2 endpoint 2.2.2.2
 !
 !pcep-config-group group1
 ! timer keep-alive 35
+!  source-address ip 1.1.1.1
 !
 !pcc-peer pce1
 ! config-group group1
@@ -50,3 +52,5 @@ sr-policy color 2 endpoint 2.2.2.2
 !show pcep-config-group group1
 !show pcc-peer
 !show pcc-peer pce1
+!show pcep-session
+!show pcep-session pce1

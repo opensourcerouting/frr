@@ -539,6 +539,43 @@ void srte_candidate_status_update(struct srte_policy *policy,
 	trigger_pathd_candidate_updated(candidate);
 }
 
+void srte_candidate_unset_segment_list(const char *originator)
+{
+    if (originator == NULL) {
+        zlog_warn("Cannot unset segment list because originator is NULL");
+        return;
+    }
+
+    zlog_debug("Unset segment lists for originator %s", originator);
+
+    /* Iterate the policies, then iterate each policy's candidate path
+     * to check the candidate path's segment list originator */
+	struct srte_policy *policy;
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+	    struct srte_candidate *candidate;
+	    RB_FOREACH (candidate, srte_candidate_head, &policy->candidate_paths) {
+	        struct srte_segment_list *segment_list = candidate->segment_list;
+            if (segment_list == NULL) {
+                continue;
+            }
+
+            if (segment_list->protocol_origin == SRTE_ORIGIN_LOCAL) {
+                zlog_warn("Cannot unset segment list %s because it "
+                        "was created locally", segment_list->name);
+                continue;
+            }
+
+            if (strncmp(segment_list->originator, originator,
+                    sizeof(segment_list->originator)) == 0) {
+                zlog_debug("Unset segment list %s", segment_list->name);
+                SET_FLAG(segment_list->flags, F_SEGMENT_LIST_DELETED);
+                SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
+                candidate->segment_list = NULL;
+            }
+	    }
+	}
+}
+
 const char *srte_origin2str(enum srte_protocol_origin origin)
 {
 	switch (origin) {

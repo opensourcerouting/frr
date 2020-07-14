@@ -58,7 +58,7 @@
 #define DEFAULT_TIMER_DEADTIMER_MIN 4
 #define DEFAULT_TIMER_DEADTIMER_MAX 480
 #define DEFAULT_TIMER_PCEP_REQUEST 30
-#define DEFAULT_TIMER_STATE_TIMEOUT_INTERVAL 30
+#define DEFAULT_TIMER_SESSION_TIMEOUT_INTERVAL 30
 #define DEFAULT_DELEGATION_TIMEOUT_INTERVAL 10
 
 /* CLI Function declarations */
@@ -154,7 +154,7 @@ struct pcep_config_group_opts default_pcep_config_group_opts_g = {
 	.min_dead_timer_seconds = DEFAULT_TIMER_DEADTIMER_MIN,
 	.max_dead_timer_seconds = DEFAULT_TIMER_DEADTIMER_MAX,
 	.pcep_request_time_seconds = DEFAULT_TIMER_PCEP_REQUEST,
-	.state_timeout_inteval_seconds = DEFAULT_TIMER_STATE_TIMEOUT_INTERVAL,
+	.session_timeout_inteval_seconds = DEFAULT_TIMER_SESSION_TIMEOUT_INTERVAL,
 	.delegation_timeout_seconds = DEFAULT_DELEGATION_TIMEOUT_INTERVAL,
 	.source_port = DEFAULT_PCEP_TCP_PORT,
 	.source_ip.ipa_type = IPADDR_NONE,
@@ -329,7 +329,7 @@ pcep_cli_merge_pcep_config_group_options(struct pce_opts_cli *pce_opts_cli)
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(min_dead_timer_seconds, 0);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(max_dead_timer_seconds, 0);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(pcep_request_time_seconds, 0);
-	MERGE_COMPARE_CONFIG_GROUP_VALUE(state_timeout_inteval_seconds, 0);
+	MERGE_COMPARE_CONFIG_GROUP_VALUE(session_timeout_inteval_seconds, 0);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(delegation_timeout_seconds, 0);
 	MERGE_COMPARE_CONFIG_GROUP_VALUE(source_port, 0);
 
@@ -904,7 +904,7 @@ static int path_pcep_cli_peer_timers(
 	const char *min_peer_dead_timer_str, long min_peer_dead_timer,
 	const char *max_peer_dead_timer_str, long max_peer_dead_timer,
 	const char *pcep_request_str, long pcep_request,
-	const char *state_timeout_interval_str, long state_timeout_interval,
+	const char *session_timeout_interval_str, long session_timeout_interval,
 	const char *delegation_timeout_str, long delegation_timeout)
 {
 	struct pcep_config_group_opts *config_group = NULL;
@@ -936,8 +936,8 @@ static int path_pcep_cli_peer_timers(
 				 config_group->pcep_request_time_seconds, 0,
 				 121);
 	PCEP_VTYSH_INT_ARG_CHECK(
-		state_timeout_interval_str, state_timeout_interval,
-		config_group->state_timeout_inteval_seconds, 0, 121);
+		session_timeout_interval_str, session_timeout_interval,
+		config_group->session_timeout_inteval_seconds, 0, 121);
 	PCEP_VTYSH_INT_ARG_CHECK(delegation_timeout_str, delegation_timeout,
 				 config_group->delegation_timeout_seconds, 0,
 				 61);
@@ -1144,7 +1144,7 @@ static void print_pcep_session(struct vty *vty, struct pce_opts *pce_opts,
 	vty_out(vty, " Timer: PcRequest %d\n",
 		config_opts->pcep_request_time_seconds);
 	vty_out(vty, " Timer: StateTimeout Interval %d\n",
-		config_opts->state_timeout_inteval_seconds);
+		config_opts->session_timeout_inteval_seconds);
 	vty_out(vty, " Timer: Delegation Timeout %d\n",
 		config_opts->delegation_timeout_seconds);
 	if (strlen(config_opts->tcp_md5_auth) > 0) {
@@ -1464,10 +1464,10 @@ pcep_cli_print_config_group(struct pcep_config_group_opts *group_opts,
 			    group_opts->pcep_request_time_seconds);
 		lines++;
 	}
-	if (group_opts->state_timeout_inteval_seconds > 0) {
+	if (group_opts->session_timeout_inteval_seconds > 0) {
 		csnprintfrr(buf, buf_len, "  %s %d\n",
 			    PCEP_VTYSH_ARG_STATE_TIMEOUT,
-			    group_opts->state_timeout_inteval_seconds);
+			    group_opts->session_timeout_inteval_seconds);
 		lines++;
 	}
 	if (group_opts->delegation_timeout_seconds > 0) {
@@ -1694,7 +1694,7 @@ DEFPY(pcep_cli_peer_pcep_config_group, pcep_cli_peer_pcep_config_group_cmd,
 DEFPY(pcep_cli_peer_timers, pcep_cli_peer_timers_cmd,
       "timer [keep-alive (1-240)] [min-peer-keep-alive (1-60)] [max-peer-keep-alive (60-240)] "
       "[dead-timer (4-480)] [min-peer-dead-timer (4-60)] [max-peer-dead-timer (60-480)] "
-      "[pcep-request (1-120)] [state-timeout-interval (1-120)] [delegation-timeout (1-60)]",
+      "[pcep-request (1-120)] [session-timeout-interval (1-120)] [delegation-timeout (1-60)]",
       "PCE PCEP Session Timers configuration\n"
       "PCC Keep Alive Timer\n"
       "PCC Keep Alive Timer value in seconds\n"
@@ -1710,8 +1710,8 @@ DEFPY(pcep_cli_peer_timers, pcep_cli_peer_timers_cmd,
       "Max Acceptable PCE Dead Timer value in seconds\n"
       "PCC PCEP Request Timer\n"
       "PCC PCEP Request Timer value in seconds\n"
-      "PCC State Timeout Interval\n"
-      "PCC State Timeout Interval value in seconds\n"
+      "PCC Session Timeout Interval\n"
+      "PCC Session Timeout Interval value in seconds\n"
       "Multi-PCE delegation timeout\n"
       "Multi-PCE delegation timeout value in seconds\n")
 {
@@ -1721,8 +1721,8 @@ DEFPY(pcep_cli_peer_timers, pcep_cli_peer_timers_cmd,
 		max_peer_keep_alive, dead_timer_str, dead_timer,
 		min_peer_dead_timer_str, min_peer_dead_timer,
 		max_peer_dead_timer_str, max_peer_dead_timer, pcep_request_str,
-		pcep_request, state_timeout_interval_str,
-		state_timeout_interval, delegation_timeout_str,
+		pcep_request, session_timeout_interval_str,
+		session_timeout_interval, delegation_timeout_str,
 		delegation_timeout);
 }
 

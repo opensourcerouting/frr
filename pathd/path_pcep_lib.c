@@ -214,7 +214,7 @@ void pcep_lib_pceplib_timer_create_cb(void *fpt, void **thread, int delay,
  * https://gitlab.voltanet.io/volta-controlplane/pceplib/-/issues/152
 void pcep_lib_pceplib_timer_cancel_cb(void **thread)
 {
-	pcep_thread_cancel_pceplib_timer((struct thread **)thread);
+	pcep_thread_cancel_timer((struct thread **)thread);
 }
 */
 

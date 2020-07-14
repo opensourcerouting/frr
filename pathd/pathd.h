@@ -262,6 +262,7 @@ struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 					   uint32_t preference);
 void srte_candidate_status_update(struct srte_policy *policy,
 				  struct srte_candidate *candidate, int status);
+void srte_candidate_unset_segment_list(const char *originator);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 
 /* path_zebra.c */

@@ -79,6 +79,7 @@ struct pcc_state {
 	bool synchronized;
 	struct thread *t_reconnect;
 	struct thread *t_update_best;
+	struct thread *t_session_timeout;
 	uint32_t next_reqid;
 	uint32_t next_plspid;
 	struct plspid_map_head plspid_map;

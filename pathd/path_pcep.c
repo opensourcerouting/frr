@@ -53,6 +53,7 @@ static int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 static int pcep_main_event_start_sync(int pcc_id);
 static int pcep_main_event_start_sync_cb(struct path *path, void *arg);
 static int pcep_main_event_update_candidate(struct path *path);
+static int pcep_main_event_remove_candidate_segments(const char *originator);
 
 /* Hook Handlers called from the Main Thread */
 static int pathd_candidate_created_handler(struct srte_candidate *candidate);
@@ -177,6 +178,9 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		assert(payload != NULL);
 		ret = pcep_main_event_update_candidate((struct path *)payload);
 		break;
+	case PCEP_MAIN_EVENT_REMOVE_CANDIDATE:
+		ret = pcep_main_event_remove_candidate_segments((const char *)payload);
+		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
 			  "Unexpected event received in the main thread: %u",
@@ -236,6 +240,14 @@ int pcep_main_event_update_candidate(struct path *path)
 	return ret;
 }
 
+int pcep_main_event_remove_candidate_segments(const char *originator)
+{
+    srte_candidate_unset_segment_list(originator);
+
+	srte_apply_changes();
+
+    return 0;
+}
 
 /* ------------ Hook Handlers Functions Called From Main Thread ------------ */
 

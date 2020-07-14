@@ -338,6 +338,15 @@ void pcep_thread_update_path(struct ctrl_state *ctrl_state, int pcc_id,
 		     path);
 }
 
+void pcep_thread_remove_candidate_path_segments(struct ctrl_state *ctrl_state,
+        int pcc_id, struct pcc_state *pcc_state)
+{
+	PCEP_DEBUG("session_timeout schedule candidate path segments removal for originator %s",
+	        pcc_state->originator);
+	send_to_main(ctrl_state, pcc_id, PCEP_MAIN_EVENT_REMOVE_CANDIDATE,
+		     pcc_state->originator);
+}
+
 void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
 					int pcc_id, int delay,
 					struct thread **thread)
@@ -357,6 +366,14 @@ void pcep_thread_schedule_reconnect(struct ctrl_state *ctrl_state, int pcc_id,
 			      thread);
 }
 
+void pcep_thread_schedule_session_timeout(struct ctrl_state *ctrl_state,
+        int pcc_id, int delay, struct thread **thread)
+{
+	PCEP_DEBUG("Schedule session_timeout interval for %us", delay);
+	schedule_thread_timer(ctrl_state, pcc_id, TM_SESSION_TIMEOUT_PCC, delay, NULL,
+			      thread);
+}
+
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 				    int delay, void *payload, struct thread **thread,
 				    pcep_ctrl_thread_callback timer_cb)
@@ -366,9 +383,9 @@ void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
 				      payload, thread, timer_cb);
 }
 
-void pcep_thread_cancel_pceplib_timer(struct thread **thread)
+void pcep_thread_cancel_timer(struct thread **thread)
 {
-	PCEP_DEBUG("Cancel pceplib timer");
+	PCEP_DEBUG("Cancel timer");
 
 	if (thread == NULL || *thread == NULL) {
 		return;
@@ -540,6 +557,10 @@ int pcep_thread_timer_handler(struct thread *thread)
 	case TM_CALCULATE_BEST_PCE:
 		/* Previous best disconnect so new best should be synced */
 		ret = pcep_pcc_timer_update_best_pce(ctrl_state, pcc_id);
+		break;
+	case TM_SESSION_TIMEOUT_PCC:
+	    pcep_thread_remove_candidate_path_segments(
+	            ctrl_state, pcc_id, pcc_state);
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,

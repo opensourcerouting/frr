@@ -26,7 +26,8 @@
 enum pcep_main_event_type {
 	PCEP_MAIN_EVENT_UNDEFINED = 0,
 	PCEP_MAIN_EVENT_START_SYNC,
-	PCEP_MAIN_EVENT_UPDATE_CANDIDATE
+	PCEP_MAIN_EVENT_UPDATE_CANDIDATE,
+	PCEP_MAIN_EVENT_REMOVE_CANDIDATE
 };
 
 typedef int (*pcep_main_event_handler_t)(enum pcep_main_event_type type,
@@ -54,7 +55,8 @@ struct ctrl_state {
 enum pcep_ctrl_timer_type {
 	TM_RECONNECT_PCC,
 	TM_PCEPLIB_TIMER,
-	TM_CALCULATE_BEST_PCE
+	TM_CALCULATE_BEST_PCE,
+	TM_SESSION_TIMEOUT_PCC
 };
 
 struct pcep_ctrl_timer_data {
@@ -132,7 +134,9 @@ void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
 void pcep_thread_schedule_pceplib_timer(struct ctrl_state *ctrl_state,
         int delay, void *payload, struct thread **thread,
         pcep_ctrl_thread_callback cb);
-void pcep_thread_cancel_pceplib_timer(struct thread **thread);
+void pcep_thread_cancel_timer(struct thread **thread);
+void pcep_thread_schedule_session_timeout(struct ctrl_state *ctrl_state,
+        int pcc_id, int delay, struct thread **thread);
 int pcep_thread_socket_read(void *fpt, void **thread, int fd,
         void *payload, pcep_ctrl_thread_callback cb);
 int pcep_thread_socket_write(void *fpt, void **thread, int fd,

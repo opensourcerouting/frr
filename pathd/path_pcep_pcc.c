@@ -79,6 +79,10 @@ static void update_tag(struct pcc_state *pcc_state);
 static void update_originator(struct pcc_state *pcc_state);
 static void schedule_reconnect(struct ctrl_state *ctrl_state,
 			       struct pcc_state *pcc_state);
+static void schedule_session_timeout(struct ctrl_state *ctrl_state,
+			struct pcc_state *pcc_state);
+static void cancel_session_timeout(struct ctrl_state *ctrl_state,
+			struct pcc_state *pcc_state);
 static void send_pcep_message(struct pcc_state *pcc_state,
 			      struct pcep_message *msg);
 static void send_pcep_error(struct pcc_state *pcc_state,
@@ -553,6 +557,7 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 		pcc_state->retry_count = 0;
 		pcc_state->synchronized = false;
 		PCEP_DEBUG("%s Starting PCE synchronization", pcc_state->tag);
+        cancel_session_timeout(ctrl_state, pcc_state);
 		pcep_thread_start_sync(ctrl_state, pcc_state->id);
 		break;
 	case PCC_RCVD_INVALID_OPEN:
@@ -569,6 +574,7 @@ void pcep_pcc_pcep_event_handler(struct ctrl_state *ctrl_state,
 	case PCC_RCVD_MAX_UNKOWN_MSGS:
 		pcep_pcc_disable(ctrl_state, pcc_state);
 		schedule_reconnect(ctrl_state, pcc_state);
+        schedule_session_timeout(ctrl_state, pcc_state);
 		break;
 	case MESSAGE_RECEIVED:
 		PCEP_DEBUG_PCEP("%s Received PCEP message: %s", pcc_state->tag,
@@ -1192,6 +1198,35 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 		  pcc_state->pce_opts->config_opts.delegation_timeout_seconds,
 		  &pcc_state->t_update_best);
       }
+}
+
+void schedule_session_timeout(struct ctrl_state *ctrl_state,
+			struct pcc_state *pcc_state)
+{
+    /* No need to schedule timeout if multiple PCEs are connected */
+    if (ctrl_state->pcc_count > 1) {
+        PCEP_DEBUG_PCEP("schedule_session_timeout not setting timer for multi-pce mode");
+
+        return;
+    }
+
+	pcep_thread_schedule_session_timeout(ctrl_state, pcc_state->id,
+		    pcc_state->pce_opts->config_opts.session_timeout_inteval_seconds,
+	        &pcc_state->t_session_timeout);
+}
+
+void cancel_session_timeout(struct ctrl_state *ctrl_state,
+			struct pcc_state *pcc_state)
+{
+    /* No need to schedule timeout if multiple PCEs are connected */
+    if (pcc_state->t_session_timeout == NULL) {
+        PCEP_DEBUG_PCEP("cancel_session_timeout timer thread NULL");
+        return;
+    }
+
+    PCEP_DEBUG_PCEP("Cancel session_timeout timer");
+	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
+    pcc_state->t_session_timeout = NULL;
 }
 
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
