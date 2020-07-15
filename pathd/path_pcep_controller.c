@@ -54,7 +54,8 @@ enum pcep_ctrl_event_type {
 	EV_PATHD_EVENT,
 	EV_SYNC_PATH,
 	EV_SYNC_DONE,
-	EV_PCEPLIB_EVENT
+	EV_PCEPLIB_EVENT,
+	EV_RESET_PCC_SESSION
 };
 
 struct pcep_ctrl_event_data {
@@ -245,6 +246,12 @@ int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, struct pce_opts *pce_opts)
 {
 	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
 	return send_to_thread(ctrl_state, 0, EV_REMOVE_PCC, 0, pce_opts);
+}
+
+int pcep_ctrl_reset_pcc_session(struct frr_pthread *fpt, char *pce_name)
+{
+	struct ctrl_state *ctrl_state = get_ctrl_state(fpt);
+	return send_to_thread(ctrl_state, 0, EV_RESET_PCC_SESSION, 0, pce_name);
 }
 
 int pcep_ctrl_pathd_event(struct frr_pthread *fpt,
@@ -681,6 +688,7 @@ int pcep_thread_event_handler(struct thread *thread)
 	struct path *path = NULL;
 	struct pcc_opts *pcc_opts = NULL;
 	struct pce_opts *pce_opts = NULL;
+	struct pcc_state *pcc_state = NULL;
 
 	switch (type) {
 	case EV_UPDATE_PCC_OPTS:
@@ -719,6 +727,18 @@ int pcep_thread_event_handler(struct thread *thread)
 		break;
 	case EV_SYNC_DONE:
 		ret = pcep_thread_event_sync_done(ctrl_state, pcc_id);
+		break;
+	case EV_RESET_PCC_SESSION:
+		pcc_state = pcep_pcc_get_pcc_by_name(ctrl_state->pcc,
+						     (const char *)payload);
+		if (pcc_state) {
+			pcep_pcc_disable(ctrl_state, pcc_state);
+			ret = pcep_pcc_enable(ctrl_state, pcc_state);
+		} else {
+			flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
+				  "Cannot reset state for PCE: %s",
+				  (const char *)payload);
+		}
 		break;
 	default:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,

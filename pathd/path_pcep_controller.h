@@ -105,6 +105,7 @@ int pcep_ctrl_update_pcc_options(struct frr_pthread *fpt,
 int pcep_ctrl_update_pce_options(struct frr_pthread *fpt,
 				 struct pce_opts *opts);
 int pcep_ctrl_remove_pcc(struct frr_pthread *fpt, struct pce_opts *pce_opts);
+int pcep_ctrl_reset_pcc_session(struct frr_pthread *fpt, char *pce_name);
 int pcep_ctrl_pathd_event(struct frr_pthread *fpt,
 			  enum pcep_pathd_event_type type, struct path *path);
 int pcep_ctrl_sync_path(struct frr_pthread *fpt, int pcc_id, struct path *path);

@@ -1303,6 +1303,53 @@ static int path_pcep_cli_show_pcep_session(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+static int path_pcep_cli_clear_pcep_session(struct vty *vty,
+					    const char *pcc_peer)
+{
+	struct pce_opts_cli *pce_opts_cli;
+	struct pcep_pcc_info *pcc_info;
+
+	/* Only clear 1 PCEP session */
+	if (pcc_peer != NULL) {
+		pce_opts_cli = pcep_cli_find_pce(pcc_peer);
+		if (pce_opts_cli == NULL) {
+			vty_out(vty, "%% PCE [%s] does not exist.\n", pcc_peer);
+			return CMD_WARNING;
+		}
+
+		if (!pcep_cli_pcc_has_pce(pcc_peer)) {
+			vty_out(vty, "%% PCC is not connected to PCE [%s].\n",
+				pcc_peer);
+			return CMD_WARNING;
+		}
+
+		pcep_ctrl_reset_pcc_session(pcep_g->fpt,
+					    pce_opts_cli->pce_opts.pce_name);
+		vty_out(vty, "PCEP session cleared for peer %s\n", pcc_peer);
+
+		return CMD_SUCCESS;
+	}
+
+	/* Clear all PCEP sessions */
+	struct pce_opts *pce_opts;
+	int num_pcep_sessions = 0;
+	for (int i = 0; i < MAX_PCC; i++) {
+		pce_opts = pce_connections_g.connections[i];
+		if (pce_opts == NULL) {
+			continue;
+		}
+
+		num_pcep_sessions++;
+		pcep_ctrl_reset_pcc_session(pcep_g->fpt, pce_opts->pce_name);
+		vty_out(vty, "PCEP session cleared for peer %s\n",
+			pce_opts->pce_name);
+	}
+
+	vty_out(vty, "Cleared [%d] PCEP sessions\n", num_pcep_sessions);
+
+	return CMD_SUCCESS;
+}
+
 /*
  * Config Write functions
  */
@@ -1775,6 +1822,15 @@ DEFPY(pcep_cli_show_pcep_session, pcep_cli_show_pcep_session_cmd,
 	return path_pcep_cli_show_pcep_session(vty, pcc_peer);
 }
 
+DEFPY(pcep_cli_clear_pcep_session, pcep_cli_clear_pcep_session_cmd,
+      "clear pcep-session [WORD]$pcc_peer",
+      CLEAR_STR
+      "Reset PCEP connection\n"
+      "PCC Peer name\n")
+{
+	return path_pcep_cli_clear_pcep_session(vty, pcc_peer);
+}
+
 void pcep_cli_init(void)
 {
 	hook_register(nb_client_debug_config_write,
@@ -1825,4 +1881,5 @@ void pcep_cli_init(void)
 	install_element(PCC_NODE, &pcep_cli_pcc_pcc_msd_cmd);
 
 	install_element(ENABLE_NODE, &pcep_cli_show_pcep_session_cmd);
+	install_element(ENABLE_NODE, &pcep_cli_clear_pcep_session_cmd);
 }
