@@ -19,6 +19,9 @@
 #ifndef _FRR_PATH_MPLS_H_
 #define _FRR_PATH_MPLS_H_
 
-bool get_inet_router_id(struct in_addr *router_id);
+#include <zebra.h>
+
+bool get_ipv4_router_id(struct in_addr *router_id);
+bool get_ipv6_router_id(struct in6_addr *router_id);
 
 #endif /* _FRR_PATH_MPLS_H_ */

@@ -16,8 +16,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <zebra.h>
-
 #include "thread.h"
 #include "log.h"
 #include "lib_errors.h"
@@ -40,19 +38,35 @@ static struct zclient *zclient_sync;
 
 /* Global Variables */
 bool g_has_router_id_v4 = false;
+bool g_has_router_id_v6 = false;
 struct in_addr g_router_id_v4;
-pthread_mutex_t g_router_id_mtx = PTHREAD_MUTEX_INITIALIZER;
+struct in6_addr g_router_id_v6;
+pthread_mutex_t g_router_id_v4_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t g_router_id_v6_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-bool get_inet_router_id(struct in_addr *router_id)
+bool get_ipv4_router_id(struct in_addr *router_id)
 {
 	bool retval = false;
 	assert(router_id != NULL);
-	pthread_mutex_lock(&g_router_id_mtx);
+	pthread_mutex_lock(&g_router_id_v4_mtx);
 	if (g_has_router_id_v4) {
 		memcpy(router_id, &g_router_id_v4, sizeof(*router_id));
 		retval = true;
 	}
-	pthread_mutex_unlock(&g_router_id_mtx);
+	pthread_mutex_unlock(&g_router_id_v4_mtx);
+	return retval;
+}
+
+bool get_ipv6_router_id(struct in6_addr *router_id)
+{
+	bool retval = false;
+	assert(router_id != NULL);
+	pthread_mutex_lock(&g_router_id_v6_mtx);
+	if (g_has_router_id_v6) {
+		memcpy(router_id, &g_router_id_v6, sizeof(*router_id));
+		retval = true;
+	}
+	pthread_mutex_unlock(&g_router_id_v6_mtx);
 	return retval;
 }
 
@@ -61,6 +75,8 @@ static void path_zebra_connected(struct zclient *zclient)
 	struct srte_policy *policy;
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_router_id_update(zclient, ZEBRA_ROUTER_ID_ADD, AFI_IP6,
+	                              VRF_DEFAULT);
 
 	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
 		struct srte_candidate *candidate;
@@ -106,24 +122,31 @@ static int path_zebra_sr_policy_notify_status(ZAPI_CALLBACK_ARGS)
 static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix pref;
+	const char *family;
 	char buf[PREFIX2STR_BUFFER];
-	pthread_mutex_lock(&g_router_id_mtx);
 	zebra_router_id_update_read(zclient->ibuf, &pref);
 	if (pref.family == AF_INET) {
+		pthread_mutex_lock(&g_router_id_v4_mtx);
 		memcpy(&g_router_id_v4, &pref.u.prefix4,
 		       sizeof(g_router_id_v4));
 		g_has_router_id_v4 = true;
+		inet_ntop(AF_INET, &g_router_id_v4, buf, sizeof(buf));
+		pthread_mutex_unlock(&g_router_id_v4_mtx);
+		family = "IPv4";
+	} else if (pref.family == AF_INET6) {
+		pthread_mutex_lock(&g_router_id_v6_mtx);
+		memcpy(&g_router_id_v6, &pref.u.prefix6,
+		       sizeof(g_router_id_v6));
+		g_has_router_id_v6 = true;
+		inet_ntop(AF_INET6, &g_router_id_v6, buf, sizeof(buf));
+		pthread_mutex_unlock(&g_router_id_v6_mtx);
+		family = "IPv6";
 	} else {
-		memset(&g_router_id_v4, 0, sizeof(g_router_id_v4));
-		g_has_router_id_v4 = false;
-		zlog_warn(
-			"INET Router ID address family for vrf %u is "
-			"expected to be %u, got %u",
-			vrf_id, AF_INET, pref.family);
+		zlog_warn("Unexpected router ID address family for vrf %u: %u",
+			  vrf_id, pref.family);
 	}
-	pthread_mutex_unlock(&g_router_id_mtx);
-	inet_ntop(AF_INET, &g_router_id_v4, buf, sizeof(buf));
-	zlog_info("INET Router Id updated for VRF %u: %s", vrf_id, buf);
+	pthread_mutex_unlock(&g_router_id_v4_mtx);
+	zlog_info("%s Router Id updated for VRF %u: %s", family, vrf_id, buf);
 	return 0;
 }
 

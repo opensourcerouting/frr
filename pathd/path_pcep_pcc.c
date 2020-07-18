@@ -17,12 +17,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/* TODOS:
+/* TODOS AND KNOWN ISSUES:
 	- Delete mapping from NB keys to PLSPID when an LSP is deleted either
 	  by the PCE or by NB.
 	- Revert the hacks to work around ODL requiring a report with
 	  operational status DOWN when an LSP is activated.
 	- Enforce only the PCE a policy has been delegated to can update it.
+	- If the router-id is used because the PCC IP is not specified
+	  (either IPv4 or IPv6), the connection to the PCE is not reset
+	  when the router-id changes.
 */
 
 #include <zebra.h>
@@ -335,11 +338,34 @@ int pcep_pcc_enable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 				  pcc_state->pce_opts->port);
 			schedule_reconnect(ctrl_state, pcc_state);
 			return 0;
+		} else {
+			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
+				  "missing IPv4 PCC address, IPv4 candidate "
+				  "paths will be ignored");
 		}
 	}
 
-	/* TODO: when IPv6 router ID is available, we want to do the same */
+	/* Even though we are connecting using IPv4. we want to have an IPv6
+	 * address so we can handle candidate path with IPv6 endpoints */
+	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6)) {
+		if (pcc_state->retry_count < OTHER_FAMILY_MAX_RETRIES) {
+			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
+				  "skipping connection to PCE %s:%d due to "
+				  "missing PCC IPv6 address",
+				  ipaddr2str(&pcc_state->pce_opts->addr,
+					     pce_buff, sizeof(pce_buff)),
+				  pcc_state->pce_opts->port);
+			schedule_reconnect(ctrl_state, pcc_state);
+			return 0;
+		} else {
+			flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
+				  "missing IPv6 PCC address, IPv6 candidate "
+				  "paths will be ignored");
+		}
+	}
 
+	/* Even if the maximum retries to try to have all the familly addresses
+	 * have been spent, we still need the one for the transport familly */
 	if (pcc_state->pcc_addr_tr.ipa_type == IPADDR_NONE) {
 		flog_warn(EC_PATH_PCEP_MISSING_SOURCE_ADDRESS,
 			  "skipping connection to PCE %s:%d due to missing "
@@ -786,12 +812,17 @@ void select_pcc_addresses(struct pcc_state *pcc_state)
 {
 	/* If no IPv4 address was specified, try to get one from zebra */
 	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4)) {
-		if (get_inet_router_id(&pcc_state->pcc_addr_v4)) {
+		if (get_ipv4_router_id(&pcc_state->pcc_addr_v4)) {
 			SET_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV4);
 		}
 	}
 
-	/* TODO: Add support for IPv6 router ID when available */
+	/* If no IPv6 address was specified, try to get one from zebra */
+	if (!CHECK_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6)) {
+		if (get_ipv6_router_id(&pcc_state->pcc_addr_v6)) {
+			SET_FLAG(pcc_state->flags, F_PCC_STATE_HAS_IPV6);
+		}
+	}
 }
 
 void select_transport_address(struct pcc_state *pcc_state)
@@ -801,8 +832,6 @@ void select_transport_address(struct pcc_state *pcc_state)
 	select_pcc_addresses(pcc_state);
 
 	taddr->ipa_type = IPADDR_NONE;
-
-	/* TODO: Add support for IPv6 router ID when available */
 
 	/* Select a transport source address in function of the configured PCE
 	 * address */
