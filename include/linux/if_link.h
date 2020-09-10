@@ -171,6 +171,7 @@ enum {
 	IFLA_ALT_IFNAME, /* Alternative ifname */
 	IFLA_PERM_ADDRESS,
 	IFLA_PROTO_DOWN_REASON,
+	IFLA_VIF = 56,
 	__IFLA_MAX
 };
 
