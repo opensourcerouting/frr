@@ -4,6 +4,10 @@
 
 if ATTACHD
 sbin_PROGRAMS += attachd/attachd
+#vtysh_scan += \
+#	attachd/dhcp6_iface.c \
+#	attachd/dhcp6_upstream.c \
+#	# end
 vtysh_daemons += attachd
 man8 += $(MANBUILD)/frr-attachd.8
 endif
@@ -14,6 +18,13 @@ attachd_attachd_SOURCES = \
 	attachd/attachd_iface.c \
 	attachd/attachd_vrf.c \
 	attachd/attachd_zebra.c \
+	\
+	attachd/dhcp6_parse.c \
+	attachd/dhcp6_formats.c \
+	attachd/dhcp6_iface.c \
+	attachd/dhcp6_state.c \
+	attachd/dhcp6_upstream.c \
+	attachd/dhcp6_zebra.c \
 	\
 	attachd/rtadv.c \
 	attachd/rtadv_vty.c \
@@ -32,5 +43,7 @@ noinst_HEADERS += \
 	# end
 
 clippy_scan += \
+	attachd/dhcp6_iface.c \
+	attachd/dhcp6_upstream.c \
 	attachd/rtadv_vty.c \
 	# end

@@ -36,6 +36,7 @@ static int attachd_if_del_hook(struct interface *ifp)
 
 static int attachd_if_config_write(struct vty *vty)
 {
+	dhcp6r_if_config_write(vty);
 	return 0;
 }
 

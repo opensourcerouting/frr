@@ -17,6 +17,7 @@
 
 DEFINE_MGROUP(ATTACHD, "attachd");
 DEFINE_MGROUP(NHRPD, "buffer management");
+DEFINE_MGROUP(DHCP6, "DHCPv6");
 
 static void attachd_fini(void);
 
@@ -136,6 +137,11 @@ int main(int argc, char **argv, char **envp)
 	attachd_if_init();
 
 	rtadv_init();
+
+	dhcp6_state_init();
+	dhcp6r_zebra_init();
+	dhcp6r_if_init();
+	dhcp6_upstream_init();
 
 	frr_config_fork();
 	frr_run(master);

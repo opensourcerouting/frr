@@ -1679,6 +1679,20 @@ static struct cmd_node pim6_node = {
 	.prompt = "%s(config-pim6)# ",
 };
 
+static struct cmd_node dhcp6_upstream_node = {
+	.name = "dhcp6-upstream-server",
+	.node = DHCP6_SERVER_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-dhcp6-server)# ",
+};
+
+static struct cmd_node dhcp6_ugroup_node = {
+	.name = "dhcp6-upstream-server-group",
+	.node = DHCP6_SERVER_GROUP_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-dhcp6-server-group)# ",
+};
+
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
 
@@ -5783,6 +5797,8 @@ void vtysh_init_vty(void)
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
 
+	install_node(&dhcp6_upstream_node);
+	install_node(&dhcp6_ugroup_node);
 
 	struct cmd_node *node;
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
