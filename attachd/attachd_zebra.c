@@ -14,6 +14,9 @@
 #include "frrevent.h"
 #include "zclient.h"
 
+DEFINE_HOOK(attachd_if_addr_add, (struct connected *c), (c));
+DEFINE_KOOH(attachd_if_addr_del, (struct connected *c), (c));
+
 struct zclient *attachd_zclient = NULL;
 
 extern struct zebra_privs_t attachd_privs;
@@ -23,8 +26,7 @@ static int attachd_if_addr_add(ZAPI_CALLBACK_ARGS)
 	struct connected *c;
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
-	(void)c;
-
+	hook_call(attachd_if_addr_add, c);
 	return 0;
 }
 
@@ -37,6 +39,7 @@ static int attachd_if_addr_del(ZAPI_CALLBACK_ARGS)
 	if (!c)
 		return 0;
 
+	hook_call(attachd_if_addr_del, c);
 	connected_free(&c);
 	return 0;
 }
