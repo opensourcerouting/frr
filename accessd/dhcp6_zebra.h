@@ -16,26 +16,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_ACCESSD_H
-#define _FRR_ACCESSD_H
+#ifndef _FRR_DHCP6_ZEBRA_H
+#define _FRR_DHCP6_ZEBRA_H
 
-#include "lib/memory.h"
-#include "lib/privs.h"
+struct dhcp6_binding;
+struct dhcp6_pdprefix;
 
-DECLARE_MGROUP(DHCP6);
+extern void dhcp6r_zebra_ipv6_add(struct dhcp6_binding *bnd,
+				  struct dhcp6_pdprefix *pdp);
+extern void dhcp6r_zebra_ipv6_del(struct dhcp6_binding *bnd,
+				  struct dhcp6_pdprefix *pdp);
 
-struct thread_master;
-
-extern struct thread_master *master;
-extern struct zebra_privs_t accessd_privs;
-
-extern void accessd_zebra_init(void);
-extern void accessd_vrf_init(void);
-extern void accessd_if_init(void);
-
-extern void dhcp6r_if_init(void);
-extern void dhcp6r_zebra_init(void);
-extern void dhcp6_state_init(void);
-extern void dhcp6_upstream_init(void);
-
-#endif /* _FRR_ACCESSD_H */
+#endif /* _FRR_DHCP6_ZEBRA_H */

@@ -35,6 +35,8 @@
 DEFINE_MGROUP(ACCESSD, "accessd");
 DEFINE_MGROUP(NHRPD, "buffer management");
 
+DEFINE_MGROUP(DHCP6, "DHCPv6");
+
 static zebra_capabilities_t _caps_p[] = {
 	ZCAP_BIND,
 };
@@ -143,6 +145,11 @@ int main(int argc, char **argv, char **envp)
 	accessd_zebra_init();
 	accessd_vrf_init();
 	accessd_if_init();
+
+	dhcp6_state_init();
+	dhcp6r_zebra_init();
+	dhcp6r_if_init();
+	dhcp6_upstream_init();
 
 	frr_config_fork();
 	frr_run(master);

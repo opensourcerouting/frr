@@ -4,6 +4,10 @@
 
 if ACCESSD
 sbin_PROGRAMS += accessd/accessd
+#vtysh_scan += \
+#	accessd/dhcp6_iface.c \
+#	accessd/dhcp6_upstream.c \
+#	# end
 vtysh_daemons += accessd
 #man8 += $(MANBUILD)/frr-accessd.8
 endif
@@ -14,6 +18,13 @@ accessd_accessd_SOURCES = \
 	accessd/accessd_iface.c \
 	accessd/accessd_vrf.c \
 	accessd/accessd_zebra.c \
+	\
+	accessd/dhcp6_parse.c \
+	accessd/dhcp6_formats.c \
+	accessd/dhcp6_iface.c \
+	accessd/dhcp6_state.c \
+	accessd/dhcp6_upstream.c \
+	accessd/dhcp6_zebra.c \
 	\
 	nhrpd/zbuf.c \
 	# end
@@ -26,4 +37,6 @@ noinst_HEADERS += \
 	# end
 
 clippy_scan += \
+	accessd/dhcp6_iface.c \
+	accessd/dhcp6_upstream.c \
 	# end

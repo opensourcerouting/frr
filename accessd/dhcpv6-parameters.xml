@@ -1,0 +1,1825 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?xml-stylesheet type="text/xsl" href="dhcpv6-parameters.xsl"?>
+<?xml-model href="dhcpv6-parameters.rng" schematypens="http://relaxng.org/ns/structure/1.0" ?>
+<registry xmlns="http://www.iana.org/assignments" id="dhcpv6-parameters">
+  <title>Dynamic Host Configuration Protocol for IPv6 (DHCPv6)</title>
+  <created>2003-11-03</created>
+  <updated>2021-01-15</updated>
+  <note>For the Civic Address Types Registry <xref type="rfc" data="rfc4776"/>, please see:
+http://www.iana.org/assignments/civic-address-types-registry</note>
+
+
+  <registry id="dhcpv6-parameters-1">
+    <title>Message Types</title>
+    <xref type="rfc" data="rfc8415"/>
+    <registration_rule>Standards Action</registration_rule>
+    <record>
+      <value>0</value>
+      <description>Reserved</description>
+    </record>
+    <record>
+      <value>1</value>
+      <description>SOLICIT</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>2</value>
+      <description>ADVERTISE</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>3</value>
+      <description>REQUEST</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>4</value>
+      <description>CONFIRM</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>5</value>
+      <description>RENEW</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>6</value>
+      <description>REBIND</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>7</value>
+      <description>REPLY</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>8</value>
+      <description>RELEASE</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>9</value>
+      <description>DECLINE</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>10</value>
+      <description>RECONFIGURE</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>11</value>
+      <description>INFORMATION-REQUEST</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>12</value>
+      <description>RELAY-FORW</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>13</value>
+      <description>RELAY-REPL</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>14</value>
+      <description>LEASEQUERY</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>15</value>
+      <description>LEASEQUERY-REPLY</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>16</value>
+      <description>LEASEQUERY-DONE</description>
+      <xref type="rfc" data="rfc5460"/>
+    </record>
+    <record>
+      <value>17</value>
+      <description>LEASEQUERY-DATA</description>
+      <xref type="rfc" data="rfc5460"/>
+    </record>    
+    <record>
+      <value>18</value>
+      <description>RECONFIGURE-REQUEST</description>
+      <xref type="rfc" data="rfc6977"/>
+    </record>    
+    <record>
+      <value>19</value>
+      <description>RECONFIGURE-REPLY</description>
+      <xref type="rfc" data="rfc6977"/>
+    </record>
+    <record date="2014-06-19">
+      <value>20</value>
+      <description>DHCPV4-QUERY</description>
+      <xref type="rfc" data="rfc7341"/>
+    </record>
+    <record date="2014-06-19">
+      <value>21</value>
+      <description>DHCPV4-RESPONSE</description>
+      <xref type="rfc" data="rfc7341"/>
+    </record>
+    <record date="2015-07-31">
+      <value>22</value>
+      <description>ACTIVELEASEQUERY</description>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-07-31">
+      <value>23</value>
+      <description>STARTTLS</description>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2017-03-03">
+      <value>24</value>
+      <description>BNDUPD</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>25</value>
+      <description>BNDREPLY</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>26</value>
+      <description>POOLREQ</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>27</value>
+      <description>POOLRESP</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>28</value>
+      <description>UPDREQ</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>29</value>
+      <description>UPDREQALL</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>30</value>
+      <description>UPDDONE</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>31</value>
+      <description>CONNECT</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>32</value>
+      <description>CONNECTREPLY</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>33</value>
+      <description>DISCONNECT</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>34</value>
+      <description>STATE</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>35</value>
+      <description>CONTACT</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record>
+      <value>36-255</value>
+      <description>Unassigned</description>
+    </record>
+  </registry>
+
+
+  <registry id="dhcpv6-parameters-2">
+    <title>Option Codes</title>
+    <xref type="rfc" data="rfc8415"/>
+    <registration_rule>Expert Review and Standards Action</registration_rule>
+    <expert>Ted Lemon, Bernie Volz, Tomek Mrugalski</expert>
+    <note>For the "Client ORO" column: a "Yes" for an option means that
+the client includes this option code in the Option Request
+option (see Section 21.7 of <xref type="rfc" data="rfc8415"/>) 
+if it desires that configuration information; a "No" means 
+that the option MUST NOT be included (and servers SHOULD 
+silently ignore that option code if it appears in a client's 
+Option Request option).
+    </note>
+    <record>
+      <value>0</value>
+      <description>Reserved</description>
+      <oro/>
+      <singleton/>
+    </record>
+    <record>
+      <value>1</value>
+      <description>OPTION_CLIENTID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>2</value>
+      <description>OPTION_SERVERID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>3</value>
+      <description>OPTION_IA_NA</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>4</value>
+      <description>OPTION_IA_TA</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>5</value>
+      <description>OPTION_IAADDR</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>6</value>
+      <description>OPTION_ORO</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>7</value>
+      <description>OPTION_PREFERENCE</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>8</value>
+      <description>OPTION_ELAPSED_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>9</value>
+      <description>OPTION_RELAY_MSG</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>10</value>
+      <description>Unassigned</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+    </record>
+    <record>
+      <value>11</value>
+      <description>OPTION_AUTH</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>12</value>
+      <description>OPTION_UNICAST</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>13</value>
+      <description>OPTION_STATUS_CODE</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>14</value>
+      <description>OPTION_RAPID_COMMIT</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>15</value>
+      <description>OPTION_USER_CLASS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>16</value>
+      <description>OPTION_VENDOR_CLASS</description>
+      <oro>No</oro>
+      <singleton>No<xref type="note" data="1"/></singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>17</value>
+      <description>OPTION_VENDOR_OPTS</description>
+      <oro>Optional</oro>
+      <singleton>No<xref type="note" data="1"/></singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>18</value>
+      <description>OPTION_INTERFACE_ID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>19</value>
+      <description>OPTION_RECONF_MSG</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>20</value>
+      <description>OPTION_RECONF_ACCEPT</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>21</value>
+      <description>OPTION_SIP_SERVER_D</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3319"/>
+    </record>
+    <record>
+      <value>22</value>
+      <description>OPTION_SIP_SERVER_A</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3319"/>
+    </record>
+    <record>
+      <value>23</value>
+      <description>OPTION_DNS_SERVERS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3646"/>
+    </record>
+    <record>
+      <value>24</value>
+      <description>OPTION_DOMAIN_LIST</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3646"/>
+    </record>
+    <record>
+      <value>25</value>
+      <description>OPTION_IA_PD</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc3633"/>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>26</value>
+      <description>OPTION_IAPREFIX</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc3633"/>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>27</value>
+      <description>OPTION_NIS_SERVERS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3898"/>
+    </record>
+    <record>
+      <value>28</value>
+      <description>OPTION_NISP_SERVERS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3898"/>
+    </record>
+    <record>
+      <value>29</value>
+      <description>OPTION_NIS_DOMAIN_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3898"/>
+    </record>
+    <record>
+      <value>30</value>
+      <description>OPTION_NISP_DOMAIN_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc3898"/>
+    </record>
+    <record>
+      <value>31</value>
+      <description>OPTION_SNTP_SERVERS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4075"/>
+    </record>
+    <record>
+      <value>32</value>
+      <description>OPTION_INFORMATION_REFRESH_TIME</description>
+      <oro>Required for Information-request</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4242"/>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>33</value>
+      <description>OPTION_BCMCS_SERVER_D</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4280"/>
+    </record>
+    <record>
+      <value>34</value>
+      <description>OPTION_BCMCS_SERVER_A</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4280"/>
+    </record>
+    <record>
+      <value>35</value>
+      <description>Unassigned</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+    </record>
+    <record>
+      <value>36</value>
+      <description>OPTION_GEOCONF_CIVIC</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4776"/>
+    </record>
+    <record>
+      <value>37</value>
+      <description>OPTION_REMOTE_ID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4649"/>
+    </record>
+    <record>
+      <value>38</value>
+      <description>OPTION_SUBSCRIBER_ID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4580"/>
+    </record>
+    <record>
+      <value>39</value>
+      <description>OPTION_CLIENT_FQDN</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4704"/>
+    </record>
+    <record>
+      <value>40</value>
+      <description>OPTION_PANA_AGENT</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5192"/>
+    </record>
+    <record>
+      <value>41</value>
+      <description>OPTION_NEW_POSIX_TIMEZONE</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4833"/>
+    </record>
+    <record>
+      <value>42</value>
+      <description>OPTION_NEW_TZDB_TIMEZONE</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4833"/>
+    </record>
+    <record>
+      <value>43</value>
+      <description>OPTION_ERO</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc4994"/>
+    </record>
+    <record>
+      <value>44</value>
+      <description>OPTION_LQ_QUERY</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>45</value>
+      <description>OPTION_CLIENT_DATA</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>46</value>
+      <description>OPTION_CLT_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>47</value>
+      <description>OPTION_LQ_RELAY_DATA</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>48</value>
+      <description>OPTION_LQ_CLIENT_LINK</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>49</value>
+      <description>OPTION_MIP6_HNIDF</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>50</value>
+      <description>OPTION_MIP6_VDINF</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>51</value>
+      <description>OPTION_V6_LOST</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5223"/>
+    </record>
+    <record>
+      <value>52</value>
+      <description>OPTION_CAPWAP_AC_V6</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5417"/>
+    </record>
+    <record>
+      <value>53</value>
+      <description>OPTION_RELAY_ID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5460"/>
+    </record>
+    <record>
+      <value>54</value>
+      <description>OPTION-IPv6_Address-MoS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+    <record>
+      <value>55</value>
+      <description>OPTION-IPv6_FQDN-MoS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+    <record>
+      <value>56</value>
+      <description>OPTION_NTP_SERVER</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5908"/>
+    </record>
+    <record>
+      <value>57</value>
+      <description>OPTION_V6_ACCESS_DOMAIN</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5986"/>
+    </record>
+    <record>
+      <value>58</value>
+      <description>OPTION_SIP_UA_CS_LIST</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6011"/>
+    </record>
+    <record>
+      <value>59</value>
+      <description>OPT_BOOTFILE_URL</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5970"/>
+    </record>
+    <record>
+      <value>60</value>
+      <description>OPT_BOOTFILE_PARAM</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5970"/>
+    </record>
+    <record>
+      <value>61</value>
+      <description>OPTION_CLIENT_ARCH_TYPE</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5970"/>
+    </record>
+    <record>
+      <value>62</value>
+      <description>OPTION_NII</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc5970"/>
+    </record>
+    <record>
+      <value>63</value>
+      <description>OPTION_GEOLOCATION</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6225"/>
+    </record>
+    <record>
+      <value>64</value>
+      <description>OPTION_AFTR_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6334"/>
+    </record>
+    <record>
+      <value>65</value>
+      <description>OPTION_ERP_LOCAL_DOMAIN_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6440"/>
+    </record>
+    <record>
+      <value>66</value>
+      <description>OPTION_RSOO</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6422"/>
+    </record>
+    <record>
+      <value>67</value>
+      <description>OPTION_PD_EXCLUDE</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6603"/>
+    </record>
+    <record>
+      <value>68</value>
+      <description>OPTION_VSS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6607"/>
+    </record>
+    <record>
+      <value>69</value>
+      <description>OPTION_MIP6_IDINF</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>70</value>
+      <description>OPTION_MIP6_UDINF</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>71</value>
+      <description>OPTION_MIP6_HNP</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>72</value>
+      <description>OPTION_MIP6_HAA</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>73</value>
+      <description>OPTION_MIP6_HAF</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6610"/>
+    </record>
+    <record>
+      <value>74</value>
+      <description>OPTION_RDNSS_SELECTION</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6731"/>
+    </record>
+    <record>
+      <value>75</value>
+      <description>OPTION_KRB_PRINCIPAL_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6784"/>
+    </record>
+    <record>
+      <value>76</value>
+      <description>OPTION_KRB_REALM_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6784"/>
+    </record>
+    <record>
+      <value>77</value>
+      <description>OPTION_KRB_DEFAULT_REALM_NAME</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6784"/>
+    </record>
+    <record>
+      <value>78</value>
+      <description>OPTION_KRB_KDC</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6784"/>
+    </record>    
+    <record>
+      <value>79</value>
+      <description>OPTION_CLIENT_LINKLAYER_ADDR</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6939"/>
+    </record>    
+    <record>
+      <value>80</value>
+      <description>OPTION_LINK_ADDRESS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6977"/>
+    </record>
+    <record>
+      <value>81</value>
+      <description>OPTION_RADIUS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7037"/>
+    </record>    
+    <record date="2013-09-30">
+      <value>82</value>
+      <description>OPTION_SOL_MAX_RT</description>
+      <oro>Required for Solicit</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7083"/>
+      <xref type="rfc" data="rfc8415"/>
+    </record>    
+    <record date="2013-09-30">
+      <value>83</value>
+      <description>OPTION_INF_MAX_RT</description>
+      <oro>Required for Information-request</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7083"/>
+      <xref type="rfc" data="rfc8415"/>
+    </record>    
+    <record date="2013-10-10">
+      <value>84</value>
+      <description>OPTION_ADDRSEL</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7078"/>
+    </record>    
+    <record date="2013-10-10">
+      <value>85</value>
+      <description>OPTION_ADDRSEL_TABLE</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7078"/>
+    </record>
+    <record date="2014-04-17">
+      <value>86</value>
+      <description>OPTION_V6_PCP_SERVER</description>
+      <oro>Yes</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc7291"/>
+    </record>
+    <record date="2014-06-19">
+      <value>87</value>
+      <description>OPTION_DHCPV4_MSG</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7341"/>
+    </record>
+    <record date="2014-06-19">
+      <value>88</value>
+      <description>OPTION_DHCP4_O_DHCP6_SERVER</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7341"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>89</value>
+      <description>OPTION_S46_RULE</description>
+      <oro>No</oro>
+      <singleton>No<xref type="note" data="2"/></singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2014-08-22" updated="2019-01-04">
+      <value>90</value>
+      <description>OPTION_S46_BR</description>
+      <oro>Yes</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc7598"/>
+      <xref type="rfc" data="rfc8539"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>91</value>
+      <description>OPTION_S46_DMR</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>92</value>
+      <description>OPTION_S46_V4V6BIND</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>93</value>
+      <description>OPTION_S46_PORTPARAMS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>94</value>
+      <description>OPTION_S46_CONT_MAPE</description>
+      <oro>Yes</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>95</value>
+      <description>OPTION_S46_CONT_MAPT</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2014-08-22" updated="2015-03-15">
+      <value>96</value>
+      <description>OPTION_S46_CONT_LW</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2015-03-26">
+      <value>97</value>
+      <description>OPTION_4RD</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7600"/>
+    </record>
+    <record date="2015-03-26" updated="2015-04-07">
+      <value>98</value>
+      <description>OPTION_4RD_MAP_RULE</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7600"/>
+    </record>
+    <record date="2015-03-26" updated="2015-04-07">
+      <value>99</value>
+      <description>OPTION_4RD_NON_MAP_RULE</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7600"/>
+    </record>
+    <record date="2015-07-31">
+      <value>100</value>
+      <description>OPTION_LQ_BASE_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-07-31">
+      <value>101</value>
+      <description>OPTION_LQ_START_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-07-31">
+      <value>102</value>
+      <description>OPTION_LQ_END_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-10-01" updated="2020-07-09">
+      <value>103</value>
+      <description>DHCP Captive-Portal</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8910"/>
+    </record>
+    <record date="2015-11-19">
+      <value>104</value>
+      <description>OPTION_MPL_PARAMETERS</description>
+      <oro>Yes</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc7774"/>
+    </record>
+    <record date="2016-02-10">
+      <value>105</value>
+      <description>OPTION_ANI_ATT</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7839"/>
+    </record>
+    <record date="2016-02-10">
+      <value>106</value>
+      <description>OPTION_ANI_NETWORK_NAME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7839"/>
+    </record>
+    <record date="2016-02-10">
+      <value>107</value>
+      <description>OPTION_ANI_AP_NAME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7839"/>
+    </record>
+    <record date="2016-02-10">
+      <value>108</value>
+      <description>OPTION_ANI_AP_BSSID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7839"/>
+    </record>
+    <record date="2016-02-10">
+      <value>109</value>
+      <description>OPTION_ANI_OPERATOR_ID</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7839"/>
+    </record>
+    <record date="2016-02-10">
+      <value>110</value>
+      <description>OPTION_ANI_OPERATOR_REALM</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc7839"/>
+    </record>
+    <record date="2016-10-06">
+      <value>111</value>
+      <description>OPTION_S46_PRIORITY</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8026"/>
+    </record>
+    <record date="2016-12-06">
+      <value>112</value>
+      <description>OPTION_MUD_URL_V6</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8520"/>
+    </record>
+    <record date="2017-02-16">
+      <value>113</value>
+      <description>OPTION_V6_PREFIX64</description>
+      <oro>Yes</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc8115"/>
+    </record>
+    <record date="2017-03-03">
+      <value>114</value>
+      <description>OPTION_F_BINDING_STATUS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>115</value>
+      <description>OPTION_F_CONNECT_FLAGS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>116</value>
+      <description>OPTION_F_DNS_REMOVAL_INFO</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>117</value>
+      <description>OPTION_F_DNS_HOST_NAME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>118</value>
+      <description>OPTION_F_DNS_ZONE_NAME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>119</value>
+      <description>OPTION_F_DNS_FLAGS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>120</value>
+      <description>OPTION_F_EXPIRATION_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>121</value>
+      <description>OPTION_F_MAX_UNACKED_BNDUPD</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>122</value>
+      <description>OPTION_F_MCLT</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>123</value>
+      <description>OPTION_F_PARTNER_LIFETIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>124</value>
+      <description>OPTION_F_PARTNER_LIFETIME_SENT</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>125</value>
+      <description>OPTION_F_PARTNER_DOWN_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>126</value>
+      <description>OPTION_F_PARTNER_RAW_CLT_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>127</value>
+      <description>OPTION_F_PROTOCOL_VERSION</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>128</value>
+      <description>OPTION_F_KEEPALIVE_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>129</value>
+      <description>OPTION_F_RECONFIGURE_DATA</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>130</value>
+      <description>OPTION_F_RELATIONSHIP_NAME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>131</value>
+      <description>OPTION_F_SERVER_FLAGS</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>132</value>
+      <description>OPTION_F_SERVER_STATE</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>133</value>
+      <description>OPTION_F_START_TIME_OF_STATE</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>134</value>
+      <description>OPTION_F_STATE_EXPIRATION_TIME</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-12-27" updated="2018-01-03">
+      <value>135</value>
+      <description>OPTION_RELAY_PORT</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8357"/>
+    </record>
+    <record date="2018-02-08" updated="2019-01-16">
+      <value>136</value>
+      <description>OPTION_V6_SZTP_REDIRECT</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8572"/>
+    </record>
+    <record date="2019-01-04">
+      <value>137</value>
+      <description>OPTION_S46_BIND_IPV6_PREFIX</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8539"/>
+    </record>
+    <record date="2020-09-11">
+      <value>138</value>
+      <description>OPTION_IA_LL</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc8947"/>
+    </record>
+    <record date="2020-09-11">
+      <value>139</value>
+      <description>OPTION_LLADDR</description>
+      <oro>No</oro>
+      <singleton>No</singleton>
+      <xref type="rfc" data="rfc8947"/>
+    </record>
+    <record date="2020-10-15">
+      <value>140</value>
+      <description>OPTION_SLAP_QUAD</description>
+      <oro>No</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8948"/>
+    </record>
+    <record date="2020-11-19">
+      <value>141</value>
+      <description>OPTION_V6_DOTS_RI</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8973"/>
+    </record>
+    <record date="2020-11-19">
+      <value>142</value>
+      <description>OPTION_V6_DOTS_ADDRESS</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc8973"/>
+    </record>
+    <record date="2014-04-17">
+      <value>143</value>
+      <description>OPTION-IPv6_Address-ANDSF</description>
+      <oro>Yes</oro>
+      <singleton>Yes</singleton>
+      <xref type="rfc" data="rfc6153"/>
+    </record>
+    <record>
+      <value>144-65535</value>
+      <description>Unassigned</description>
+      <oro/>
+      <singleton/>
+    </record>
+    <footnote anchor="1">For each enterprise-number, there MUST only be a single instance.</footnote>
+    <footnote anchor="2">See <xref type="rfc" data="rfc7598"/> for details.</footnote>
+  </registry>
+
+
+  
+
+
+  <registry id="dhcpv6-parameters-5">
+    <title>Status Codes</title>
+    <xref type="rfc" data="rfc8415"/>
+    <registration_rule>Standards Action</registration_rule>
+    <record>
+      <value>0</value>
+      <description>Success</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>1</value>
+      <description>UnspecFail</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>2</value>
+      <description>NoAddrsAvail</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>3</value>
+      <description>NoBinding</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>4</value>
+      <description>NotOnLink</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>5</value>
+      <description>UseMulticast</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>6</value>
+      <description>NoPrefixAvail</description>
+      <xref type="rfc" data="rfc3633"/>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>7</value>
+      <description>UnknownQueryType</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>8</value>
+      <description>MalformedQuery</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>9</value>
+      <description>NotConfigured</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>10</value>
+      <description>NotAllowed</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>11</value>
+      <description>QueryTerminated</description>
+      <xref type="rfc" data="rfc5460"/>
+    </record>
+    <record date="2015-07-31">
+      <value>12</value>
+      <description>DataMissing</description>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-07-31">
+      <value>13</value>
+      <description>CatchUpComplete</description>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-07-31">
+      <value>14</value>
+      <description>NotSupported</description>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2015-07-31">
+      <value>15</value>
+      <description>TLSConnectionRefused</description>
+      <xref type="rfc" data="rfc7653"/>
+    </record>
+    <record date="2017-03-03">
+      <value>16</value>
+      <description>AddressInUse</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>17</value>
+      <description>ConfigurationConflict</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>18</value>
+      <description>MissingBindingInformation</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>19</value>
+      <description>OutdatedBindingInformation</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>20</value>
+      <description>ServerShuttingDown</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>21</value>
+      <description>DNSUpdateNotSupported</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record date="2017-03-03">
+      <value>22</value>
+      <description>ExcessiveTimeSkew</description>
+      <xref type="rfc" data="rfc8156"/>
+    </record>
+    <record>
+      <value>23-65535</value>
+      <description>Unassigned</description>
+    </record>
+  </registry>
+
+
+  <registry id="dhcpv6-parameters-6">
+    <title>DUIDs</title>
+    <xref type="rfc" data="rfc8415"/>
+    <registration_rule>Standards Action</registration_rule>
+    <record>
+      <value>1</value>
+      <description>DUID-LLT</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>2</value>
+      <description>DUID-EN</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>3</value>
+      <description>DUID-LL</description>
+      <xref type="rfc" data="rfc8415"/>
+    </record>
+    <record>
+      <value>4</value>
+      <description>DUID-UUID</description>
+      <xref type="rfc" data="rfc6355"/>
+    </record>
+  </registry>
+ 
+ 
+  <registry id="dhcpv6-parameters-7">
+    <title>OPTION_LQ_QUERY option</title>
+    <xref type="rfc" data="rfc5007"/>
+    <registration_rule>Standards Action</registration_rule>
+    <record>
+      <value>0</value>
+      <description>Reserved</description>
+    </record>
+    <record>
+      <value>1</value>
+      <description>QUERY_BY_ADDRESS</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>2</value>
+      <description>QUERY_BY_CLIENTID</description>
+      <xref type="rfc" data="rfc5007"/>
+    </record>
+    <record>
+      <value>3</value>
+      <description>QUERY_BY_RELAY_ID</description>
+      <xref type="rfc" data="rfc5460"/>
+    </record>
+    <record>
+      <value>4</value>
+      <description>QUERY_BY_LINK_ADDRESS</description>
+      <xref type="rfc" data="rfc5460"/>
+    </record>
+    <record>
+      <value>5</value>
+      <description>QUERY_BY_REMOTE_ID</description>
+      <xref type="rfc" data="rfc5460"/>
+    </record>
+    <record>
+      <value>6-255</value>
+      <description>Unassigned</description>
+    </record>
+  </registry>
+
+
+  <registry id="ieee-80221-service-type">
+    <title>IEEE 802.21 Service Type (MoS DHCPv6 Address and FQDN Sub-Options)</title>
+    <xref type="rfc" data="rfc5678"/>
+    <registration_rule>Standards Action</registration_rule>
+    <record>
+      <value>0</value>
+      <description>Reserved</description>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+    <record>
+      <value>1</value>
+      <description>IS</description>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+    <record>
+      <value>2</value>
+      <description>CS</description>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+    <record>
+      <value>3</value>
+      <description>ES</description>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+    <record>
+      <value>4-65534</value>
+      <description>Unassigned</description>
+    </record>
+    <record>
+      <value>65535</value>
+      <description>Reserved</description>
+      <xref type="rfc" data="rfc5678"/>
+    </record>
+  </registry>
+ 
+  <registry id="processor-architecture">
+    <title>Processor Architecture Types</title>
+    <xref type="rfc" data="rfc5970"/>
+    <registration_rule>Expert Review</registration_rule>
+    <expert>Vincent Zimmer, Bernie Volz, Tomek Mrugalski</expert>
+    <record>
+      <value>0x00 0x00</value>
+      <description>x86 BIOS</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x01</value>
+      <description>NEC/PC98 (DEPRECATED)</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x02</value>
+      <description>Itanium</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x03</value>
+      <description>DEC Alpha (DEPRECATED)</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x04</value>
+      <description>Arc x86 (DEPRECATED)</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x05</value>
+      <description>Intel Lean Client (DEPRECATED)</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x06</value>
+      <description>x86 UEFI</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x07</value>
+      <description>x64 UEFI</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x08</value>
+      <description>EFI Xscale (DEPRECATED)</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x09</value>
+      <description>EBC</description>
+      <xref type="rfc" data="rfc5970"/>
+      <xref type="rfc" data="rfc4578"/>
+    </record>
+    <record>
+      <value>0x00 0x0a</value>
+      <description>ARM 32-bit UEFI</description>
+      <xref type="rfc" data="rfc5970"/>
+    </record>
+    <record>
+      <value>0x00 0x0b</value>
+      <description>ARM 64-bit UEFI</description>
+      <xref type="rfc" data="rfc5970"/>
+    </record>
+    <record>
+      <value>0x00 0x0c</value>
+      <description>PowerPC Open Firmware</description>
+      <xref type="person" data="Thomas_Huth"/>
+    </record>
+    <record>
+      <value>0x00 0x0d</value>
+      <description>PowerPC ePAPR</description>
+      <xref type="person" data="Thomas_Huth"/>
+    </record>
+    <record date="2014-04-04">
+      <value>0x00 0x0e</value>
+      <description>POWER OPAL v3</description>
+      <xref type="person" data="Jeremy_Kerr"/>
+    </record>
+    <record date="2014-06-04">
+      <value>0x00 0x0f</value>
+      <description>x86 uefi boot from http</description>
+      <xref type="person" data="Samer_El-Haj-Mahmoud"/>
+    </record>
+    <record date="2014-06-04">
+      <value>0x00 0x10</value>
+      <description>x64 uefi boot from http</description>
+      <xref type="person" data="Samer_El-Haj-Mahmoud"/>
+    </record>
+    <record date="2014-06-04">
+      <value>0x00 0x11</value>
+      <description>ebc boot from http</description>
+      <xref type="person" data="Samer_El-Haj-Mahmoud"/>
+    </record>
+    <record date="2014-06-04" updated="2015-04-03">
+      <value>0x00 0x12</value>
+      <description>arm uefi 32 boot from http</description>
+      <xref type="person" data="Samer_El-Haj-Mahmoud"/>
+    </record>
+    <record date="2014-06-04" updated="2015-04-03">
+      <value>0x00 0x13</value>
+      <description>arm uefi 64 boot from http</description>
+      <xref type="person" data="Samer_El-Haj-Mahmoud"/>
+    </record>
+    <record date="2014-06-04">
+      <value>0x00 0x14</value>
+      <description>pc/at bios boot from http</description>
+      <xref type="person" data="Samer_El-Haj-Mahmoud"/>
+    </record>
+    <record date="2015-04-03">
+      <value>0x00 0x15</value>
+      <description>arm 32 uboot</description>
+      <xref type="person" data="Joseph_Shifflett"/>
+    </record>
+    <record date="2015-04-03">
+      <value>0x00 0x16</value>
+      <description>arm 64 uboot</description>
+      <xref type="person" data="Joseph_Shifflett"/>
+    </record>
+    <record date="2015-04-03">
+      <value>0x00 0x17</value>
+      <description>arm uboot 32 boot from http</description>
+      <xref type="person" data="Joseph_Shifflett"/>
+    </record>
+    <record date="2015-04-03">
+      <value>0x00 0x18</value>
+      <description>arm uboot 64 boot from http</description>
+      <xref type="person" data="Joseph_Shifflett"/>
+    </record>
+    <record date="2016-01-12">
+      <value>0x00 0x19</value>
+      <description>RISC-V 32-bit UEFI</description>
+      <xref type="person" data="Dong_Wei"/>
+    </record>
+    <record date="2016-01-12">
+      <value>0x00 0x1a</value>
+      <description>RISC-V 32-bit UEFI boot from http</description>
+      <xref type="person" data="Dong_Wei"/>
+    </record>
+    <record date="2016-01-12">
+      <value>0x00 0x1b</value>
+      <description>RISC-V 64-bit UEFI</description>
+      <xref type="person" data="Dong_Wei"/>
+    </record>
+    <record date="2016-01-12">
+      <value>0x00 0x1c</value>
+      <description>RISC-V 64-bit UEFI boot from http</description>
+      <xref type="person" data="Dong_Wei"/>
+    </record>
+    <record date="2016-01-12">
+      <value>0x00 0x1d</value>
+      <description>RISC-V 128-bit UEFI</description>
+      <xref type="person" data="Dong_Wei"/>
+    </record>
+    <record date="2016-01-12">
+      <value>0x00 0x1e</value>
+      <description>RISC-V 128-bit UEFI boot from http</description>
+      <xref type="person" data="Dong_Wei"/>
+    </record>
+    <record date="2017-09-08">
+      <value>0x00 0x1f</value>
+      <description>s390 Basic</description>
+      <xref type="person" data="Viktor_Mihajlovski"/>
+    </record>
+    <record date="2017-09-08">
+      <value>0x00 0x20</value>
+      <description>s390 Extended</description>
+      <xref type="person" data="Viktor_Mihajlovski"/>
+    </record>
+    <record date="2020-03-12">
+      <value>0x00 0x21</value>
+      <description>MIPS 32-bit UEFI</description>
+      <xref type="person" data="Jiading_Zhang"/>
+    </record>
+    <record date="2020-03-12">
+      <value>0x00 0x22</value>
+      <description>MIPS 64-bit UEFI</description>
+      <xref type="person" data="Jiading_Zhang"/>
+    </record>
+    <record date="2020-03-12">
+      <value>0x00 0x23</value>
+      <description>Sunway 32-bit UEFI</description>
+      <xref type="person" data="Jiading_Zhang"/>
+    </record>
+    <record date="2020-03-12">
+      <value>0x00 0x24</value>
+      <description>Sunway 64-bit UEFI</description>
+      <xref type="person" data="Jiading_Zhang"/>
+    </record>
+    <record>
+      <value>0x00 0x25-0xff 0xff</value>
+      <description>Unassigned</description>
+    </record>
+  </registry>
+
+  <registry id="options-relay-supplied">
+    <title>Options Permitted in the Relay-Supplied Options Option</title>
+    <xref type="rfc" data="rfc6422"/>
+    <registration_rule>IETF Review</registration_rule>
+    
+    <record>
+      <value>65</value>
+      <description>OPTION_ERP_LOCAL_DOMAIN_NAME</description>
+      <xref type="rfc" data="rfc6440"/>
+    </record>
+  </registry>
+
+  <registry id="vss-type">
+    <title>VSS Type Options</title>
+    <xref type="rfc" data="rfc6607"/>
+    <registration_rule>IETF Review</registration_rule>
+    <note>See the VSS Type Options registry at <xref type="uri" data="http://www.iana.org/assignments/bootp-dhcp-parameters"/></note>
+  </registry> 
+ 
+  <registry id="ntp-time-source">
+      <title>NTP Time Source Suboptions</title>
+      <xref type="rfc" data="rfc5908"/>
+      <registration_rule>IETF Review</registration_rule>
+      <record>
+        <value>1</value>
+        <description>NTP_SUBOPTION_SRV_ADDR</description>
+        <xref type="rfc" data="rfc5908"/>
+      </record>
+      <record>
+        <value>2</value>
+        <description>NTP_SUBOPTION_MC_ADDR</description>
+        <xref type="rfc" data="rfc5908"/>
+      </record>
+      <record>
+        <value>3</value>
+        <description>NTP_SUBOPTION_SRV_FQDN</description>
+        <xref type="rfc" data="rfc5908"/>
+      </record>
+  </registry>
+ 
+  <registry id="radius-option-attributes">
+    <title>RADIUS Attributes Permitted in DHCPv6 RADIUS Option</title>
+    <xref type="rfc" data="rfc7037"/>
+    <registration_rule>Expert Review</registration_rule>
+    <expert>Bernie Volz, Tomek Mrugalski</expert>
+    <record>
+      <value>26</value>
+      <description>Vendor-Specific</description>
+      <xref type="rfc" data="rfc2865"/>
+    </record>
+    <record>
+      <value>123</value>
+      <description>Delegated-IPv6-Prefix</description>
+      <xref type="rfc" data="rfc4818"/>
+    </record>
+    <record>
+      <value>144</value>
+      <description>DS-Lite-Tunnel-Name</description>
+      <xref type="rfc" data="rfc6519"/>
+    </record>
+    <record>
+      <value>168</value>
+      <description>Framed-IPv6-Address</description>
+      <xref type="rfc" data="rfc6911"/>
+    </record>
+    <record>
+      <value>169</value>
+      <description>DNS-Server-IPv6-Address</description>
+      <xref type="rfc" data="rfc6911"/>
+    </record>
+    <record>
+      <value>171</value>
+      <description>Delegated-IPv6-Prefix-Pool</description>
+      <xref type="rfc" data="rfc6911"/>
+    </record>
+    <record>
+      <value>172</value>
+      <description>Stateful-IPv6-Address-Pool</description>
+      <xref type="rfc" data="rfc6911"/>
+    </record>
+  </registry>
+ 
+  <registry id="option-codes-s46-priority-option">
+    <title>Option Codes Permitted in the S46 Priority Option</title>
+    <xref type="rfc" data="rfc8026"/>
+    <registration_rule>IETF Review</registration_rule>
+    <record date="2016-10-07">
+      <value>64</value>
+      <description>DS-Lite</description>
+      <xref type="rfc" data="rfc6334"/>
+    </record>
+    <record date="2016-10-07">
+      <value>88</value>
+      <description>DHCPv4 over DHCPv6</description>
+      <xref type="rfc" data="rfc7341"/>
+    </record>
+    <record date="2016-10-07">
+      <value>94</value>
+      <description>MAP-E</description>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2016-10-07">
+      <value>95</value>
+      <description>MAP-T</description>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+    <record date="2016-10-07">
+      <value>96</value>
+      <description>Lightweight 4over6</description>
+      <xref type="rfc" data="rfc7598"/>
+    </record>
+  </registry>
+
+  <people>
+    <person id="Dong_Wei">
+      <name>Dong Wei</name>
+      <uri>mailto:dong.wei&amp;hpe.com</uri>
+      <updated>2016-01-12</updated>
+    </person>
+    <person id="Jeremy_Kerr">
+      <name>Jeremy Kerr</name>
+      <uri>mailto:jeremy.kerr&amp;au.ibm.com</uri>
+      <updated>2014-04-04</updated>
+    </person>
+    <person id="Jiading_Zhang">
+      <name>Jiading Zhang</name>
+      <uri>mailto:jdzhang&amp;zd-tech.com.cn</uri>
+      <updated>2020-03-12</updated>
+    </person>
+    <person id="Joseph_Shifflett">
+      <name>Joseph Shifflett</name>
+      <uri>mailto:joseph.shifflett&amp;hp.com</uri>
+      <updated>2015-04-03</updated>
+    </person>
+    <person id="Samer_El-Haj-Mahmoud">
+      <name>Samer El-Haj-Mahmoud</name>
+      <uri>mailto:elhaj&amp;hp.com</uri>
+      <updated>2014-06-04</updated>
+    </person>
+    <person id="Thomas_Huth">
+      <name>Thomas Huth</name>
+      <uri>mailto:thuth&amp;de.ibm.com</uri>
+      <updated>2012-06-06</updated>
+    </person>
+    <person id="Viktor_Mihajlovski">
+      <name>Viktor Mihajlovski</name>
+      <uri>mailto:mihajlov&amp;de.ibm.com</uri>
+      <updated>2017-09-08</updated>
+    </person>
+  </people>
+</registry>

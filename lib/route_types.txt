@@ -79,7 +79,7 @@ ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, 0,     "BGP-Direct",    bg
 #  bgp unicast -> vnc 
 ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, 0, "BGP2VNC", bgpd-vnc
 ZEBRA_ROUTE_BABEL,      babel,     babeld, 'A', 1, 1, 1,     "Babel",         babeld
-ZEBRA_ROUTE_SHARP,      sharp,     sharpd, 'D', 1, 1, 1,     "SHARP",         sharpd
+ZEBRA_ROUTE_SHARP,      sharp,     sharpd, '$', 1, 1, 1,     "SHARP",         sharpd
 ZEBRA_ROUTE_PBR,        pbr,       pbrd,   'F', 1, 1, 0,     "PBR",           pbrd
 ZEBRA_ROUTE_BFD,        bfd,       bfdd,   '-', 0, 0, 0,     "BFD",           bfdd
 ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1,  "OpenFabric",    fabricd
@@ -87,6 +87,7 @@ ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP",          vr
 ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", none
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
 ZEBRA_ROUTE_ACCESSD,    accessd,   accessd,'-', 0, 0, 0,     "accessd",       accessd
+ZEBRA_ROUTE_DHCP6R,     dhcp6r,    accessd,'D', 0, 1, 1,     "DHCPv6",        accessd
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-",             none
 
 
@@ -117,3 +118,4 @@ ZEBRA_ROUTE_BFD, "Bidirectional Fowarding Detection (BFD)"
 ZEBRA_ROUTE_VRRP, "Virtual Router Redundancy Protocol (VRRP)"
 ZEBRA_ROUTE_OPENFABRIC, "OpenFabric Routing Protocol"
 ZEBRA_ROUTE_NHG, "Zebra Nexthop Groups (NHG)"
+ZEBRA_ROUTE_DHCP6R, "Dynamic Host Configuration Protocol for IPv6 (DHCPv6)"
