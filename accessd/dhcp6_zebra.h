@@ -16,17 +16,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_ACCESSD_ZEBRA_H
-#define _FRR_ACCESSD_ZEBRA_H
+#ifndef _FRR_DHCP6_ZEBRA_H
+#define _FRR_DHCP6_ZEBRA_H
 
-#include "lib/hook.h"
+struct dhcp6_binding;
+struct dhcp6_pdprefix;
 
-struct connected;
-struct zclient;
-
-extern struct zclient *zclient;
-
-DECLARE_HOOK(accessd_if_addr_add, (struct connected *c), (c));
-DECLARE_KOOH(accessd_if_addr_del, (struct connected *c), (c));
+extern void dhcp6r_zebra_ipv6_add(struct dhcp6_binding *bnd,
+				  struct dhcp6_pdprefix *pdp);
+extern void dhcp6r_zebra_ipv6_del(struct dhcp6_binding *bnd,
+				  struct dhcp6_pdprefix *pdp);
 
 #endif /* _FRR_DHCP6_ZEBRA_H */

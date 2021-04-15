@@ -23,6 +23,7 @@
 #include "lib/privs.h"
 
 DECLARE_MGROUP(ACCESSD);
+DECLARE_MGROUP(DHCP6);
 
 struct event_loop;
 
@@ -34,5 +35,10 @@ extern void accessd_vrf_init(void);
 extern void accessd_if_init(void);
 
 extern void rtadv_init(void);
+
+extern void dhcp6r_if_init(void);
+extern void dhcp6r_zebra_init(void);
+extern void dhcp6_state_init(void);
+extern void dhcp6_upstream_init(void);
 
 #endif /* _FRR_ACCESSD_H */

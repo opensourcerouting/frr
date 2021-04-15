@@ -173,6 +173,7 @@ static const struct {
 	[ZEBRA_ROUTE_ACCESSD] = {ZEBRA_ROUTE_ACCESSD,
 				 ZEBRA_MAX_DISTANCE_DEFAULT,
 				 META_QUEUE_OTHER},
+	[ZEBRA_ROUTE_DHCP6R] = {ZEBRA_ROUTE_DHCP6R, 130, 4},
 	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, ZEBRA_MAX_DISTANCE_DEFAULT,
 			     META_QUEUE_OTHER},
 	/* Any new route type added to zebra, should be mirrored here */
