@@ -135,7 +135,7 @@ struct rtadvconf {
 	   protocols as being on-link for the interface from which the
 	   advertisement is sent. The link-local prefix SHOULD NOT be
 	   included in the list of advertised prefixes. */
-	struct rtadv_prefixes_head prefixes[1];
+	struct rtadv_prefixes_head pfx_conf[1], pfx_dhcp[1], pfx_addr[1];
 
 	/* The true/false value to be placed in the "Home agent"
 	   flag field in the Router Advertisement.  See [RFC6275 7.1].
@@ -254,8 +254,8 @@ struct rtadv_prefix {
 	/* Prefix to be advertised. */
 	struct prefix_ipv6 prefix;
 
-	/* The prefix was manually/automatically defined. */
-	int AdvPrefixCreate;
+	/* same prefix on a different, higher-priority config source */
+	struct rtadv_prefix *superseding;
 
 	/* The value to be placed in the Valid Lifetime in the Prefix */
 	uint32_t AdvValidLifetime;

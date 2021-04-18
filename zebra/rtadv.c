@@ -178,6 +178,42 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 
 #define RTADV_MSG_SIZE 4096
 
+static void rtadv_prefix_encode(struct rtadv_prefix *rprefix,
+				unsigned char *buf, size_t size, int *len)
+{
+	struct nd_opt_prefix_info *pinfo;
+
+	if (*len + sizeof(*pinfo) > size)
+		return;
+	if (rprefix->superseding)
+		return;
+
+	pinfo = (struct nd_opt_prefix_info *)(buf + *len);
+
+	pinfo->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
+	pinfo->nd_opt_pi_len = 4;
+	pinfo->nd_opt_pi_prefix_len = rprefix->prefix.prefixlen;
+
+	pinfo->nd_opt_pi_flags_reserved = 0;
+	if (rprefix->AdvOnLinkFlag)
+		pinfo->nd_opt_pi_flags_reserved |=
+			ND_OPT_PI_FLAG_ONLINK;
+	if (rprefix->AdvAutonomousFlag)
+		pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
+	if (rprefix->AdvRouterAddressFlag)
+		pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
+
+	pinfo->nd_opt_pi_valid_time = htonl(rprefix->AdvValidLifetime);
+	pinfo->nd_opt_pi_preferred_time =
+		htonl(rprefix->AdvPreferredLifetime);
+	pinfo->nd_opt_pi_reserved2 = 0;
+
+	IPV6_ADDR_COPY(&pinfo->nd_opt_pi_prefix,
+		       &rprefix->prefix.prefix);
+
+	*len += sizeof(struct nd_opt_prefix_info);
+}
+
 /* Send router advertisement packet. */
 static void rtadv_send_packet(int sock, struct interface *ifp,
 			      enum ipv6_nd_suppress_ra_status stop)
@@ -319,33 +355,13 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	}
 
 	/* Fill in prefix. */
-	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
-		struct nd_opt_prefix_info *pinfo;
-
-		pinfo = (struct nd_opt_prefix_info *)(buf + len);
-
-		pinfo->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
-		pinfo->nd_opt_pi_len = 4;
-		pinfo->nd_opt_pi_prefix_len = rprefix->prefix.prefixlen;
-
-		pinfo->nd_opt_pi_flags_reserved = 0;
-		if (rprefix->AdvOnLinkFlag)
-			pinfo->nd_opt_pi_flags_reserved |=
-				ND_OPT_PI_FLAG_ONLINK;
-		if (rprefix->AdvAutonomousFlag)
-			pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
-		if (rprefix->AdvRouterAddressFlag)
-			pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
-
-		pinfo->nd_opt_pi_valid_time = htonl(rprefix->AdvValidLifetime);
-		pinfo->nd_opt_pi_preferred_time =
-			htonl(rprefix->AdvPreferredLifetime);
-		pinfo->nd_opt_pi_reserved2 = 0;
-
-		IPV6_ADDR_COPY(&pinfo->nd_opt_pi_prefix,
-			       &rprefix->prefix.prefix);
-
-		len += sizeof(struct nd_opt_prefix_info);
+	if (stop != RA_SUPPRESS) {
+		frr_each (rtadv_prefixes, zif->rtadv.pfx_conf, rprefix)
+			rtadv_prefix_encode(rprefix, buf, sizeof(buf), &len);
+		frr_each (rtadv_prefixes, zif->rtadv.pfx_dhcp, rprefix)
+			rtadv_prefix_encode(rprefix, buf, sizeof(buf), &len);
+		frr_each (rtadv_prefixes, zif->rtadv.pfx_addr, rprefix)
+			rtadv_prefix_encode(rprefix, buf, sizeof(buf), &len);
 	}
 
 	/* Hardware address. */
@@ -1112,7 +1128,15 @@ static void adv_msec_if_clean(struct zebra_vrf *zvrf)
 
 static struct rtadv_prefix *rtadv_prefix_new(void)
 {
-	return XCALLOC(MTYPE_RTADV_PREFIX, sizeof(struct rtadv_prefix));
+	struct rtadv_prefix *rp;
+
+	rp = XCALLOC(MTYPE_RTADV_PREFIX, sizeof(struct rtadv_prefix));
+	rp->AdvAutonomousFlag = 1;
+	rp->AdvOnLinkFlag = 1;
+	rp->AdvRouterAddressFlag = 0;
+	rp->AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
+	rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
+	return rp;
 }
 
 static void rtadv_prefix_free(struct rtadv_prefix *rtadv_prefix)
@@ -1120,122 +1144,55 @@ static void rtadv_prefix_free(struct rtadv_prefix *rtadv_prefix)
 	XFREE(MTYPE_RTADV_PREFIX, rtadv_prefix);
 }
 
-static struct rtadv_prefix *rtadv_prefix_get(struct rtadv_prefixes_head *list,
-					     struct prefix_ipv6 *p)
+static void rtadv_update(struct zebra_if *zif, struct rtadv_prefix *ref)
 {
-	struct rtadv_prefix *rprefix, ref;
+	struct rtadv_prefix *conf, *dhcp, *addr;
 
-	ref.prefix = *p;
+	conf = rtadv_prefixes_find(zif->rtadv.pfx_conf, ref);
+	dhcp = rtadv_prefixes_find(zif->rtadv.pfx_dhcp, ref);
+	addr = rtadv_prefixes_find(zif->rtadv.pfx_addr, ref);
 
-	rprefix = rtadv_prefixes_find(list, &ref);
-	if (rprefix)
-		return rprefix;
-
-	rprefix = rtadv_prefix_new();
-	memcpy(&rprefix->prefix, p, sizeof(struct prefix_ipv6));
-	rtadv_prefixes_add(list, rprefix);
-
-	return rprefix;
-}
-
-static void rtadv_prefix_set_defaults(struct rtadv_prefix *rp)
-{
-	rp->AdvAutonomousFlag = 1;
-	rp->AdvOnLinkFlag = 1;
-	rp->AdvRouterAddressFlag = 0;
-	rp->AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-	rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
-}
-
-static void rtadv_prefix_set(struct zebra_if *zif, struct rtadv_prefix *rp)
-{
-	struct rtadv_prefix *rprefix;
-
-	rprefix = rtadv_prefix_get(zif->rtadv.prefixes, &rp->prefix);
-
-	/*
-	 * Set parameters based on where the prefix is created.
-	 * If auto-created based on kernel address addition, set the
-	 * default values.  If created from a manual "ipv6 nd prefix"
-	 * command, take the parameters from the manual command. Note
-	 * that if the manual command exists, the default values will
-	 * not overwrite the manual values.
-	 */
-	if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
-		if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
-			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else
-			rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
-
-		rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
-		rprefix->AdvOnLinkFlag = rp->AdvOnLinkFlag;
-		rprefix->AdvRouterAddressFlag = rp->AdvRouterAddressFlag;
-		rprefix->AdvPreferredLifetime = rp->AdvPreferredLifetime;
-		rprefix->AdvValidLifetime = rp->AdvValidLifetime;
-	} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
-		if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
-			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
-		else {
-			rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
-			rtadv_prefix_set_defaults(rprefix);
-		}
-	}
-}
-
-static int rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp)
-{
-	struct rtadv_prefix *rprefix;
-
-	rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
-	if (rprefix != NULL) {
-
-		/*
-		 * When deleting an address from the list, need to take care
-		 * it wasn't defined both automatically via kernel
-		 * address addition as well as manually by vtysh cli. If both,
-		 * we don't actually delete but may change the parameters
-		 * back to default if a manually defined entry is deleted.
-		 */
-		if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
-			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
-				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
-				rtadv_prefix_set_defaults(rprefix);
-				return 1;
-			}
-		} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
-			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
-				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
-				return 1;
-			}
-		}
-
-		rtadv_prefixes_del(zif->rtadv.prefixes, rprefix);
-		rtadv_prefix_free(rprefix);
-		return 1;
-	} else
-		return 0;
+	if (dhcp)
+		dhcp->superseding = conf;
+	if (addr)
+		addr->superseding = dhcp ? dhcp : conf;
 }
 
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
 void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p)
 {
-	struct rtadv_prefix rp;
+	struct rtadv_prefix *rp, ref;
 
-	rp.prefix = *p;
-	apply_mask_ipv6(&rp.prefix);
-	rp.AdvPrefixCreate = PREFIX_SRC_AUTO;
-	rtadv_prefix_set(zif, &rp);
+	ref.prefix = *p;
+	apply_mask_ipv6(&ref.prefix);
+
+	rp = rtadv_prefixes_find(zif->rtadv.pfx_addr, &ref);
+	if (rp)
+		return;
+
+	rp = rtadv_prefix_new();
+	rp->prefix = ref.prefix;
+
+	rtadv_prefixes_add(zif->rtadv.pfx_addr, rp);
+	rtadv_update(zif, rp);
 }
 
 /* Delete IPv6 prefixes removed by the kernel from the RA prefix list */
 void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 {
-	struct rtadv_prefix rp;
+	struct rtadv_prefix *rp, ref;
 
-	rp.prefix = *((struct prefix_ipv6 *)p);
-	apply_mask_ipv6(&rp.prefix);
-	rp.AdvPrefixCreate = PREFIX_SRC_AUTO;
-	rtadv_prefix_reset(zif, &rp);
+	ref.prefix = *((struct prefix_ipv6 *)p);
+	apply_mask_ipv6(&ref.prefix);
+
+	rp = rtadv_prefixes_find(zif->rtadv.pfx_addr, &ref);
+	if (!rp)
+		return;
+
+	rtadv_prefixes_del(zif->rtadv.pfx_addr, rp);
+	rtadv_update(zif, rp);
+
+	rtadv_prefix_free(rp);
 }
 
 static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
@@ -1419,26 +1376,17 @@ void rtadv_stop_ra(struct interface *ifp)
  * ceasing to advertise globally and want to let all of our neighbors know
  * RFC 4861 secion 6.2.5
  *
- * Delete all ipv6 global prefixes added to the router advertisement prefix
- * lists prior to ceasing.
+ * prefixes are excluded in rtadv_send_packet for RA_SUPPRESS, cleanup
+ * happens when the ifp is destroyed.
  */
 void rtadv_stop_ra_all(void)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
-	struct zebra_if *zif;
-	struct rtadv_prefix *rprefix;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			zif = ifp->info;
-
-			frr_each_safe (rtadv_prefixes, zif->rtadv.prefixes,
-				       rprefix)
-				rtadv_prefix_reset(zif, rprefix);
-
+		FOR_ALL_INTERFACES (vrf, ifp)
 			rtadv_stop_ra(ifp);
-		}
 }
 
 void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
@@ -2138,7 +2086,7 @@ DEFUN (ipv6_nd_prefix,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zebra_if = ifp->info;
 	int ret;
-	struct rtadv_prefix rp;
+	struct rtadv_prefix rp, *rpp;
 
 	ret = str2prefix_ipv6(prefix, &rp.prefix);
 	if (!ret) {
@@ -2151,7 +2099,6 @@ DEFUN (ipv6_nd_prefix,
 	rp.AdvRouterAddressFlag = routeraddr;
 	rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
 	rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
 	if (lifetimes) {
 		rp.AdvValidLifetime = strmatch(lifetime, "infinite")
@@ -2167,7 +2114,16 @@ DEFUN (ipv6_nd_prefix,
 		}
 	}
 
-	rtadv_prefix_set(zebra_if, &rp);
+	rpp = rtadv_prefixes_find(zebra_if->rtadv.pfx_conf, &rp);
+	if (!rpp) {
+		rpp = rtadv_prefix_new();
+		memcpy(rpp, &rp, sizeof(*rpp));
+		rtadv_prefixes_add(zebra_if->rtadv.pfx_conf, rpp);
+		rtadv_update(zebra_if, rpp);
+	} else {
+		memcpy(rpp, &rp, sizeof(*rpp));
+		rtadv_update(zebra_if, rpp);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2193,23 +2149,25 @@ DEFUN (no_ipv6_nd_prefix,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zebra_if = ifp->info;
 	int ret;
-	struct rtadv_prefix rp;
+	struct rtadv_prefix *rp, ref;
 	char *prefix = argv[4]->arg;
 
-	ret = str2prefix_ipv6(prefix, &rp.prefix);
+	ret = str2prefix_ipv6(prefix, &ref.prefix);
 	if (!ret) {
 		vty_out(vty, "Malformed IPv6 prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	apply_mask_ipv6(&rp.prefix); /* RFC4861 4.6.2 */
-	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
+	apply_mask_ipv6(&ref.prefix); /* RFC4861 4.6.2 */
 
-	ret = rtadv_prefix_reset(zebra_if, &rp);
-	if (!ret) {
+	rp = rtadv_prefixes_find(zebra_if->rtadv.pfx_conf, &ref);
+	if (!rp) {
 		vty_out(vty, "Non-existant IPv6 prefix\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	rtadv_prefixes_del(zebra_if->rtadv.pfx_conf, rp);
+	rtadv_update(zebra_if, rp);
+	rtadv_prefix_free(rp);
 	return CMD_SUCCESS;
 }
 
@@ -2738,32 +2696,29 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	if (zif->rtadv.AdvLinkMTU)
 		vty_out(vty, " ipv6 nd mtu %d\n", zif->rtadv.AdvLinkMTU);
 
-	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
-		if ((rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
-		    || (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH)) {
-			vty_out(vty, " ipv6 nd prefix %pFX", &rprefix->prefix);
-			if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME)
-			    || (rprefix->AdvPreferredLifetime
-				!= RTADV_PREFERRED_LIFETIME)) {
-				if (rprefix->AdvValidLifetime == UINT32_MAX)
-					vty_out(vty, " infinite");
-				else
-					vty_out(vty, " %u",
-						rprefix->AdvValidLifetime);
-				if (rprefix->AdvPreferredLifetime == UINT32_MAX)
-					vty_out(vty, " infinite");
-				else
-					vty_out(vty, " %u",
-						rprefix->AdvPreferredLifetime);
-			}
-			if (!rprefix->AdvOnLinkFlag)
-				vty_out(vty, " off-link");
-			if (!rprefix->AdvAutonomousFlag)
-				vty_out(vty, " no-autoconfig");
-			if (rprefix->AdvRouterAddressFlag)
-				vty_out(vty, " router-address");
-			vty_out(vty, "\n");
+	frr_each (rtadv_prefixes, zif->rtadv.pfx_conf, rprefix) {
+		vty_out(vty, " ipv6 nd prefix %pFX", &rprefix->prefix);
+		if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME)
+		    || (rprefix->AdvPreferredLifetime
+			!= RTADV_PREFERRED_LIFETIME)) {
+			if (rprefix->AdvValidLifetime == UINT32_MAX)
+				vty_out(vty, " infinite");
+			else
+				vty_out(vty, " %u",
+					rprefix->AdvValidLifetime);
+			if (rprefix->AdvPreferredLifetime == UINT32_MAX)
+				vty_out(vty, " infinite");
+			else
+				vty_out(vty, " %u",
+					rprefix->AdvPreferredLifetime);
 		}
+		if (!rprefix->AdvOnLinkFlag)
+			vty_out(vty, " off-link");
+		if (!rprefix->AdvAutonomousFlag)
+			vty_out(vty, " no-autoconfig");
+		if (rprefix->AdvRouterAddressFlag)
+			vty_out(vty, " router-address");
+		vty_out(vty, "\n");
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
@@ -2890,7 +2845,9 @@ void rtadv_if_init(struct zebra_if *zif)
 	rtadv->UseFastRexmit = true;
 	rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
 
-	rtadv_prefixes_init(rtadv->prefixes);
+	rtadv_prefixes_init(rtadv->pfx_conf);
+	rtadv_prefixes_init(rtadv->pfx_dhcp);
+	rtadv_prefixes_init(rtadv->pfx_addr);
 
 	rtadv->AdvRDNSSList = list_new();
 	rtadv->AdvDNSSLList = list_new();
@@ -2903,7 +2860,11 @@ void rtadv_if_fini(struct zebra_if *zif)
 
 	rtadv = &zif->rtadv;
 
-	while ((rp = rtadv_prefixes_pop(rtadv->prefixes)))
+	while ((rp = rtadv_prefixes_pop(rtadv->pfx_addr)))
+		rtadv_prefix_free(rp);
+	while ((rp = rtadv_prefixes_pop(rtadv->pfx_dhcp)))
+		rtadv_prefix_free(rp);
+	while ((rp = rtadv_prefixes_pop(rtadv->pfx_conf)))
 		rtadv_prefix_free(rp);
 
 	list_delete(&rtadv->AdvRDNSSList);
