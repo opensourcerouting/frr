@@ -29,6 +29,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zserv.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -182,6 +183,7 @@ static void rtadv_prefix_encode(struct rtadv_prefix *rprefix,
 				unsigned char *buf, size_t size, int *len)
 {
 	struct nd_opt_prefix_info *pinfo;
+	uint32_t valid, prefer;
 
 	if (*len + sizeof(*pinfo) > size)
 		return;
@@ -203,9 +205,29 @@ static void rtadv_prefix_encode(struct rtadv_prefix *rprefix,
 	if (rprefix->AdvRouterAddressFlag)
 		pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
 
-	pinfo->nd_opt_pi_valid_time = htonl(rprefix->AdvValidLifetime);
-	pinfo->nd_opt_pi_preferred_time =
-		htonl(rprefix->AdvPreferredLifetime);
+	valid = rprefix->AdvValidLifetime;
+	if (rprefix->valid_until.tv_sec) {
+		int64_t delta = monotime_until(&rprefix->valid_until, NULL);
+
+		if (delta < 300)
+			/* prefixes valid for less than 5 min are not sent */
+			return;
+		if (delta < valid)
+			valid = delta;
+	}
+	pinfo->nd_opt_pi_valid_time = htonl(valid);
+
+	prefer = rprefix->AdvPreferredLifetime;
+	if (rprefix->prefer_until.tv_sec) {
+		int64_t delta = monotime_until(&rprefix->prefer_until, NULL);
+
+		if (delta < 0)
+			delta = 0;
+		else if (delta < prefer)
+			prefer = delta;
+	}
+	pinfo->nd_opt_pi_preferred_time = htonl(prefer);
+
 	pinfo->nd_opt_pi_reserved2 = 0;
 
 	IPV6_ADDR_COPY(&pinfo->nd_opt_pi_prefix,
@@ -1350,8 +1372,60 @@ static void zebra_set_radv_prefix(struct zserv *client, uint8_t cmd,
 				  struct interface *ifp, struct prefix_ipv6 *p,
 				  uint64_t preferred, uint64_t valid)
 {
+	struct zebra_if *zif = ifp->info;
+	struct rtadv_prefix *rp, ref;
+
 	zlog_info("RA prefix %pFX on %s from client %s",
 		  p, ifp->name, zebra_route_string(client->proto));
+
+	ref.prefix = *p;
+	apply_mask_ipv6(&ref.prefix);
+
+	rp = rtadv_prefixes_find(zif->rtadv.pfx_dhcp, &ref);
+	switch (cmd) {
+	case 1:	/* ADD/UPDATE */
+		if (!rp) {
+			rp = rtadv_prefix_new();
+			rp->prefix = *p;
+			rtadv_prefixes_add(zif->rtadv.pfx_dhcp, rp);
+		}
+		rp->client = client;
+		rp->valid_until.tv_sec = valid;
+		rp->prefer_until.tv_sec = preferred;
+		rtadv_update(zif, rp);
+		break;
+
+	case 2: /* DEL */
+		if (!rp)
+			return;
+
+		rtadv_prefixes_del(zif->rtadv.pfx_dhcp, rp);
+		rtadv_update(zif, rp);
+		rtadv_prefix_free(rp);
+		break;
+	}
+}
+
+void rtadv_zserv_clear(struct zserv *client)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct rtadv_prefix *rp;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct zebra_if *zif = ifp->info;
+
+			frr_each_safe (rtadv_prefixes, zif->rtadv.pfx_dhcp, rp)
+				if (rp->client == client) {
+					zlog_info("zserv disconnect: clearing RA %pFX",
+						  &rp->prefix);
+					rtadv_prefixes_del(zif->rtadv.pfx_dhcp,
+							   rp);
+					rtadv_update(zif, rp);
+					rtadv_prefix_free(rp);
+				}
+		}
 }
 
 /*
