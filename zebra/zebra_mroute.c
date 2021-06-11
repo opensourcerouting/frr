@@ -85,3 +85,84 @@ stream_failure:
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);
 }
+
+struct mroute_oif_arg *mroute_oif_arg_new(struct mroute_oif_list *oif_list)
+{
+	struct mroute_oif_arg *oif;
+
+	oif = XCALLOC(MTYPE_TMP, sizeof(*oif));
+	SLIST_INSERT_HEAD(oif_list, oif, entry);
+
+	return oif;
+}
+
+void mroute_oif_arg_free(struct mroute_oif_list *oif_list, struct mroute_oif_arg **oif)
+{
+	if (*oif == NULL)
+		return;
+
+	SLIST_REMOVE(oif_list, (*oif), mroute_oif_arg, entry);
+	XFREE(MTYPE_TMP, (*oif));
+}
+
+void mroute_oif_list_free_all(struct mroute_oif_list *oif_list)
+{
+	while (!SLIST_EMPTY(oif_list)) {
+		struct mroute_oif_arg *oif = SLIST_FIRST(oif_list);
+		mroute_oif_arg_free(oif_list, &oif);
+	}
+}
+
+void zmroute_event(ZAPI_HANDLER_ARGS)
+{
+	size_t output_idx;
+	uint16_t family;
+	uint16_t type;
+	struct ipaddr ipa = {};
+	struct mroute_args args = {};
+
+	STREAM_GETW(msg, type);
+	if (type == 0)
+		args.mroute_op = DPLANE_OP_MROUTE_INSTALL;
+	else
+		args.mroute_op = DPLANE_OP_MROUTE_DELETE;
+
+	STREAM_GETW(msg, family);
+	if (family == AF_INET) {
+		ipa.ipa_type = AF_INET;
+		STREAM_GET(&ipa.ipaddr_v4, msg, sizeof(ipa.ipaddr_v4));
+		args.source = ipa;
+
+		STREAM_GET(&ipa.ipaddr_v4, msg, sizeof(ipa.ipaddr_v4));
+		args.group = ipa;
+	}
+
+	STREAM_GETL(msg, args.input);
+	STREAM_GETL(msg, args.notif_idx);
+	STREAM_GETW(msg, args.flags);
+	STREAM_GETW(msg, args.output_amount);
+
+	for (output_idx = 0; output_idx < args.output_amount; output_idx++) {
+		struct mroute_oif_arg *oif = mroute_oif_arg_new(&args.oif_list);
+		ifindex_t index;
+
+		STREAM_GETL(msg, index);
+		oif->index = index;
+	}
+
+	STREAM_GETL(msg, args.spt_threshold);
+
+	STREAM_GET(&ipa.ipaddr_v4, msg, sizeof(ipa.ipaddr_v4));
+	args.local = ipa;
+	STREAM_GET(&ipa.ipaddr_v4, msg, sizeof(ipa.ipaddr_v4));
+	args.remote = ipa;
+
+	dplane_mroute_enqueue(&args);
+	mroute_oif_list_free_all(&args.oif_list);
+	return;
+
+stream_failure:
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: message parse failure", __func__);
+	return;
+}
