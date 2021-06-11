@@ -3013,6 +3013,80 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
+ssize_t netlink_mroute_encode(const struct zebra_dplane_ctx *ctx, void *nl_buf, size_t nl_buf_len)
+{
+	const struct nlsock *nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	const struct mroute_oif_list *output_ifs;
+	struct rtnexthop *rtnh;
+	struct rtattr *rta;
+	const struct ipaddr *ipa;
+	size_t output_ifs_num;
+	struct mrt_extra_attr met = {};
+	struct {
+		struct nlmsghdr n;
+		struct rtmsg rtm;
+	} *req = nl_buf;
+
+	memset(nl_buf, 0, nl_buf_len);
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_pid = nl->snl.nl_pid;
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_MROUTE_INSTALL)
+		req->n.nlmsg_type = RTM_NEWROUTE;
+	else
+		req->n.nlmsg_type = RTM_DELROUTE;
+
+	req->rtm.rtm_family = RTNL_FAMILY_IPMR;
+	req->rtm.rtm_dst_len = 32;
+	req->rtm.rtm_src_len = 32;
+	req->rtm.rtm_tos = 0;
+	req->rtm.rtm_table = RT_TABLE_UNSPEC;
+	req->rtm.rtm_protocol = RTPROT_MROUTED;
+	req->rtm.rtm_scope = RT_SCOPE_UNIVERSE;
+	req->rtm.rtm_type = RTN_MULTICAST;
+
+	nl_attr_put32(&req->n, (unsigned int)nl_buf_len, RTA_IIF,
+		      dplane_ctx_get_mroute_if_input(ctx));
+	nl_attr_put32(&req->n, (unsigned int)nl_buf_len, RTA_SRC,
+		      dplane_ctx_get_mroute_source(ctx)->ipaddr_v4.s_addr);
+	nl_attr_put32(&req->n, (unsigned int)nl_buf_len, RTA_DST,
+		      dplane_ctx_get_mroute_group(ctx)->ipaddr_v4.s_addr);
+	nl_attr_put32(&req->n, (unsigned int)nl_buf_len, RTA_TABLE, dplane_ctx_get_table(ctx));
+
+	dplane_ctx_get_mroute_if_output(ctx, &output_ifs, &output_ifs_num);
+	if (output_ifs_num) {
+		struct mroute_oif_arg *oif;
+
+		rta = nl_attr_nest(&req->n, (unsigned int)nl_buf_len, RTA_MULTIPATH);
+		SLIST_FOREACH (oif, output_ifs, entry) {
+			rtnh = nl_attr_rtnh(&req->n, (unsigned int)nl_buf_len);
+			rtnh->rtnh_len = sizeof(*rtnh);
+			rtnh->rtnh_ifindex = oif->index;
+		}
+		nl_attr_nest_end(&req->n, rta);
+	}
+
+	met.flags = dplane_ctx_get_mroute_flags(ctx);
+	met.notif_idx = dplane_ctx_get_mroute_if_notif_idx(ctx);
+	met.spt_threshold = dplane_ctx_get_mroute_spt_threshold(ctx);
+
+	ipa = dplane_ctx_get_mroute_local(ctx);
+	if (ipa->ipa_type == IPADDR_V4)
+		memcpy(&met.local, &ipa->ipaddr_v4, sizeof(ipa->ipaddr_v4));
+	else
+		memcpy(&met.local, &ipa->ipaddr_v6, sizeof(ipa->ipaddr_v6));
+
+	ipa = dplane_ctx_get_mroute_remote(ctx);
+	if (ipa->ipa_type == IPADDR_V4)
+		memcpy(&met.remote, &ipa->ipaddr_v4, sizeof(ipa->ipaddr_v4));
+	else
+		memcpy(&met.remote, &ipa->ipaddr_v6, sizeof(ipa->ipaddr_v6));
+
+	nl_attr_put(&req->n, (unsigned int)nl_buf_len, RTA_MRT_EXTRA, &met, sizeof(met));
+
+	return req->n.nlmsg_len;
+}
+
 /* Char length to debug ID with */
 #define ID_LENGTH 10
 
