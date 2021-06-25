@@ -1859,3 +1859,8 @@ int pim_cand_config_write(struct pim_instance *pim, struct vty *vty,
 	}
 	return ret;
 }
+
+void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
+{
+	/* stub for Candidate-RP */
+}
