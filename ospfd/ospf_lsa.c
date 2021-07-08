@@ -1551,8 +1551,11 @@ static void ospf_external_lsa_body_set(struct stream *s,
 	stream_put_ipv4(s, mask.s_addr);
 
 	/* If prefix is default, specify DEFAULT_ROUTE. */
-	type = is_default_prefix(&ei->p) ? DEFAULT_ROUTE : ei->type;
-	instance = is_default_prefix(&ei->p) ? 0 : ei->instance;
+	type = is_default_prefix((const struct prefix *)&ei->p) ? DEFAULT_ROUTE
+								: ei->type;
+	instance = is_default_prefix((const struct prefix *)&ei->p)
+			   ? 0
+			   : ei->instance;
 
 	mtype = (ROUTEMAP_METRIC_TYPE(ei) != -1)
 			? ROUTEMAP_METRIC_TYPE(ei)
@@ -2102,7 +2105,8 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 				if (!ei)
 					continue;
 
-				if (is_default_prefix(&ei->p))
+				if (is_default_prefix(
+					    (const struct prefix *)&ei->p))
 					continue;
 
 				lsa = ospf_external_info_find_lsa(ospf, &ei->p);
@@ -2272,7 +2276,8 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 		     rn = route_next(rn)) {
 			ei = rn->info;
 			if (ei) {
-				if (!is_default_prefix(&ei->p)) {
+				if (!is_default_prefix(
+					    (const struct prefix *)&ei->p)) {
 					struct ospf_lsa *lsa;
 					struct ospf_external_aggr_rt *aggr;
 

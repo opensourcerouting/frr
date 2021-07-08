@@ -537,10 +537,8 @@ static inline int ipv4_martian(struct in_addr *addr)
 	return 0;
 }
 
-static inline int is_default_prefix(union prefixconstptr prefix)
+static inline int is_default_prefix(const struct prefix *p)
 {
-	const struct prefix *p = prefix.p;
-
 	if (!p)
 		return 0;
 

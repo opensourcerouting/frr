@@ -229,7 +229,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			ifindex, api.tag);
 
 	memcpy(&p, &api.prefix, sizeof(p));
-	if (is_default_prefix(&p))
+	if (is_default_prefix((const struct prefix *)&p))
 		api.type = DEFAULT_ROUTE;
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
