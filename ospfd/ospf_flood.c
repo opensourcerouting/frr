@@ -98,7 +98,7 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		int redist_on = 0;
 
 		redist_on =
-			is_default_prefix((const struct prefix *)&p)
+			is_default_prefix4(&p)
 				? vrf_bitmap_check(
 					zclient->default_information[AFI_IP],
 					ospf->vrf_id)
@@ -128,8 +128,7 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		}
 	}
 
-	if (is_default_prefix((const struct prefix *)&p)
-	    && ospf->external[DEFAULT_ROUTE]) {
+	if (is_default_prefix4(&p) && ospf->external[DEFAULT_ROUTE]) {
 		ext_list = ospf->external[DEFAULT_ROUTE];
 
 		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {

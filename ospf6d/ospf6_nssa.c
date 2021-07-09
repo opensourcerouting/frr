@@ -1004,7 +1004,7 @@ static void ospf6_external_lsa_refresh_type(struct ospf6 *ospf6, uint8_t type,
 		info = route->route_option;
 
 		/* Find the external LSA in the database */
-		if (!is_default_prefix((const struct prefix *)&route->prefix)) {
+		if (!is_default_prefix(&route->prefix)) {
 			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 						htonl(info->id),
 						ospf6->router_id, ospf6->lsdb);
@@ -1042,7 +1042,7 @@ static void ospf6_external_lsa_refresh_default(struct ospf6 *ospf6)
 
 	for (route = ospf6_route_head(ospf6->external_table); route;
 	     route = ospf6_route_next(route)) {
-		if (is_default_prefix((const struct prefix *)&route->prefix)) {
+		if (is_default_prefix(&route->prefix)) {
 			info = route->route_option;
 			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 						htonl(info->id),
