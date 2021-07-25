@@ -335,6 +335,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		return pim_bsm_process(ifp, &sg, pim_msg, pim_msg_len, no_fwd);
 		break;
 
+	case PIM_MSG_TYPE_CANDIDATE:
+		return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len);
+
 	default:
 		if (PIM_DEBUG_PIM_PACKETS) {
 			zlog_debug(
