@@ -177,7 +177,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil);
 bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		int oif_index);
 int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
-		   ifindex_t ifindex);
+		   ifindex_t ifindex, bool router_alert);
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg);
 int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 			    size_t len);

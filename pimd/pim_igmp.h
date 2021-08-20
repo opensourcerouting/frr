@@ -102,7 +102,8 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 void igmp_sock_delete(struct gm_sock *igmp);
 void igmp_sock_free(struct gm_sock *igmp);
 void igmp_sock_delete_all(struct interface *ifp);
-int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len);
+int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len,
+		    bool router_alert);
 bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *ip_hlen);
 void pim_igmp_general_query_on(struct gm_sock *igmp);
 void pim_igmp_general_query_off(struct gm_sock *igmp);

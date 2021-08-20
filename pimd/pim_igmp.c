@@ -726,8 +726,10 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 	return true;
 }
 
-int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
+int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len,
+		    bool router_alert)
 {
+	const struct pim_interface *pim_interface = igmp->interface->info;
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
 	char *igmp_msg;
@@ -738,6 +740,14 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 
 	if (!pim_igmp_verify_header(ip_hdr, len, &ip_hlen))
 		return -1;
+
+	if (pim_interface->igmp_require_ra && !router_alert) {
+		if (PIM_DEBUG_GM_PACKETS)
+			zlog_debug(
+				"discarding IGMP packet from %pI4 on %s due to Router Alert option missing",
+				&ip_hdr->ip_src, igmp->interface->name);
+		return -1;
+	}
 
 	igmp_msg = buf + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
