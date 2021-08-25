@@ -1,0 +1,101 @@
+module frr-pim-route-map {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/pim-route-map";
+  prefix frr-pim-route-map;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  import frr-filter {
+    prefix filter;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines PIM route map settings";
+
+  revision 2021-08-25 {
+    description
+      "Initial revision";
+  }
+
+  identity ipv4-multicast-source {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match multicast IP source address (S part of S,G)";
+  }
+
+  identity ipv4-multicast-group {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match multicast IP group address (G part of S,G)";
+  }
+
+  identity ipv4-multicast-source-prefix-list {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match multicast IP source address against prefix list";
+  }
+
+  identity ipv4-multicast-group-prefix-list {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match multicast IP group address against prefix list";
+  }
+
+  identity multicast-iif {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match incoming interface (iif)";
+  }
+
+  augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
+    case multicast-group {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-pim-route-map:ipv4-multicast-group')";
+
+      leaf ipv4-multicast-group-address {
+        type inet:ipv4-address;
+      }
+    }
+
+    case multicast-source {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-pim-route-map:ipv4-multicast-source')";
+
+      leaf ipv4-multicast-source-address {
+        type inet:ipv4-address;
+      }
+    }
+
+    case multicast-iif {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-pim-route-map:multicast-iif')";
+
+      leaf multicast-iif {
+        type frr-interface:interface-ref;
+      }
+    }
+
+    case prefix-list-name {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-pim-route-map:ipv4-multicast-source-prefix-list') or "
+        + "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-pim-route-map:ipv4-multicast-group-prefix-list')";
+      description
+        "Prefix-list name";
+      leaf list-name {
+        type filter:access-list-name;
+      }
+    }
+
+  }
+}
