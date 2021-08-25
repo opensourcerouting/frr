@@ -5706,6 +5706,22 @@ DEFPY_YANG(interface_ip_igmp_immediate_leave,
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
+DEFPY_YANG(interface_ip_igmp_rmap, interface_ip_igmp_rmap_cmd,
+           "[no] ip igmp route-map ![RMAP_NAME]",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Filter joins through route-map\n"
+           "Route-map name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./route-map", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./route-map", NB_OP_MODIFY, rmap_name);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
        "ip pim drpriority (0-4294967295)",
@@ -9182,6 +9198,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ip_igmp_limits_cmd);
 	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_rmap_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);

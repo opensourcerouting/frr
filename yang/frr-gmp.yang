@@ -21,6 +21,10 @@ module frr-gmp {
     prefix frr-interface;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   organization
     "FRRouting";
 
@@ -192,6 +196,12 @@ module frr-gmp {
       description
         "Immediately drop group memberships on receiving IGMPv2/MLDv1 Leave.
          Has no effect when IGMPv3/MLDv2 is in use.";
+    }
+
+    leaf route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Filter multicast with referenced route-map.";
     }
 
     list static-group {

@@ -17,7 +17,24 @@
 
 DEFINE_MTYPE_STATIC(PIMD, PIM_ACL_REF, "PIM filter name");
 
+DECLARE_DLIST(pim_filter_refs, struct pim_filter_ref, itm);
+
+static struct pim_filter_refs_head refs[1] = { INIT_DLIST(refs[0]) };
+
 static void rmap_cli_init(void);
+
+void pim_filter_ref_init(struct pim_filter_ref *ref)
+{
+	memset(ref, 0, sizeof(*ref));
+	pim_filter_refs_add_tail(refs, ref);
+}
+
+void pim_filter_ref_fini(struct pim_filter_ref *ref)
+{
+	pim_filter_refs_del(refs, ref);
+
+	XFREE(MTYPE_PIM_ACL_REF, ref->rmapname);
+}
 
 void pim_filter_ref_set_rmap(struct pim_filter_ref *ref, const char *rmapname)
 {
@@ -28,6 +45,30 @@ void pim_filter_ref_set_rmap(struct pim_filter_ref *ref, const char *rmapname)
 		ref->rmapname = XSTRDUP(MTYPE_PIM_ACL_REF, rmapname);
 		ref->rmap = route_map_lookup_by_name(ref->rmapname);
 	}
+}
+
+void pim_filter_ref_update(void)
+{
+	struct pim_filter_ref *ref;
+
+	frr_each (pim_filter_refs, refs, ref) {
+		ref->rmap = route_map_lookup_by_name(ref->rmapname);
+	}
+}
+
+void pim_sg_to_prefix(const pim_sgaddr *sg, struct prefix_sg *prefix)
+{
+	prefix->family = PIM_AF;
+
+#if PIM_IPV == 4
+	prefix->prefixlen = IPV4_MAX_BITLEN;
+	prefix->src.ipaddr_v4 = sg->src;
+	prefix->grp.ipaddr_v4 = sg->grp;
+#else
+	prefix->prefixlen = IPV6_MAX_BITLEN;
+	prefix->src.ipaddr_v6 = sg->src;
+	prefix->grp.ipaddr_v6 = sg->grp;
+#endif
 }
 
 /*
