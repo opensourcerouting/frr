@@ -56,6 +56,7 @@
 #include "pim_nb.h"
 #include "pim_addr.h"
 #include "pim_cmd_common.h"
+#include "pim_routemap.h"
 
 #include "pimd/pim_cmd_clippy.c"
 

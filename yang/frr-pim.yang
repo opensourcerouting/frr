@@ -25,6 +25,14 @@ module frr-pim {
     prefix "inet";
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
+  import frr-filter {
+    prefix frr-filter;
+  }
+
   organization
     "FRRouting";
 

@@ -869,6 +869,31 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:ipv6-address"));
+	} else if (IS_MATCH_IPV4_MCAST_SRC(condition)) {
+		vty_out(vty, " match ip multicast-source %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:ipv4-multicast-source-address"));
+	} else if (IS_MATCH_IPV4_MCAST_SRC_PL(condition)) {
+		vty_out(vty, " match ip multicast-source prefix-list %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:list-name"));
+	} else if (IS_MATCH_IPV4_MCAST_GRP(condition)) {
+		vty_out(vty, " match ip multicast-group %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:ipv4-multicast-group-address"));
+	} else if (IS_MATCH_IPV4_MCAST_GRP_PL(condition)) {
+		vty_out(vty, " match ip multicast-group prefix-list %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:list-name"));
+	} else if (IS_MATCH_MCAST_IIF(condition)) {
+		vty_out(vty, " match multicast-iif %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:multicast-iif"));
 	}
 }
 
