@@ -56,6 +56,7 @@
 #include "pim_nb.h"
 #include "pim_addr.h"
 #include "pim_cmd_common.h"
+#include "pim_routemap.h"
 
 #include "pimd/pim_cmd_clippy.c"
 
@@ -6637,6 +6638,75 @@ DEFUN (no_debug_autorp,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_rmap_apply, debug_rmap_apply_cmd,
+      "debug route-map apply RMAP_NAME [{"
+          "group A.B.C.D"
+          "|source A.B.C.D"
+          "|iif IFNAME$iif"
+          "|interface IFNAME$iface"
+      "}]",
+      DEBUG_STR
+      "Debug option set for route-maps\n"
+      "Test apply route-map\n"
+      "Name of route-map to test\n"
+      "Multicast group to match\n"
+      "Multicast group to match\n"
+      "Multicast source to match\n"
+      "Multicast source to match\n"
+      "Input interface to match\n"
+      "Input interface to match\n"
+      "Interface (unqualified) to match\n"
+      "Interface (unqualified) to match\n")
+{
+	struct interface *iifp = NULL, *gen_ifp = NULL;
+	struct vrf *vrf;
+	struct prefix_sg sg;
+	bool res;
+
+	if (iface) {
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			gen_ifp = if_lookup_by_name(iface, vrf->vrf_id);
+			if (gen_ifp)
+				break;
+		}
+		if (!gen_ifp) {
+			vty_out(vty, "%% invalid interface %s\n", iface);
+			return CMD_WARNING;
+		}
+	}
+	if (iif) {
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			iifp = if_lookup_by_name(iif, vrf->vrf_id);
+			if (iifp)
+				break;
+		}
+		if (!iifp) {
+			vty_out(vty, "%% invalid iif %s\n", iif);
+			return CMD_WARNING;
+		}
+	}
+
+	if (group.s_addr && !pim_is_group_224_4(group)) {
+		vty_out(vty, "%% group (%pI4) must be multicast\n", &group);
+		return CMD_WARNING;
+	}
+	if (source.s_addr && IPV4_CLASS_DE(ntohl(source.s_addr))) {
+		vty_out(vty, "%% source (%pI4) must be unicast\n", &source);
+		return CMD_WARNING;
+	}
+
+	sg.family = AF_INET;
+	sg.prefixlen = IPV4_MAX_BITLEN;
+	sg.src.ipaddr_v4 = source;
+	sg.grp = group;
+
+	res = pim_routemap_match(&sg, gen_ifp, iifp, rmap_name);
+	vty_out(vty, "route-map %s for %pSG4, iface:%s, iif:%s: %s\n", rmap_name, &sg,
+		gen_ifp ? gen_ifp->name : "*", iifp ? iifp->name : "*",
+		res ? "permitted" : "denied");
+
+	return res ? CMD_SUCCESS : CMD_WARNING;
+}
 
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
@@ -9409,6 +9479,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 	install_element(CONFIG_NODE, &debug_autorp_cmd);
 	install_element(CONFIG_NODE, &no_debug_autorp_cmd);
+
+	install_element(CONFIG_NODE, &debug_rmap_apply_cmd);
 
 	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
 	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);
