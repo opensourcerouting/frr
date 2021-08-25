@@ -23,6 +23,7 @@
 #include "pim_zebra.h"
 #include "pim_oil.h"
 #include "pim_ssm.h"
+#include "pim_routemap.h"
 
 static void group_retransmit_timer_on(struct gm_group *group);
 static long igmp_group_timer_remain_msec(struct gm_group *group);
@@ -226,10 +227,25 @@ void igmp_source_reset_gmi(struct gm_group *group, struct gm_source *source)
 {
 	long group_membership_interval_msec;
 	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	struct prefix_sg sg = {
+		.family = AF_INET,
+		.prefixlen = IPV4_MAX_BITLEN,
+		.src.ipaddr_v4 = source->source_addr,
+		.grp = group->group_addr,
+	};
 
 	ifp = group->interface;
+	pim_ifp = ifp->info;
 
 	group_membership_interval_msec = igmp_gmi_msec(group);
+
+	if (pim_ifp->multicast_rmap && !pim_routemap_match(&sg, ifp, NULL, pim_ifp->multicast_rmap)) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("Timer for %pSG4 on %s not refreshed due to route-map reject",
+				   &sg, ifp->name);
+		return;
+	}
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -425,9 +441,19 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 {
 	const struct pim_interface *pim_interface = group->interface->info;
 	struct gm_source *src;
+	struct prefix_sg sg = {
+		.family = AF_INET,
+		.prefixlen = IPV4_MAX_BITLEN,
+		.src.ipaddr_v4 = src_addr,
+		.grp = group->group_addr,
+	};
 
 	if (new)
 		*new = false;
+
+	if (pim_interface->multicast_rmap &&
+	    !pim_routemap_match(&sg, group->interface, NULL, pim_interface->multicast_rmap))
+		return NULL;
 
 	src = igmp_find_source_by_addr(group, src_addr);
 	if (src)
@@ -656,11 +682,23 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 {
 	struct interface *ifp = igmp->interface;
 	struct gm_group *group;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct prefix_sg sg = {
+		.family = AF_INET,
+		.prefixlen = IPV4_MAX_BITLEN,
+		.grp = group_addr,
+	};
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
 	if (pim_is_group_filtered(ifp->info, &group_addr, NULL))
 		return;
+
+	if (pim_ifp->multicast_rmap && !pim_routemap_match(&sg, ifp, NULL, pim_ifp->multicast_rmap)) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("Rejected ISEX %pSG4 on %s due to route-map", &sg, ifp->name);
+		return;
+	}
 
 	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
@@ -950,8 +988,21 @@ void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 {
 	struct interface *ifp = igmp->interface;
 	struct gm_group *group;
+	/* non-existent group is created as INCLUDE {empty} */
+	struct pim_interface *pim_ifp = ifp->info;
+	struct prefix_sg sg = {
+		.family = AF_INET,
+		.prefixlen = IPV4_MAX_BITLEN,
+		.grp = group_addr,
+	};
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
+
+	if (pim_ifp->multicast_rmap && !pim_routemap_match(&sg, ifp, NULL, pim_ifp->multicast_rmap)) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("Rejected TOEX %pSG4 on %s due to route-map", &sg, ifp->name);
+		return;
+	}
 
 	/* non-existent group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);

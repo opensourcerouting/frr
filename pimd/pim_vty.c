@@ -457,6 +457,13 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	/* IF ip igmp sources  */
+	if (pim_ifp->multicast_rmap) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " sources route-map %s\n",
+			pim_ifp->multicast_rmap);
+		++writes;
+	}
+
 	/* IF igmp/mld max-sources */
 	if (pim_ifp->gm_source_limit != UINT32_MAX) {
 		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-sources %u\n",

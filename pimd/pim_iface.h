@@ -14,11 +14,14 @@
 #include "vrf.h"
 #include "zclient.h"
 #include "ferr.h"
+#include "memory.h"
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
 #include "bfd.h"
 #include "pim_str.h"
+
+DECLARE_MTYPE(PIM_RMAP_NAME);
 
 #define PIM_IF_IS_DELETED(ifp) ((ifp)->ifindex == IFINDEX_INTERNAL)
 
@@ -109,6 +112,9 @@ struct pim_interface {
 
 	/* IGMPv2 only/MLDv1 only immediate leave */
 	bool gmp_immediate_leave;
+
+	/* NB: multicast_rmap is only applied for (S,G) data */
+	char *multicast_rmap;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct event *t_pim_sock_read;	/* thread for reading PIM socket */
