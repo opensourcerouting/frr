@@ -11,3 +11,6 @@
 /grammar_sandbox
 /clippy
 /defun_lex.c
+/yangkheg_lex.c
+/yangkheg_lex.h
+/yangkheg

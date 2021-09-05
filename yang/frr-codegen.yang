@@ -1,0 +1,17 @@
+module frr-codegen {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/codegen";
+  prefix cg;
+
+  description "";
+
+  revision 2021-08-28 {
+    description
+      "Initial revision.";
+  }
+
+  extension context-type {
+    description "Indicates the C structure that corresponds to a container";
+    argument "ctype";
+  }
+}

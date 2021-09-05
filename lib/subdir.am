@@ -474,6 +474,24 @@ lib_clippy_SOURCES = \
 	lib/vector.c \
 	# end
 
+if BUILD_CLIPPY
+noinst_PROGRAMS += lib/yangkheg
+endif
+lib_yangkheg_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
+lib_yangkheg_CFLAGS = $(AC_CFLAGS) # $(PYTHON_CFLAGS)
+lib_yangkheg_LDADD = $(LIBYANG_LIBS) $(LIBM)
+lib_yangkheg_SOURCES = \
+	lib/yangkheg_lex.l \
+	lib/yangkheg.c \
+	lib/jhash.c \
+	lib/memory.c \
+	lib/strformat.c \
+	lib/typesafe.c \
+	lib/printf/printf-pos.c \
+	lib/printf/vfprintf.c \
+	lib/printf/glue.c \
+	# end
+
 # (global) clippy rules for all directories
 
 AM_V_CLIPPY = $(am__v_CLIPPY_$(V))

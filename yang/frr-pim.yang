@@ -5,6 +5,10 @@ module frr-pim {
 
   prefix frr-pim;
 
+  import frr-codegen {
+    prefix cg;
+  }
+
   import frr-interface {
     prefix frr-interface;
   }
@@ -509,6 +513,8 @@ module frr-pim {
       }
       description
         "PIM configuration data.";
+      cg:context-type "struct pim_instance *";
+
       list address-family {
         key "address-family";
         description
