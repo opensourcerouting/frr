@@ -72,15 +72,17 @@ char *vasnprintfrr(struct memtype *mt, char *out, size_t sz,
 char  *asnprintfrr(struct memtype *mt, char *out, size_t sz,
 		   const char *fmt, ...)     atn(4, 5);
 
-#define printfrr(fmt, ...)                                                     \
+#define fprintfrr(file, fmt, ...)                                              \
 	do {                                                                   \
 		char buf[256], *out;                                           \
 		out = asnprintfrr(MTYPE_TMP, buf, sizeof(buf), fmt,            \
 				  ##__VA_ARGS__);                              \
-		fputs(out, stdout);                                            \
+		fputs(out, file);                                              \
 		if (out != buf)                                                \
 			XFREE(MTYPE_TMP, out);                                 \
 	} while (0)
+
+#define printfrr(fmt, ...) fprintfrr(stdout, fmt, ## __VA_ARGS__)
 
 #undef at
 #undef atm
