@@ -480,9 +480,13 @@ endif
 lib_yangkheg_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_yangkheg_CFLAGS = $(AC_CFLAGS) # $(PYTHON_CFLAGS)
 lib_yangkheg_LDADD = $(LIBYANG_LIBS) $(LIBM)
+lib_yangkheg_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@ykat_@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 lib_yangkheg_SOURCES = \
 	lib/yangkheg_lex.l \
 	lib/yangkheg.c \
+	lib/yk_token.c \
+	lib/yk_cblock.c \
+	lib/yk_atexpr_eval.y \
 	lib/jhash.c \
 	lib/memory.c \
 	lib/strformat.c \

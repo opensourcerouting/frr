@@ -76,6 +76,17 @@ module frr-pim {
 
   typedef plist-ref {
     type string;
+    cg:context-type "#0";
+  }
+
+  typedef plist-ref1 {
+    type plist-ref;
+    cg:context-type "#1";
+  }
+
+  typedef plist-ref2 {
+    type plist-ref1;
+    cg:context-type "#2";
   }
 
   /*
@@ -207,6 +218,26 @@ module frr-pim {
         type plist-ref;
         description
           "Prefix-list used to define Source-Specific Multicast address range.";
+    }
+
+    leaf test {
+        type plist-ref;
+        description
+          "Prefix-list used to define Source-Specific Multicast address range.";
+    }
+
+    leaf test2 {
+        type plist-ref2;
+        description
+          "Prefix-list used to define Source-Specific Multicast address range.";
+    }
+
+    leaf test3 {
+        type plist-ref2 {
+          length 1..64;
+	}
+        description
+          "bla";
     }
 
     leaf-list ssm-pingd-source-ip {

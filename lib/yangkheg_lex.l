@@ -60,8 +60,14 @@ struct yangkheg_lexer {
 	char string_end;
 	int code_depth;
 
-	struct yangkheg_token tkn;
+	size_t bytepos;
+
+	struct yangkheg_file *file;
+	struct yangkheg_token *tkn;
 };
+
+static void set_start(struct yangkheg_lexer *lex);
+static void feed_pos(struct yangkheg_lexer *lex, const char *text);
 
 static void extendbuf(char **what, const char *arg)
 {
@@ -74,13 +80,17 @@ static void extendbuf(char **what, const char *arg)
 		(*what)[vall + argl] = '\0';
 	}
 }
-#define extendr(x) extendbuf(&yyextra->tkn.raw, x)
-#define extendc(x) extendbuf(&yyextra->tkn.cooked, x)
+#define extendr(x) extendbuf(&yyextra->tkn->raw, x)
+#define extendc(x) extendbuf(&yyextra->tkn->cooked, x)
+
+#define YY_USER_ACTION                                                         \
+	feed_pos(yyextra, yytext);                                             \
+	/* end */
 
 #ifndef __clang_analyzer__
 %}
 
-ID		[A-Za-z0-9_]+
+ID		[A-Za-z_][A-Za-z0-9_]*
 OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 
 %pointer
@@ -132,6 +142,7 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 						return '#';
 					else {
 						yyextra->preproc_link = YY_START;
+						extendr("#");
 						BEGIN(preproc);
 					}
 				}
@@ -144,7 +155,7 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 [\"\']				{
 					yyextra->string_end = yytext[0];
 					extendr(yytext);
-					yyextra->tkn.cooked = strdup("");
+					yyextra->tkn->cooked = strdup("");
 					yyextra->string_link = YY_START;
 					BEGIN(rstring);
 				}
@@ -164,39 +175,47 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 
 <INITIAL>"${"			yyextra->code_depth = 0; BEGIN(c_code); return YKCC_OPEN;
 
-<c_code>[ \t\n]+		yyextra->tkn.text = yytext; return YKCC_WSP;
-<c_code>{ID}			yyextra->tkn.text = yytext; return YKCC_ID;
-<c_code>"{"			yyextra->tkn.text = yytext; yyextra->code_depth++; return YKCC_OPERATOR;
+<c_code>[ \t\n]+		yyextra->tkn->text = yytext; return YKCC_WSP;
+<c_code>{ID}			yyextra->tkn->text = yytext; return YKCC_ID;
+<c_code>"{"			yyextra->tkn->text = yytext; yyextra->code_depth++; return YKCC_OPERATOR;
 <c_code>"}"			{
 					if (!yyextra->code_depth) {
 						BEGIN(INITIAL);
 						return YKCC_CLOSE;
 					}
-					yyextra->tkn.text = yytext;
+					yyextra->tkn->text = yytext;
 					yyextra->code_depth--;
 					return YKCC_OPERATOR;
 				}
+<c_code>@			yyextra->tkn->text = yytext; return YKCC_AT;
 <c_code>.			return yytext[0];
 
 <INITIAL>"implements"		return YK_IMPLEMENTS;
-<INITIAL>"bind"			return YK_BIND;
+<INITIAL>"emit"			return YK_EMIT;
+<INITIAL>"trace!"		return YK_TRACE;
+
+<INITIAL>"noop"			return YK_NOOP;
+<INITIAL>"nodeval"		return YK_NODEVAL;
+<INITIAL>"lval"			return YK_LVAL;
+
 <INITIAL>"create"		return YK_CREATE;
 <INITIAL>"modify"		return YK_MODIFY;
 <INITIAL>"destroy"		return YK_DESTROY;
+
 <INITIAL>"{"			return '{';
 <INITIAL>"}"			return '}';
 <INITIAL>";"			return ';';
 
-<INITIAL>[ \t\n]+		/* ignore */
+<INITIAL>[ \t\n]+		set_start(yyextra);
 <INITIAL>\/[a-zA-Z_][a-zA-Z_.-]*(:[a-zA-Z_][a-zA-Z_.-]*)? {
 					BEGIN(INITIAL);
 					/* exclude starting / */
-					yyextra->tkn.text = yytext + 1;
+					yyextra->tkn->text = yytext + 1;
 					return YK_PATH;
 				}
 
 
-{ID}				yyextra->tkn.text = yytext; return ID;
+{ID}				yyextra->tkn->text = yytext; return ID;
 
 	/* {OPERATOR}			yyextra->value = strdup(yytext); return YKCCOPERATOR; */
 
@@ -206,40 +225,64 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 
 #endif /* __clang_analyzer__ */
 
-struct yangkheg_lexer *yangkheg_begin(FILE *fd)
+struct yangkheg_lexer *yangkheg_begin(struct yangkheg_file *file)
 {
-	struct yangkheg_lexer *lex = malloc(sizeof(*lex));
+	struct yangkheg_lexer *lex = calloc(1, sizeof(*lex));
+
+	lex->file = file;
 
 	kheg_yylex_init_extra(lex, &lex->scn);
-	kheg_yyset_in(fd, lex->scn);
-
+	kheg_yyset_in(file->fd, lex->scn);
 	return lex;
 }
 
-const struct yangkheg_token *yangkheg_next(struct yangkheg_lexer *lex)
+static void set_start(struct yangkheg_lexer *lex)
 {
-	free(lex->tkn.raw);
-	free(lex->tkn.cooked);
+	lex->tkn->file = lex->file;
+	lex->tkn->line_s = kheg_yyget_lineno(lex->scn);
+	lex->tkn->col_s = kheg_yyget_column(lex->scn);
+	lex->tkn->byte_s = lex->bytepos;
+}
 
-	memset(&lex->tkn, 0, sizeof(lex->tkn));
+static void feed_pos(struct yangkheg_lexer *lex, const char *text)
+{
+	int col = kheg_yyget_column(lex->scn);
 
-	lex->tkn.token = kheg_yylex(lex->scn);
-	if (lex->tkn.token == YY_NULL)
+	for (; text && *text; text++) {
+		lex->bytepos++;
+
+		if (*text == '\n')
+			col = 0;
+		else
+			col++;
+	}
+
+	kheg_yyset_column(col, lex->scn);
+}
+
+struct yangkheg_token *yangkheg_next(struct yangkheg_lexer *lex)
+{
+	yk_token_put(&lex->tkn);
+
+	lex->tkn = yk_token_create();
+	set_start(lex);
+
+	lex->tkn->token = kheg_yylex(lex->scn);
+
+	if (lex->tkn->token == YY_NULL)
 		return NULL;
 
-	if (!lex->tkn.text)
-		lex->tkn.text = lex->tkn.raw;
-	lex->tkn.line = kheg_yyget_lineno(lex->scn);
-	lex->tkn.col = kheg_yyget_column(lex->scn);
+	if (!lex->tkn->text)
+		lex->tkn->text = lex->tkn->raw;
+	lex->tkn->line_e = kheg_yyget_lineno(lex->scn);
+	lex->tkn->col_e = kheg_yyget_column(lex->scn);
 
-	return &lex->tkn;
+	return lex->tkn;
 }
 
 void yangkheg_end(struct yangkheg_lexer *lex)
 {
-	free(lex->tkn.raw);
-	free(lex->tkn.cooked);
-
+	yk_token_put(&lex->tkn);
 	kheg_yylex_destroy(lex->scn);
 	free(lex);
 }

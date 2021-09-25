@@ -13,4 +13,6 @@
 /defun_lex.c
 /yangkheg_lex.c
 /yangkheg_lex.h
+/yangkheg-yk_atexpr_eval.c
+/yangkheg-yk_atexpr_eval.h
 /yangkheg
