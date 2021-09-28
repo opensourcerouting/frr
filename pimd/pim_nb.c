@@ -731,7 +731,14 @@ const struct frr_yang_module_info frr_gmp_info = {
 				.modify = lib_interface_gmp_address_family_proxy_modify,
 			}
 		},
-{
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/immediate-leave",
+			.cbs = {
+				.modify = lib_interface_gmp_immediate_leave_modify,
+				.destroy = lib_interface_gmp_immediate_leave_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group",
 			.cbs = {
 				.create = lib_interface_gmp_address_family_static_group_create,

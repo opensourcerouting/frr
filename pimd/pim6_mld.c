@@ -392,18 +392,25 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		    desired == GM_SG_NOPRUNE_EXPIRING) {
 			struct gm_query_timers timers;
 
-			timers.qrv = gm_ifp->cur_qrv;
-			timers.max_resp_ms = gm_ifp->cur_max_resp;
-			timers.qqic_ms = gm_ifp->cur_query_intv_trig;
-			timers.fuzz = gm_ifp->cfg_timing_fuzz;
+			if (!pim_ifp->gmp_immediate_leave) {
+				timers.qrv = gm_ifp->cur_qrv;
+				timers.max_resp_ms = gm_ifp->cur_max_resp;
+				timers.qqic_ms = gm_ifp->cur_query_intv_trig;
+				timers.fuzz = gm_ifp->cfg_timing_fuzz;
 
-			gm_expiry_calc(&timers);
+				gm_expiry_calc(&timers);
+			} else
+				memset(&timers.expire_wait, 0,
+				       sizeof(timers.expire_wait));
+
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			EVENT_OFF(sg->t_sg_query);
 			sg->query_sbit = false;
 			/* Trigger the specific queries only for querier. */
-			if (IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest)) {
+			if (!pim_ifp->gmp_immediate_leave &&
+			    IPV6_ADDR_SAME(&gm_ifp->querier,
+					   &pim_ifp->ll_lowest)) {
 				sg->n_query = gm_ifp->cur_lmqc;
 				gm_trigger_specific(sg);
 			}

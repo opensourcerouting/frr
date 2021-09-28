@@ -105,6 +105,9 @@ struct pim_interface {
 
 	struct gm_if *mld;
 
+	/* IGMPv2 only/MLDv1 only immediate leave */
+	bool gmp_immediate_leave;
+
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct event *t_pim_sock_read;	/* thread for reading PIM socket */
 	int64_t pim_sock_creation;      /* timestamp of PIM socket creation */
