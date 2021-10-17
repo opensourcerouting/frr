@@ -189,6 +189,7 @@ endif
 clippy_scan += \
 	lib/affinitymap_cli.c \
 	lib/if.c \
+	lib/filter.c \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
 	lib/keychain_cli.c \

@@ -92,13 +92,12 @@ static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 
 	if (filter->extended) {
 		masklen2ip(p->prefixlen, &mask);
-		check_mask = mask.s_addr & ~filter->mask_mask.s_addr;
+		check_mask = mask.s_addr & ~filter->wtf.mask_mask.s_addr;
 
-		if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN)
-			    == 0
-		    && memcmp(&check_mask, &filter->mask.s_addr,
-			      IPV4_MAX_BYTELEN)
-			       == 0)
+		if (memcmp(&check_addr, &filter->addr.s_addr,
+			   IPV4_MAX_BYTELEN) == 0 &&
+		    memcmp(&check_mask, &filter->wtf.mask.s_addr,
+			   IPV4_MAX_BYTELEN) == 0)
 			return 1;
 	} else if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN)
 		   == 0)
@@ -111,6 +110,59 @@ static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 {
 	struct filter_zebra *filter = NULL;
+
+	filter = &mfilter->u.zfilter;
+
+	if (filter->prefix.family == p->family) {
+		if (filter->exact) {
+			if (filter->prefix.prefixlen == p->prefixlen)
+				return prefix_match(&filter->prefix, p);
+			else
+				return 0;
+		} else
+			return prefix_match(&filter->prefix, p);
+	} else
+		return 0;
+}
+
+/* If filter match to the prefix then return 1. */
+static int filter_match_cisco_sadr(struct filter *mfilter,
+				   const struct prefix *src,
+				   const struct prefix *dst)
+{
+	struct filter_cisco *filter;
+
+	filter = &mfilter->u.cfilter;
+
+	if (filter->extended) {
+		in_addr_t src_m = src->u.prefix4.s_addr;
+		in_addr_t dst_m = dst->u.prefix4.s_addr;
+
+		src_m &= ~filter->sadr.src_mask.s_addr;
+		dst_m &= ~filter->sadr.dst_mask.s_addr;
+
+		if (src_m == filter->sadr.src.s_addr &&
+		    dst_m == filter->sadr.dst.s_addr)
+			return 1;
+	} else {
+		in_addr_t check_addr;
+
+		check_addr = src->u.prefix4.s_addr & ~filter->addr_mask.s_addr;
+		if (check_addr == filter->addr.s_addr)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* If filter match to the prefix then return 1. */
+static int filter_match_zebra_sadr(struct filter *mfilter,
+				   const struct prefix *src,
+				   const struct prefix *dst)
+{
+	struct filter_zebra *filter = NULL;
+	/* src ignored here */
+	const struct prefix *p = dst;
 
 	filter = &mfilter->u.zfilter;
 
@@ -285,6 +337,37 @@ enum filter_type access_list_apply(struct access_list *access,
 		} else {
 			if (filter_match_zebra(filter, p))
 				return filter->type;
+		}
+	}
+
+	return FILTER_DENY;
+}
+
+enum filter_type access_list_apply_sadr(struct access_list *access,
+					union prefixconstptr src,
+					union prefixconstptr dst,
+					struct filter **match)
+{
+	struct filter *filter;
+
+	if (access == NULL)
+		return FILTER_DENY;
+
+	for (filter = access->head; filter; filter = filter->next) {
+		if (filter->cisco) {
+			if (filter_match_cisco_sadr(filter, src.p, dst.p)) {
+				if (match)
+					*match = filter;
+
+				return filter->type;
+			}
+		} else {
+			if (filter_match_zebra_sadr(filter, src.p, dst.p)) {
+				if (match)
+					*match = filter;
+
+				return filter->type;
+			}
 		}
 	}
 
@@ -656,27 +739,27 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter,
 		json_object_string_addf(json, "sourceMask", "%pI4",
 					&filter->addr_mask);
 		json_object_string_addf(json, "destinationAddress", "%pI4",
-					&filter->mask);
+					&filter->wtf.mask);
 		json_object_string_addf(json, "destinationMask", "%pI4",
-					&filter->mask_mask);
+					&filter->wtf.mask_mask);
 	} else {
 		vty_out(vty, " ip");
-		if (filter->addr_mask.s_addr == 0xffffffff)
+		if (filter->wtf.addr_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
-		else if (filter->addr_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %pI4", &filter->addr);
+		else if (filter->wtf.addr_mask.s_addr == INADDR_ANY)
+			vty_out(vty, " host %pI4", &filter->wtf.addr);
 		else {
-			vty_out(vty, " %pI4", &filter->addr);
-			vty_out(vty, " %pI4", &filter->addr_mask);
+			vty_out(vty, " %pI4", &filter->wtf.addr);
+			vty_out(vty, " %pI4", &filter->wtf.addr_mask);
 		}
 
-		if (filter->mask_mask.s_addr == 0xffffffff)
+		if (filter->wtf.mask_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
-		else if (filter->mask_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %pI4", &filter->mask);
+		else if (filter->wtf.mask_mask.s_addr == INADDR_ANY)
+			vty_out(vty, " host %pI4", &filter->wtf.mask);
 		else {
-			vty_out(vty, " %pI4", &filter->mask);
-			vty_out(vty, " %pI4", &filter->mask_mask);
+			vty_out(vty, " %pI4", &filter->wtf.mask);
+			vty_out(vty, " %pI4", &filter->wtf.mask_mask);
 		}
 		vty_out(vty, "\n");
 	}
@@ -713,6 +796,52 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter,
 		vty_out(vty, "\n");
 	}
 }
+
+#ifndef VTYSH_EXTRACT_PL
+#include "lib/filter_clippy.c"
+#endif
+
+DEFPY (debug_access_list_match,
+       debug_access_list_match_cmd,
+       "debug access-list WORD match [src A.B.C.D/M] dst A.B.C.D/M",
+       DEBUG_STR
+       "Access-list test\n"
+       "Name of an access list\n"
+       "Check for match\n"
+       "Source prefix to test\n"
+       "Source prefix to test\n"
+       "Destination prefix to test\n"
+       "Destination prefix to test\n")
+{
+	struct access_list *alist;
+	enum filter_type ret;
+	afi_t afi = AFI_IP;
+
+	alist = access_list_lookup(afi, access_list);
+	if (!alist) {
+		vty_out(vty, "%% no access list named %s for AFI %s\n",
+			access_list, afi2str(afi));
+		return CMD_WARNING;
+	}
+
+	if (!src_str) {
+		ret = access_list_apply(alist, dst);
+
+		vty_out(vty, "%s access list %s yields %s for %pFX\n",
+			afi2str(afi), access_list,
+			ret == FILTER_DENY ? "DENY" : "PERMIT", dst);
+	} else {
+		ret = access_list_apply_sadr(alist, src, dst, NULL);
+
+		vty_out(vty, "%s access list %s yields %s for %pFX<-%pFX\n",
+			afi2str(afi), access_list,
+			ret == FILTER_DENY ? "DENY" : "PERMIT", dst, src);
+	}
+
+	/* allow using this in scripts for quick prefix-list member tests */
+	return (ret == FILTER_PERMIT) ? CMD_SUCCESS : CMD_WARNING;
+}
+
 
 static struct cmd_node access_mac_node = {
 	.name = "MAC access list",
@@ -797,6 +926,7 @@ static void access_list_init_ipv4(void)
 
 	install_element(ENABLE_NODE, &show_ip_access_list_cmd);
 	install_element(ENABLE_NODE, &show_ip_access_list_name_cmd);
+	install_element(ENABLE_NODE, &debug_access_list_match_cmd);
 }
 
 static void access_list_autocomplete_afi(afi_t afi, vector comps,
