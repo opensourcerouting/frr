@@ -5348,8 +5348,10 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 				"      Graceful Restart HELPER Status : Inprogress.\n");
 
 			vty_out(vty,
-				"      Graceful Restart grace period time: %d (seconds).\n",
-				nbr->gr_helper_info.recvd_grace_period);
+				"      Graceful Restart grace period time: %ds (due in %lus).\n",
+				nbr->gr_helper_info.recvd_grace_period,
+				thread_timer_remain_second(
+					nbr->gr_helper_info.t_grace_timer));
 			vty_out(vty, "      Graceful Restart reason: %s.\n",
 				ospf_restart_reason2str(
 					nbr->gr_helper_info.gr_restart_reason));
@@ -5390,6 +5392,10 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			json_object_int_add(
 				json_neigh, "grGraceInterval",
 				nbr->gr_helper_info.recvd_grace_period);
+			json_object_int_add(
+				json_neigh, "grRemainingTimeSecs",
+				thread_timer_remain_second(
+					nbr->gr_helper_info.t_grace_timer));
 			json_object_string_add(
 				json_neigh, "grRestartReason",
 				ospf_restart_reason2str(
