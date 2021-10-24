@@ -2759,13 +2759,21 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 
 	/* Show Area type/mode. */
 	if (OSPF_IS_AREA_BACKBONE(area)) {
-		if (use_json)
+		if (use_json) {
+			json_object_string_add(json_area, "type", "backbone");
+			json_object_boolean_true_add(json_area,
+						     "acceptSummary");
 			json_object_boolean_true_add(json_area, "backbone");
-		else
+		} else
 			vty_out(vty, " (Backbone)\n");
 	} else {
 		if (use_json) {
 			if (area->external_routing == OSPF_AREA_STUB) {
+				json_object_string_add(json_area, "type",
+						       "stub");
+				json_object_boolean_add(json_area,
+							"acceptSummary",
+							!area->no_summary);
 				if (area->no_summary)
 					json_object_boolean_true_add(
 						json_area, "stubNoSummary");
@@ -2773,6 +2781,11 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 					json_object_boolean_true_add(
 						json_area, "stubShortcut");
 			} else if (area->external_routing == OSPF_AREA_NSSA) {
+				json_object_string_add(json_area, "type",
+						       "nssa");
+				json_object_boolean_add(json_area,
+							"acceptSummary",
+							!area->no_summary);
 				if (area->no_summary)
 					json_object_boolean_true_add(
 						json_area, "nssaNoSummary");
@@ -2807,6 +2820,45 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 		}
 	}
 
+	/* Show ranges */
+	if (use_json) {
+		json_object *json_ranges = NULL;
+		struct route_node *rn;
+
+		json_ranges = json_object_new_object();
+		json_object_object_add(json_area, "ranges", json_ranges);
+		for (rn = route_top(area->ranges); rn; rn = route_next(rn)) {
+			struct ospf_area_range *range;
+			json_object *json_range = NULL;
+			char buf[PREFIX_STRLEN];
+
+			range = rn->info;
+			if (!range)
+				continue;
+
+			prefix2str(&rn->p, buf, sizeof(buf));
+			json_range = json_object_new_object();
+			json_object_object_add(json_ranges, buf, json_range);
+			if (range->cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
+				json_object_int_add(json_range, "cost",
+						    range->cost_config);
+
+			json_object_boolean_add(
+				json_range, "advertise",
+				CHECK_FLAG(range->flags,
+					   OSPF_AREA_RANGE_ADVERTISE));
+
+			if (CHECK_FLAG(range->flags,
+				       OSPF_AREA_RANGE_SUBSTITUTE)) {
+				snprintfrr(buf, sizeof(buf), "%pI4/%u",
+					   &range->subst_addr,
+					   range->subst_masklen);
+				json_object_string_add(json_range, "substitute",
+						       buf);
+			}
+		}
+	}
+
 	/* Show number of interfaces */
 	if (use_json) {
 		json_object_int_add(json_area, "areaIfTotalCounter",
@@ -2821,6 +2873,45 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 	if (area->external_routing == OSPF_AREA_NSSA) {
 		if (use_json) {
 			json_object_boolean_true_add(json_area, "nssa");
+
+			if (IS_OSPF_ABR(area->ospf)) {
+				const char *translator_role;
+				const char *translator_status;
+
+				switch (area->NSSATranslatorRole) {
+				case OSPF_NSSA_ROLE_NEVER:
+					translator_role = "never";
+					break;
+				case OSPF_NSSA_ROLE_CANDIDATE:
+					translator_role = "candidate";
+					break;
+				case OSPF_NSSA_ROLE_ALWAYS:
+					translator_role = "always";
+					break;
+				default:
+					translator_role = "unknown";
+					break;
+				}
+				json_object_string_add(json_area,
+						       "nssaTranslatorRole",
+						       translator_role);
+
+				switch (area->NSSATranslatorState) {
+				case OSPF_NSSA_TRANSLATE_DISABLED:
+					translator_status = "active";
+					break;
+				case OSPF_NSSA_TRANSLATE_ENABLED:
+					translator_status = "inactive";
+					break;
+				default:
+					translator_status = "unknown";
+					break;
+				}
+				json_object_string_add(json_area,
+						       "nssaTranslatorStatus",
+						       translator_status);
+			}
+
 			if (!IS_OSPF_ABR(area->ospf))
 				json_object_boolean_false_add(json_area, "abr");
 			else if (area->NSSATranslatorState) {
@@ -2946,6 +3037,8 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 		/* Show SPF calculation times. */
 		json_object_int_add(json_area, "spfExecutedCounter",
 				    area->spf_calculation);
+		json_object_boolean_add(json_area, "transitCapability",
+					area->transit);
 		json_object_int_add(json_area, "lsaNumber", area->lsdb->total);
 		json_object_int_add(
 			json_area, "lsaRouterNumber",
@@ -3347,6 +3440,14 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		else
 			vty_out(vty,
 				" This router is an ASBR (injecting external routing information)\n");
+	}
+
+	/* Show originated/received LSA counters. */
+	if (json) {
+		json_object_int_add(json_vrf, "originatedLsaCounter",
+				    ospf->lsa_originate_count);
+		json_object_int_add(json_vrf, "receivedLsaCounter",
+				    ospf->rx_lsa_count);
 	}
 
 	/* Show Number of AS-external-LSAs. */
