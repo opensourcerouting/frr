@@ -787,6 +787,56 @@ static void ospf_gr_prepare(void)
 	}
 }
 
+void ospf_gr_show(struct vty *vty, struct ospf *ospf, json_object *json)
+{
+	const char *status;
+
+	status = (ospf->gr_info.prepare_in_progress
+		  || ospf->gr_info.restart_in_progress)
+			 ? "in progress"
+			 : "not started";
+
+	if (json) {
+		json_object_boolean_add(json, "grEnabled",
+					ospf->gr_info.restart_support);
+		if (ospf->gr_info.restart_support) {
+			json_object_string_add(json, "grStatus", status);
+			if (ospf->gr_info.reason != OSPF_GR_UNKNOWN_RESTART)
+				json_object_string_add(
+					json, "grReason",
+					ospf_restart_reason2str(
+						ospf->gr_info.reason));
+			if (ospf->gr_info.t_grace_period)
+				json_object_int_add(
+					json, "grRemainingTimeSecs",
+					thread_timer_remain_second(
+						ospf->gr_info.t_grace_period));
+			if (ospf->gr_info.exit_reason)
+				json_object_string_add(
+					json, "grExitReason",
+					ospf->gr_info.exit_reason);
+		}
+	} else {
+		vty_out(vty, " Graceful Restart: %s\n",
+			ospf->gr_info.restart_support ? "enabled" : "disabled");
+		if (ospf->gr_info.restart_support) {
+			vty_out(vty, "     Status: %s\n", status);
+			if (ospf->gr_info.reason != OSPF_GR_UNKNOWN_RESTART)
+				vty_out(vty, "     Restart reason: %s\n",
+					ospf_restart_reason2str(
+						ospf->gr_info.reason));
+			if (ospf->gr_info.t_grace_period)
+				vty_out(vty,
+					"     Restart remaining time: %lus\n",
+					thread_timer_remain_second(
+						ospf->gr_info.t_grace_period));
+			if (ospf->gr_info.exit_reason)
+				vty_out(vty, "     Restart exit reason: %s\n",
+					ospf->gr_info.exit_reason);
+		}
+	}
+}
+
 DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
       "graceful-restart prepare ip ospf",
       "Graceful Restart commands\n"

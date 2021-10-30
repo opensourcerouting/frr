@@ -9,6 +9,8 @@
 #ifndef _ZEBRA_OSPF_GR_H
 #define _ZEBRA_OSPF_GR_H
 
+#include "lib/json.h"
+
 #define OSPF_GR_NOT_HELPER 0
 #define OSPF_GR_ACTIVE_HELPER 1
 
@@ -176,6 +178,7 @@ extern void ospf_gr_check_adjs(struct ospf *ospf);
 extern void ospf_gr_nvm_read(struct ospf *ospf);
 extern void ospf_gr_nvm_delete(struct ospf *ospf);
 extern void ospf_gr_unplanned_start_interface(struct ospf_interface *oi);
+extern void ospf_gr_show(struct vty *vty, struct ospf *ospf, json_object *json);
 extern void ospf_gr_init(void);
 
 #endif /* _ZEBRA_OSPF_GR_H */

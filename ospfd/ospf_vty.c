@@ -3504,6 +3504,8 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		}
 	}
 
+	ospf_gr_show(vty, ospf, json);
+
 	/* show LDP-Sync status */
 	ospf_ldp_sync_show_info(vty, ospf, json_vrf, json ? 1 : 0);
 
