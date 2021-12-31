@@ -12013,6 +12013,238 @@ DEFUN (show_ip_ospf_external_aggregator,
 	return CMD_SUCCESS;
 }
 
+/** Helper function that fills in a JSON object with neighbor information. */
+static void show_ip_ospf_virtual_link_neighbor_json(
+	struct json_object *json, const struct ospf *ospf,
+	const struct ospf_interface *ospf_interface,
+	struct ospf_neighbor *neighbor)
+{
+	const struct ospf_vl_data *virtual_link = ospf_interface->vl_data;
+
+	json_object_string_addf(json, "transitAreaId", "%pI4",
+				&virtual_link->vl_area_id);
+	json_object_string_addf(json, "ifaceAddress", "%pI4",
+				&neighbor->address.u.prefix4);
+	json_object_string_add(json, "areaId",
+			       ospf_area_desc_string(ospf_interface->area));
+	json_object_string_add(json, "ifaceName", ospf_interface->ifp->name);
+	json_object_int_add(json, "nbrPriority", neighbor->priority);
+	json_object_string_add(
+		json, "nbrState",
+		lookup_msg(ospf_nsm_state_msg, neighbor->state, NULL));
+	json_object_int_add(json, "stateChangeCounter", neighbor->state_change);
+
+	if (neighbor->ts_last_progress.tv_sec
+	    || neighbor->ts_last_progress.tv_usec) {
+		struct timeval res;
+		long time_store;
+
+		time_store = monotime_since(&neighbor->ts_last_progress, &res)
+			     / 1000LL;
+		json_object_int_add(json, "lastPrgrsvChangeMsec", time_store);
+	}
+
+	if (neighbor->ts_last_regress.tv_sec
+	    || neighbor->ts_last_regress.tv_usec) {
+		struct timeval res;
+		long time_store;
+
+		time_store = monotime_since(&neighbor->ts_last_regress, &res)
+			     / 1000LL;
+
+		json_object_int_add(json, "lastRegressiveChangeMsec",
+				    time_store);
+		if (neighbor->last_regress_str)
+			json_object_string_add(json,
+					       "lastRegressiveChangeReason",
+					       neighbor->last_regress_str);
+	}
+
+	json_object_string_addf(json, "routerDesignatedId", "%pI4",
+				&neighbor->d_router);
+	json_object_string_addf(json, "routerDesignatedBackupId", "%pI4",
+				&neighbor->bd_router);
+
+	json_object_int_add(json, "optionsCounter", neighbor->options);
+	json_object_string_add(json, "optionsList",
+			       ospf_options_dump(neighbor->options));
+
+	if (neighbor->t_inactivity) {
+		long time_store;
+		time_store =
+			monotime_until(&neighbor->t_inactivity->u.sands, NULL)
+			/ 1000LL;
+		json_object_int_add(json, "routerDeadIntervalTimerDueMsec",
+				    time_store);
+	} else
+		json_object_int_add(json, "routerDeadIntervalTimerDueMsec", -1);
+
+	json_object_int_add(json, "databaseSummaryListCounter",
+			    ospf_db_summary_count(neighbor));
+
+	json_object_int_add(json, "linkStateRequestListCounter",
+			    ospf_ls_request_count(neighbor));
+
+	json_object_int_add(json, "linkStateRetransmissionListCounter",
+			    ospf_ls_retransmit_count(neighbor));
+
+	if (neighbor->t_inactivity != NULL)
+		json_object_string_add(json, "threadInactivityTimer", "on");
+
+	if (neighbor->t_db_desc != NULL)
+		json_object_string_add(
+			json, "threadDatabaseDescriptionRetransmission", "on");
+
+	if (neighbor->t_ls_req != NULL)
+		json_object_string_add(
+			json, "threadLinkStateRequestRetransmission", "on");
+
+	if (neighbor->t_ls_upd != NULL)
+		json_object_string_add(
+			json, "threadLinkStateUpdateRetransmission", "on");
+
+	json_object_string_add(json, "grHelperStatus",
+			       OSPF_GR_IS_ACTIVE_HELPER(neighbor) ? "Inprogress"
+								  : "None");
+	if (OSPF_GR_IS_ACTIVE_HELPER(neighbor)) {
+		json_object_int_add(
+			json, "graceInterval",
+			neighbor->gr_helper_info.recvd_grace_period);
+		json_object_string_add(
+			json, "grRestartReason",
+			ospf_restart_reason2str(
+				neighbor->gr_helper_info.gr_restart_reason));
+	}
+
+	if (neighbor->gr_helper_info.rejected_reason
+	    != OSPF_HELPER_REJECTED_NONE)
+		json_object_string_add(
+			json, "helperRejectReason",
+			ospf_rejected_reason2str(
+				neighbor->gr_helper_info.rejected_reason));
+
+	if (neighbor->gr_helper_info.helper_exit_reason
+	    != OSPF_GR_HELPER_EXIT_NONE)
+		json_object_string_add(
+			json, "helperExitReason",
+			ospf_exit_reason2str(
+				neighbor->gr_helper_info.helper_exit_reason));
+
+	bfd_sess_show(NULL, json, neighbor->bfd_session);
+}
+
+/**
+ * Helper function to iterate over neighbors. Returns the neighbor list
+ * inside the `json` parameter.
+ *
+ * \param json allocated JSON array object.
+ * \param ospf the OSPF instance.
+ */
+static void show_ip_ospf_virtual_link_json(struct json_object *json,
+					   const struct ospf *ospf)
+{
+	struct ospf_interface *ospf_interface;
+	struct json_object *json_neighbors;
+	struct listnode *ospf_node;
+
+	json_neighbors = json_object_new_object();
+	json_object_object_add(json, "neighbors", json_neighbors);
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, ospf_node, ospf_interface)) {
+		struct ospf_vl_data *virtual_link = ospf_interface->vl_data;
+		struct route_node *route_node;
+
+		/* Skip non virtual interfaces. */
+		if (virtual_link == NULL)
+			continue;
+
+		for (route_node = route_top(ospf_interface->nbrs); route_node;
+		     route_node = route_next(route_node)) {
+			struct ospf_neighbor *neighbor = route_node->info;
+			struct json_object *json_neighbor_list;
+			struct json_object *json_neighbor;
+			char router_id[INET_ADDRSTRLEN];
+
+			if (neighbor == NULL)
+				continue;
+			if (neighbor == ospf_interface->nbr_self)
+				continue;
+			if (neighbor->state == NSM_Down)
+				continue;
+
+			inet_ntop(AF_INET, &neighbor->router_id, router_id,
+				  sizeof(router_id));
+			/*
+			 * Check if neighbor key already exist,
+			 * otherwise create a new one.
+			 */
+			if (!json_object_object_get_ex(json_neighbors,
+						       router_id,
+						       &json_neighbor_list)) {
+				json_neighbor_list = json_object_new_array();
+				json_object_object_add(json_neighbors,
+						       router_id,
+						       json_neighbor_list);
+			}
+
+			json_neighbor = json_object_new_object();
+			show_ip_ospf_virtual_link_neighbor_json(
+				json_neighbor, ospf, ospf_interface, neighbor);
+			json_object_array_add(json_neighbor_list,
+					      json_neighbor);
+		}
+	}
+}
+
+DEFPY(show_ip_ospf_virtual_link, show_ip_ospf_virtual_link_cmd,
+      "show ip ospf [vrf <all$vrf_all|NAME$vrf_name>] virtual-link neighbors json",
+      SHOW_STR
+      IP_STR
+      "OSPF information\n"
+      VRF_CMD_HELP_STR
+      "All VRFs\n"
+      "Virtual link information\n"
+      "Virtual link neighbors information\n"
+      JSON_STR)
+{
+	struct json_object *json;
+	struct listnode *node;
+	struct ospf *ospf;
+
+	if (vrf_all) {
+		json = json_object_new_object();
+
+		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+			const char *vrf_name = "default";
+			struct json_object *json_vrf;
+
+			if (!ospf->oi_running)
+				continue;
+
+			json_vrf = json_object_new_object();
+			show_ip_ospf_virtual_link_json(json_vrf, ospf);
+			if (ospf->name)
+				vrf_name = ospf->name;
+
+			json_object_object_add(json, vrf_name, json_vrf);
+		}
+	} else {
+		json = json_object_new_object();
+
+		if (vrf_name)
+			ospf = ospf_lookup_by_inst_name(0, vrf_name);
+		else
+			ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+		show_ip_ospf_virtual_link_json(json, ospf);
+	}
+
+	vty_out(vty, "%s\n", json_object_to_json_string(json));
+	json_object_put(json);
+
+	return CMD_SUCCESS;
+}
+
 static const char *const ospf_int_type_str[] = {
 	"unknown", /* should never be used. */
 	"point-to-point",
@@ -12996,6 +13228,9 @@ void ospf_vty_show_init(void)
 
 	/* "show ip ospf summary-address" command */
 	install_element(VIEW_NODE, &show_ip_ospf_external_aggregator_cmd);
+
+	/* "show ip ospf virtual link" command */
+	install_element(VIEW_NODE, &show_ip_ospf_virtual_link_cmd);
 }
 
 /* Initialization of OSPF interface. */
