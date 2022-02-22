@@ -70,6 +70,13 @@ module frr-ripd {
 
   revision 2026-03-31 {
     description
+      "Added interface setting to enable RIP (along with instance
+       network and interface leaf-lists).";
+    reference
+      "FRRouting";
+  }
+  revision 2026-03-31 {
+    description
       "Added configuration to log RIP peer discovery / time outs.";
     reference
       "FRRouting";
@@ -551,6 +558,14 @@ module frr-ripd {
     container rip {
       description
         "RIP interface parameters.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable RIP on interface.";
+      }
+
       leaf split-horizon {
         type enumeration {
           enum "disabled" {
