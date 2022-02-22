@@ -68,6 +68,12 @@ module frr-ripd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-03-31 {
+    description
+      "Add interface setting to enable RIP (along with instance
+       network and interface leaf-lists).";
+    reference "FRRouting";
+  }
   revision 2019-09-09 {
     description
       "Changed interface references to use
@@ -539,6 +545,14 @@ module frr-ripd {
     container rip {
       description
         "RIP interface parameters.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable RIP on interface.";
+      }
+
       leaf split-horizon {
         type enumeration {
           enum "disabled" {
