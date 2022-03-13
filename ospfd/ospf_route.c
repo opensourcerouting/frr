@@ -213,6 +213,8 @@ int ospf_route_match_same(struct route_table *rt, struct prefix_ipv4 *prefix,
 			return 0;
 
 		if (or->type == OSPF_DESTINATION_NETWORK) {
+			if (or->connected != newor->connected)
+				return 0;
 			if (or->paths->count != newor->paths->count)
 				return 0;
 
@@ -500,6 +502,8 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	or->cost = v->distance;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
+	if (listcount(v->parents) <= 1)
+		or->connected = true;
 
 	ospf_route_copy_nexthops_from_vertex(area, or, v);
 
@@ -643,6 +647,8 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	or->cost = cost;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
+	if (list_isempty(v->parents))
+		or->connected = true;
 
 	/* Nexthop is depend on connection type. */
 	if (v != area->spf) {
