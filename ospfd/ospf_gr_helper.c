@@ -1005,13 +1005,12 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 	uint16_t length = 0;
 	int sum = 0;
 
-	if (json)
-		return;
-
 	lsah = (struct lsa_header *)lsa->data;
 
 	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
-		if (vty)
+		if (json)
+			json_object_int_add(json, "invalidLsaLength", length);
+		else if (vty)
 			vty_out(vty, "%% Invalid LSA length: %d\n", length);
 		else
 			zlog_debug("%% Invalid LSA length: %d", length);
@@ -1020,16 +1019,21 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
 
-	if (vty)
-		vty_out(vty, "  TLV info:\n");
-	else
-		zlog_debug("  TLV info:");
+	if (!json) {
+		if (vty)
+			vty_out(vty, "  TLV info:\n");
+		else
+			zlog_debug("  TLV info:");
+	}
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
-			if (vty)
+			if (json)
+				json_object_int_add(json, "invalidTlvLength",
+						    TLV_SIZE(tlvh));
+			else if (vty)
 				vty_out(vty, "%% Invalid TLV length: %u\n",
 					TLV_SIZE(tlvh));
 			else
@@ -1042,7 +1046,11 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 		case GRACE_PERIOD_TYPE:
 			if (TLV_SIZE(tlvh)
 			    < sizeof(struct grace_tlv_graceperiod)) {
-				if (vty)
+				if (json)
+					json_object_int_add(
+						json, "invalidGraceTlvLength",
+						TLV_SIZE(tlvh));
+				else if (vty)
 					vty_out(vty,
 						"%% Invalid grace TLV length %u\n",
 						TLV_SIZE(tlvh));
@@ -1056,7 +1064,11 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			if (vty)
+			if (json)
+				json_object_int_add(
+					json, "gracePeriod",
+					ntohl(gracePeriod->interval));
+			else if (vty)
 				vty_out(vty, "   Grace period:%d\n",
 					ntohl(gracePeriod->interval));
 			else
@@ -1066,7 +1078,11 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 		case RESTART_REASON_TYPE:
 			if (TLV_SIZE(tlvh)
 			    < sizeof(struct grace_tlv_restart_reason)) {
-				if (vty)
+				if (json)
+					json_object_int_add(
+						json, "invalidReasonTlvLength",
+						TLV_SIZE(tlvh));
+				else if (vty)
 					vty_out(vty,
 						"%% Invalid reason TLV length %u\n",
 						TLV_SIZE(tlvh));
@@ -1080,7 +1096,12 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 			grReason = (struct grace_tlv_restart_reason *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			if (vty)
+			if (json)
+				json_object_string_add(
+					json, "restartReason",
+					ospf_restart_reason2str(
+						grReason->reason));
+			else if (vty)
 				vty_out(vty, "   Restart reason:%s\n",
 					ospf_restart_reason2str(
 						grReason->reason));
@@ -1092,7 +1113,11 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 		case RESTARTER_IP_ADDR_TYPE:
 			if (TLV_SIZE(tlvh)
 			    < sizeof(struct grace_tlv_restart_addr)) {
-				if (vty)
+				if (json)
+					json_object_int_add(
+						json, "invalidAddressTlvLength",
+						TLV_SIZE(tlvh));
+				else if (vty)
 					vty_out(vty,
 						"%% Invalid addr TLV length %u\n",
 						TLV_SIZE(tlvh));
@@ -1106,7 +1131,11 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 			restartAddr = (struct grace_tlv_restart_addr *)tlvh;
 			sum += TLV_SIZE(tlvh);
 
-			if (vty)
+			if (json)
+				json_object_string_addf(
+					json, "restarterAddress", "%pI4",
+					&restartAddr->addr);
+			else if (vty)
 				vty_out(vty, "   Restarter address:%pI4\n",
 					&restartAddr->addr);
 			else
@@ -1114,7 +1143,10 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
 					   &restartAddr->addr);
 			break;
 		default:
-			if (vty)
+			if (json)
+				json_object_int_add(json, "unknownTlvType",
+						    ntohs(tlvh->type));
+			else if (vty)
 				vty_out(vty, "   Unknown TLV type %d\n",
 					ntohs(tlvh->type));
 			else
