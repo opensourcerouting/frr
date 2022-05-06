@@ -54,7 +54,7 @@ To test a single file:
 
 
 [^1]: In case, python modules cannot be installed into the system.
-```sh
-python3 -m venv .venv
-source .venv/bin/activate
-```
+    ```sh
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```
