@@ -1337,12 +1337,14 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 	memset(&sgreq, 0, sizeof(sgreq));
 
+#if PIM_IPV == 4
 	pim_zlookup_sg_statistics(c_oil);
 
-#if PIM_IPV == 4
 	sgreq.src = *oil_origin(c_oil);
 	sgreq.grp = *oil_mcastgrp(c_oil);
 #else
+	CPP_NOTICE("stats request for cc.lastused needs to be fixed for IPv6");
+
 	sgreq.src = c_oil->oil.mf6cc_origin;
 	sgreq.grp = c_oil->oil.mf6cc_mcastgrp;
 #endif
