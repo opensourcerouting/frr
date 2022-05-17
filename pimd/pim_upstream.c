@@ -1726,6 +1726,9 @@ static void pim_upstream_register_stop_timer(struct thread *t)
 		up->reg_state = PIM_REG_JOIN_PENDING;
 		pim_upstream_start_register_stop_timer(up, 1);
 
+#if PIM_IPV == 6
+		CPP_NOTICE("cc.lastused not updated for IPv6, fix this for ASM");
+#endif
 		if (((up->channel_oil->cc.lastused / 100)
 		     > pim->keep_alive_time)
 		    && (I_am_RP(pim_ifp->pim, up->sg.grp))) {
@@ -2000,7 +2003,11 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 
 	// Have we seen packets?
 	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
-	    && (up->channel_oil->cc.lastused / 100 > 30)) {
+#if PIM_IPV != 6
+	    /* Linux IPv6 API needs to be update for this to work */
+	    && (up->channel_oil->cc.lastused / 100 > 30)
+#endif
+	    ) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
 				"%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
