@@ -25,6 +25,7 @@ attachd_attachd_SOURCES = \
 	attachd/dhcp6_state.c \
 	attachd/dhcp6_upstream.c \
 	attachd/dhcp6_zebra.c \
+	attachd/persist.c \
 	\
 	attachd/rtadv.c \
 	attachd/rtadv_vty.c \
@@ -45,5 +46,17 @@ noinst_HEADERS += \
 clippy_scan += \
 	attachd/dhcp6_iface.c \
 	attachd/dhcp6_upstream.c \
+	attachd/lmdb.c \
 	attachd/rtadv_vty.c \
+	# end
+
+if LMDB
+module_LTLIBRARIES += attachd/attachd_lmdb.la
+endif
+
+attachd_attachd_lmdb_la_CFLAGS = $(AM_CFLAGS) -std=gnu11 $(LMDB_CFLAGS)
+attachd_attachd_lmdb_la_LDFLAGS = $(MODULE_LDFLAGS)
+attachd_attachd_lmdb_la_LIBADD = $(LMDB_LIBS)
+attachd_attachd_lmdb_la_SOURCES = \
+	attachd/lmdb.c \
 	# end
