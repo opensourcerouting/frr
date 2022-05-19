@@ -295,7 +295,7 @@ static void dhcp6r_snoop_ia_pd(struct dhcp6r_iface *drif,
 	zlog_info("%s: %pSU %pDUID: IA_PD %08x T1=%u T2=%u", drif->ifp->name,
 		  host, duid, iaid, t1, t2);
 
-	bnd = dhcp6_bnd_get(duid, iatype, iaid);
+	bnd = dhcp6_bnd_get(drif->ifp->vrf, duid, iatype, iaid);
 	bnd->ifp = drif->ifp;
 	bnd->client = host->sin6_addr;
 	monotime(&bnd->last_seen);

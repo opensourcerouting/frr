@@ -51,6 +51,9 @@ DECLARE_SORTLIST_UNIQ(dhcp6_pds, struct dhcp6_pdprefix, item, dhcp6_pdp_cmp);
 PREDECL_HASH(dhcp6_bindings);
 struct dhcp6_binding {
 	struct dhcp6_bindings_item item;
+	size_t refcount;
+
+	struct vrf *vrf;
 
 	/* key */
 	int hash_begin[0];
@@ -60,6 +63,9 @@ struct dhcp6_binding {
 	struct dhcp6_duid duid;
 
 	int hash_end[0];
+
+	/* freshly allocated, does not contain proper data */
+	bool invalid : 1;
 
 	/* generic bits */
 	struct interface *ifp;
@@ -72,14 +78,58 @@ struct dhcp6_binding {
 	struct dhcp6_pds_head pds[1];
 };
 
-extern struct dhcp6_binding *dhcp6_bnd_get(struct dhcp6_duid *duid,
+/* upper API */
+
+struct dhcp6_id_iter;
+
+extern struct dhcp6_id_iter *dhcp6_bnd_id_begin(struct vrf *vrf);
+extern struct dhcp6_binding *dhcp6_bnd_id_next(struct dhcp6_id_iter *iter);
+extern void dhcp6_bnd_id_end(struct dhcp6_id_iter *iter);
+
+struct dhcp6_expy_iter;
+
+extern struct dhcp6_expy_iter *dhcp6_bnd_expy_begin(struct vrf *vrf);
+extern struct dhcp6_binding *dhcp6_bnd_expy_next(struct dhcp6_expy_iter *iter);
+extern void dhcp6_bnd_expy_end(struct dhcp6_expy_iter *iter);
+
+extern struct dhcp6_binding *dhcp6_bnd_get(struct vrf *vrf,
+					   const struct dhcp6_duid *duid,
 					   uint16_t ia_type, uint32_t ia_id);
-extern void dhcp6_bnd_drop(struct dhcp6_binding *bnd);
+
+extern void dhcp6_bnd_update(struct dhcp6_binding *bnd);
+extern void dhcp6_bnd_expire(struct dhcp6_binding *bnd);
+
+/* IA-PD */
 
 extern struct dhcp6_pdprefix *dhcp6_bnd_pd_get(struct dhcp6_binding *bnd,
 					       union prefixconstptr pu);
 extern void dhcp6_bnd_pd_drop(struct dhcp6_pdprefix *pdp);
 
-extern void dhcp6_bnd_update(struct dhcp6_binding *bnd);
+/* low-level handling */
+
+/* this should only be called by persistent backends */
+extern struct dhcp6_binding *dhcp6_bnd_alloc(struct vrf *vrf,
+					     const struct dhcp6_duid *duid,
+					     uint16_t ia_type, uint32_t ia_id);
+/* only for dhcp6_bnd_unref */
+extern void dhcp6_bnd_free(struct dhcp6_binding *bnd);
+
+static inline struct dhcp6_binding *dhcp6_bnd_ref(struct dhcp6_binding *bnd)
+{
+	assertf(!bnd->invalid, "duid=%pDUID ia_type=%u ia_id=%u refcount=%zu",
+		&bnd->duid, bnd->ia_type, bnd->ia_id, bnd->refcount);
+
+	bnd->refcount++;
+	return bnd;
+}
+
+static inline void dhcp6_bnd_unref(struct dhcp6_binding **bnd)
+{
+	if (!*bnd)
+		return;
+	if (!--(*bnd)->refcount)
+		dhcp6_bnd_free(*bnd);
+	*bnd = NULL;
+}
 
 #endif /* _FRR_DHCP6_STATE_H */
