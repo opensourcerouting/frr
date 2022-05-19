@@ -25,6 +25,7 @@ accessd_accessd_SOURCES = \
 	accessd/dhcp6_state.c \
 	accessd/dhcp6_upstream.c \
 	accessd/dhcp6_zebra.c \
+	accessd/persist.c \
 	\
 	accessd/rtadv.c \
 	accessd/rtadv_vty.c \
@@ -45,5 +46,17 @@ noinst_HEADERS += \
 clippy_scan += \
 	accessd/dhcp6_iface.c \
 	accessd/dhcp6_upstream.c \
+	accessd/lmdb.c \
 	accessd/rtadv_vty.c \
+	# end
+
+if LMDB
+module_LTLIBRARIES += accessd/accessd_lmdb.la
+endif
+
+accessd_accessd_lmdb_la_CFLAGS = $(AM_CFLAGS) -std=gnu11 $(LMDB_CFLAGS)
+accessd_accessd_lmdb_la_LDFLAGS = $(MODULE_LDFLAGS)
+accessd_accessd_lmdb_la_LIBADD = $(LMDB_LIBS)
+accessd_accessd_lmdb_la_SOURCES = \
+	accessd/lmdb.c \
 	# end

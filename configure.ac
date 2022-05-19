@@ -1779,6 +1779,13 @@ PKG_CHECK_MODULES([CARES], [libcares], [
 AM_CONDITIONAL([CARES], [$c_ares_found])
 
 
+PKG_CHECK_MODULES([LMDB], [lmdb], [
+  lmdb_found=true
+],[
+  lmdb_found=false
+])
+AM_CONDITIONAL([LMDB], [$lmdb_found])
+
 dnl ----------------------------------------------------------------------------
 dnl figure out if domainname is available in the utsname struct (GNU extension).
 dnl ----------------------------------------------------------------------------
