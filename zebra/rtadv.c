@@ -1389,6 +1389,14 @@ stream_failure:
 	return;
 }
 
+static void zebra_set_radv_prefix(struct zserv *client, uint8_t cmd,
+				  struct interface *ifp, struct prefix_ipv6 *p,
+				  uint64_t preferred, uint64_t valid)
+{
+	zlog_info("RA prefix %pFX on %s from client %s",
+		  p, ifp->name, zebra_route_string(client->proto));
+}
+
 /*
  * send router lifetime value of zero in RAs on this interface since we're
  * ceasing to advertise and want to let our neighbors know.

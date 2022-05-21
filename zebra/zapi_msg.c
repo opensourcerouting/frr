@@ -3941,6 +3941,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_RA_PREFIX] = zebra_interface_radv_prefix,
 };
 
 /*
