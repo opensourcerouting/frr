@@ -16,21 +16,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_ACCESSD_H
-#define _FRR_ACCESSD_H
+#ifndef _FRR_ACCESSD_VRF_H
+#define _FRR_ACCESSD_VRF_H
 
-#include "lib/memory.h"
-#include "lib/privs.h"
+struct vrf;
 
-DECLARE_MGROUP(ACCESSD);
+struct accessd_vrf {
+	struct vrf *vrf;
+};
 
-struct thread_master;
-
-extern struct thread_master *master;
-extern struct zebra_privs_t accessd_privs;
-
-extern void accessd_zebra_init(void);
-extern void accessd_vrf_init(void);
-extern void accessd_if_init(void);
-
-#endif /* _FRR_ACCESSD_H */
+#endif /* _FRR_ACCESSD_VRF_H */

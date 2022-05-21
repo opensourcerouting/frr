@@ -32,6 +32,7 @@
 
 #include "accessd.h"
 
+DEFINE_MGROUP(ACCESSD, "accessd");
 DEFINE_MGROUP(NHRPD, "buffer management");
 
 static zebra_capabilities_t _caps_p[] = {
@@ -139,7 +140,9 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL);
+	accessd_zebra_init();
+	accessd_vrf_init();
+	accessd_if_init();
 
 	frr_config_fork();
 	frr_run(master);
