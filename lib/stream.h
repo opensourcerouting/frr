@@ -441,6 +441,14 @@ static inline uint8_t *ptr_get_be16(uint8_t *ptr, uint16_t *out)
 		(P) = _pval;                                                   \
 	} while (0)
 
+#define STREAM_GETQ(S, P)                                                      \
+	do {                                                                   \
+		uint64_t _pval;                                                \
+		if (!stream_getq2((S), &_pval))                                \
+			goto stream_failure;                                   \
+		(P) = _pval;                                                   \
+	} while (0)
+
 #define STREAM_GETF(S, P)                                                      \
 	do {                                                                   \
 		union {                                                        \
