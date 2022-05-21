@@ -19,6 +19,7 @@ extern "C" {
 
 struct interface;
 struct zebra_if;
+struct zserv;
 
 #if defined(HAVE_RTADV)
 
@@ -388,6 +389,7 @@ extern void rtadv_if_up(struct zebra_if *zif);
 extern void rtadv_if_fini(struct zebra_if *zif);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
+extern void rtadv_zserv_clear(struct zserv *client);
 
 #else /* !HAVE_RTADV */
 struct rtadv {
@@ -430,6 +432,9 @@ static inline void rtadv_stop_ra(struct interface *ifp)
 {
 }
 static inline void rtadv_stop_ra_all(void)
+{
+}
+static inline void rtadv_zserv_clear(struct zserv *client)
 {
 }
 #endif
