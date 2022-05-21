@@ -210,6 +210,7 @@ include vrrpd/subdir.am
 include pceplib/subdir.am
 include pceplib/test/subdir.am
 include pathd/subdir.am
+include accessd/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am

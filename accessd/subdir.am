@@ -1,0 +1,22 @@
+#
+# accessd
+#
+
+if ACCESSD
+sbin_PROGRAMS += accessd/accessd
+vtysh_daemons += accessd
+#man8 += $(MANBUILD)/frr-accessd.8
+endif
+
+accessd_accessd_LDADD = lib/libfrr.la $(LIBCAP)
+accessd_accessd_SOURCES = \
+	accessd/accessd.c \
+	\
+	nhrpd/zbuf.c \
+	# end
+
+noinst_HEADERS += \
+	# end
+
+clippy_scan += \
+	# end
