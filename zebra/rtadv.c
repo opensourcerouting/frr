@@ -1472,6 +1472,34 @@ void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
 	zebra_interface_radv_set(client, hdr, msg, zvrf, 1);
 }
 
+void zebra_interface_radv_prefix(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s = msg;
+	ifindex_t idx;
+	struct interface *ifp;
+	struct prefix_ipv6 p;
+	uint8_t cmd;
+	uint64_t preferred, valid;
+
+	STREAM_GETL(s, idx);
+	ifp = if_lookup_by_index_per_ns(zvrf->zns, idx);
+	if (!ifp)
+		return;
+
+	STREAM_GETC(s, cmd);
+
+	p.family = AF_INET6;
+	STREAM_GETC(s, p.prefixlen);
+	STREAM_GET(&p.prefix, s, IPV6_MAX_BYTELEN);
+	STREAM_GETQ(s, preferred);
+	STREAM_GETQ(s, valid);
+
+	zebra_set_radv_prefix(client, cmd, ifp, &p, preferred, valid);
+
+stream_failure:
+	return;
+}
+
 static void show_zvrf_rtadv_adv_if_helper(struct vty *vty,
 					  struct adv_if_list_head *adv_if_head)
 {
@@ -3092,6 +3120,16 @@ void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
 }
 
 void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
+{
+	if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug(
+			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
+			zserv_command_string(hdr->command));
+
+	return;
+}
+
+void zebra_interface_radv_prefix(ZAPI_HANDLER_ARGS)
 {
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug(
