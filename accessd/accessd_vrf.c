@@ -16,21 +16,49 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_ACCESSD_H
-#define _FRR_ACCESSD_H
+#include <zebra.h>
 
-#include "lib/memory.h"
-#include "lib/privs.h"
+#include "accessd_vrf.h"
 
-DECLARE_MGROUP(ACCESSD);
+#include "accessd.h"
 
-struct thread_master;
+#include "vrf.h"
+#include "memory.h"
 
-extern struct thread_master *master;
-extern struct zebra_privs_t accessd_privs;
+DEFINE_MTYPE_STATIC(ACCESSD, ACCESSD_VRF, "accessd VRF data");
 
-extern void accessd_zebra_init(void);
-extern void accessd_vrf_init(void);
-extern void accessd_if_init(void);
+static int accessd_vrf_create(struct vrf *vrf)
+{
+	struct accessd_vrf *acvrf;
 
-#endif /* _FRR_ACCESSD_H */
+	acvrf = XCALLOC(MTYPE_ACCESSD_VRF, sizeof(*acvrf));
+	acvrf->vrf = vrf;
+	vrf->info = acvrf;
+
+	return 0;
+}
+
+static int accessd_vrf_enable(struct vrf *vrf)
+{
+	return 0;
+}
+
+static int accessd_vrf_disable(struct vrf *vrf)
+{
+	return 0;
+}
+
+static int accessd_vrf_destroy(struct vrf *vrf)
+{
+	XFREE(MTYPE_ACCESSD_VRF, vrf->info);
+
+	return 0;
+}
+
+void accessd_vrf_init(void)
+{
+	vrf_init(accessd_vrf_create,
+		 accessd_vrf_enable,
+		 accessd_vrf_disable,
+		 accessd_vrf_destroy);
+}

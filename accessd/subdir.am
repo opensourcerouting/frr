@@ -11,11 +11,18 @@ endif
 accessd_accessd_LDADD = lib/libfrr.la $(LIBCAP)
 accessd_accessd_SOURCES = \
 	accessd/accessd.c \
+	accessd/accessd_iface.c \
+	accessd/accessd_vrf.c \
+	accessd/accessd_zebra.c \
 	\
 	nhrpd/zbuf.c \
 	# end
 
 noinst_HEADERS += \
+	accessd/accessd.h \
+	accessd/accessd_iface.h \
+	accessd/accessd_vrf.h \
+	accessd/accessd_zebra.h \
 	# end
 
 clippy_scan += \
