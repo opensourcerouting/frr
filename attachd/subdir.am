@@ -11,9 +11,16 @@ endif
 attachd_attachd_LDADD = lib/libfrr.la $(LIBCAP)
 attachd_attachd_SOURCES = \
 	attachd/attachd.c \
+	attachd/attachd_iface.c \
+	attachd/attachd_vrf.c \
+	attachd/attachd_zebra.c \
 	# end
 
 noinst_HEADERS += \
+	attachd/attachd.h \
+	attachd/attachd_iface.h \
+	attachd/attachd_vrf.h \
+	attachd/attachd_zebra.h \
 	# end
 
 clippy_scan += \

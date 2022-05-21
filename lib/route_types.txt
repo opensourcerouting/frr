@@ -88,6 +88,7 @@ ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP",          vr
 ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", none
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
 ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 0,     "Table-Direct",         zebra
+ZEBRA_ROUTE_ATTACHD,    attachd,   attachd,'-', 0, 0, 0,     "attachd",       attachd
 ZEBRA_ROUTE_ALL,        any,       none,   '-', 0, 0, 0,     "-",             none
 
 

@@ -17,6 +17,8 @@
 
 DEFINE_MGROUP(ATTACHD, "attachd");
 
+static void attachd_fini(void);
+
 static zebra_capabilities_t _caps_p[] = {
 	ZCAP_BIND,
 };
@@ -46,7 +48,7 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
-	frr_fini();
+	attachd_fini();
 	exit(0);
 }
 
@@ -77,6 +79,9 @@ struct frr_signal_t attachd_signals[] = {
 #define ATTACHD_VTY_PORT 2622
 
 static const struct frr_yang_module_info *const attachd_yang_modules[] = {
+	&frr_filter_info,
+	&frr_interface_info,
+	&frr_route_map_info,
 	&frr_vrf_info,
 };
 
@@ -121,11 +126,28 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL);
+	prefix_list_init();
+	route_map_init();
+
+	attachd_zebra_init();
+	attachd_vrf_init();
+	attachd_if_init();
 
 	frr_config_fork();
 	frr_run(master);
 
 	/* Not reached. */
 	return 0;
+}
+
+static void attachd_fini(void)
+{
+	attachd_if_fini();
+	attachd_vrf_fini();
+	attachd_zebra_fini();
+
+	route_map_finish();
+	prefix_list_reset();
+
+	frr_fini();
 }
