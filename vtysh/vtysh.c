@@ -136,6 +136,7 @@ struct vtysh_client vtysh_client[] = {
 	{.name = "pathd", .flag = VTYSH_PATHD},
 	{.name = "pim6d", .flag = VTYSH_PIM6D},
 	{.name = "watchfrr", .flag = VTYSH_WATCHFRR},
+	{.name = "attachd", .flag = VTYSH_ATTACHD},
 };
 
 /* Searches for client by name, returns index */

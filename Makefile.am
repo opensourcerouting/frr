@@ -212,6 +212,7 @@ include vrrpd/subdir.am
 include pceplib/subdir.am
 include pceplib/test/subdir.am
 include pathd/subdir.am
+include attachd/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am
@@ -263,6 +264,7 @@ EXTRA_DIST += \
 	snapcraft/defaults \
 	snapcraft/helpers \
 	snapcraft/snap \
+	attachd/Makefile \
 	babeld/Makefile \
 	mgmtd/Makefile \
 	bgpd/Makefile \

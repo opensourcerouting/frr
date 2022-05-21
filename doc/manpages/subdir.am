@@ -8,6 +8,7 @@ man_RSTFILES = \
 	doc/manpages/conf.py \
 	doc/manpages/defines.rst \
 	doc/manpages/epilogue.rst \
+	doc/manpages/frr-attachd.rst \
 	doc/manpages/frr-bfdd.rst \
 	doc/manpages/frr-bgpd.rst \
 	doc/manpages/frr-eigrpd.rst \

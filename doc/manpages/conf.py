@@ -308,6 +308,7 @@ latex_documents = [
 fwfrr = "{0} routing engine for use with FRRouting."
 
 man_pages = [
+    ("frr-attachd", "frr-attachd", "FRRouting end host attachment management daemon", [], 8),
     ("frr-bfdd", "frr-bfdd", fwfrr.format("a bfd"), [], 8),
     ("frr-bgpd", "frr-bgpd", fwfrr.format("a BGPv4, BGPv4+, BGPv4-"), [], 8),
     ("frr-eigrpd", "frr-eigrpd", fwfrr.format("an EIGRP"), [], 8),

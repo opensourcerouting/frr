@@ -1,0 +1,20 @@
+#
+# attachd
+#
+
+if ATTACHD
+sbin_PROGRAMS += attachd/attachd
+vtysh_daemons += attachd
+man8 += $(MANBUILD)/frr-attachd.8
+endif
+
+attachd_attachd_LDADD = lib/libfrr.la $(LIBCAP)
+attachd_attachd_SOURCES = \
+	attachd/attachd.c \
+	# end
+
+noinst_HEADERS += \
+	# end
+
+clippy_scan += \
+	# end

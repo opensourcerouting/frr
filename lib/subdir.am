@@ -589,6 +589,9 @@ DISTCLEANFILES += lib/command_lex.h \
 
 rt_enabled =
 
+if ATTACHD
+rt_enabled += --enabled attachd
+endif
 if BABELD
 rt_enabled += --enabled babeld
 endif

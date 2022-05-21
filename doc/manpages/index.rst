@@ -7,6 +7,7 @@
    :maxdepth: 2
 
    frr
+   frr-attachd
    frr-bfdd
    frr-bgpd
    frr-eigrpd
