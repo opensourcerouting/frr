@@ -238,6 +238,8 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_INTERFACE_ADDRESS_INSTALL,
+	ZEBRA_INTERFACE_ADDRESS_UNINSTALL,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!

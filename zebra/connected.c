@@ -48,7 +48,7 @@ static void connected_withdraw(struct connected *ifc)
 	/* The address is not in the kernel anymore, so clear the flag */
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED) && !ifc->zapi_count) {
 		if_connected_del(ifc->ifp->connected, ifc);
 		connected_free(&ifc);
 	}
@@ -167,6 +167,9 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		 * by
 		 * connected withdraw. */
 		UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
+		CPP_NOTICE("FIX THIS");
+		//ifc->zapi_count += current->zapi_count;
+		//current->zapi_count = 0;
 		connected_withdraw(
 			current); /* implicit withdraw - freebsd does this */
 	}

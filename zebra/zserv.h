@@ -74,6 +74,8 @@ struct client_gr_info {
 PREDECL_LIST(zserv_client_list);
 PREDECL_LIST(zserv_stale_client_list);
 
+PREDECL_HASH(zserv_if_addrs);
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -131,6 +133,9 @@ struct zserv {
 
 	/* Router-id information. */
 	vrf_bitmap_t neighinfo[AFI_MAX];
+
+	/* ZEBRA_INTERFACE_ADDRESS_INSTALL tracked for cleanup on disconnect */
+	struct zserv_if_addrs_head if_addrs[1];
 
 	bool notify_owner;
 
@@ -243,6 +248,13 @@ struct zserv {
 /* Declare the list operations */
 DECLARE_LIST(zserv_client_list, struct zserv, client_list_entry);
 DECLARE_LIST(zserv_stale_client_list, struct zserv, stale_client_list_entry);
+
+struct zserv_if_addr {
+	struct zserv_if_addrs_item item;
+
+	struct interface *ifp;
+	struct connected *ifc;
+};
 
 #define ZAPI_HANDLER_ARGS                                                      \
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \
