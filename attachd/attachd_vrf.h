@@ -4,9 +4,12 @@
 #define _FRR_ATTACHD_VRF_H
 
 struct vrf;
+struct rtadv_vrf;
 
 struct attachd_vrf {
 	struct vrf *vrf;
+
+	struct rtadv_vrf *rtadv_vrf;
 };
 
 #endif /* _FRR_ATTACHD_VRF_H */

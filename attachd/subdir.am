@@ -15,6 +15,9 @@ attachd_attachd_SOURCES = \
 	attachd/attachd_vrf.c \
 	attachd/attachd_zebra.c \
 	\
+	attachd/rtadv.c \
+	attachd/rtadv_vty.c \
+	\
 	nhrpd/zbuf.c \
 	# end
 
@@ -23,7 +26,11 @@ noinst_HEADERS += \
 	attachd/attachd_iface.h \
 	attachd/attachd_vrf.h \
 	attachd/attachd_zebra.h \
+	\
+	attachd/rtadv.h \
+	attachd/rtadv_protocol.h \
 	# end
 
 clippy_scan += \
+	attachd/rtadv_vty.c \
 	# end

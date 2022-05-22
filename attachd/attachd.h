@@ -21,4 +21,6 @@ extern void attachd_zebra_fini(void);
 extern void attachd_vrf_fini(void);
 extern void attachd_if_fini(void);
 
+extern void rtadv_init(void);
+
 #endif /* _FRR_ATTACHD_H */
