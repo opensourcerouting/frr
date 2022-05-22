@@ -19,10 +19,15 @@
 #ifndef _FRR_ACCESSD_IFACE_H
 #define _FRR_ACCESSD_IFACE_H
 
+#include "lib/hook.h"
+
 struct interface;
+struct rtadv_iface;
 
 struct accessd_iface {
 	struct interface *ifp;
+
+	struct rtadv_iface *rtadv;
 };
 
 #endif /* _FRR_ACCESSD_IFACE_H */

@@ -33,4 +33,6 @@ extern void accessd_zebra_init(void);
 extern void accessd_vrf_init(void);
 extern void accessd_if_init(void);
 
+extern void rtadv_init(void);
+
 #endif /* _FRR_ACCESSD_H */

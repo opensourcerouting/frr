@@ -15,6 +15,9 @@ accessd_accessd_SOURCES = \
 	accessd/accessd_vrf.c \
 	accessd/accessd_zebra.c \
 	\
+	accessd/rtadv.c \
+	accessd/rtadv_vty.c \
+	\
 	nhrpd/zbuf.c \
 	# end
 
@@ -23,7 +26,11 @@ noinst_HEADERS += \
 	accessd/accessd_iface.h \
 	accessd/accessd_vrf.h \
 	accessd/accessd_zebra.h \
+	\
+	accessd/rtadv.h \
+	accessd/rtadv_protocol.h \
 	# end
 
 clippy_scan += \
+	accessd/rtadv_vty.c \
 	# end
