@@ -29,9 +29,12 @@
 #include "nhrpd/zbuf.h"
 #include "lib/vrf.h"
 #include "lib/sockopt.h"
+#include "lib/jhash.h"
+#include "lib/sha256.h"
 
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_VRF, "IPv6 RA VRF state");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_IF, "IPv6 RA interface");
+DEFINE_MTYPE_STATIC(ACCESSD, RTADV_LLADDR, "IPv6 prefix-DAD link-local");
 
 static const struct in6_addr all_nodes = {
 	.s6_addr = {
@@ -48,6 +51,22 @@ static int rtadv_prefix_cmp(const struct rtadv_prefix *a,
 
 DECLARE_RBTREE_UNIQ(rtadv_prefixes, struct rtadv_prefix, item,
 		    rtadv_prefix_cmp);
+
+static int rtadv_lladdr_cmp(const struct rtadv_lladdr *a,
+			    const struct rtadv_lladdr *b)
+{
+	return IPV6_ADDR_CMP(&a->ll_addr, &b->ll_addr);
+}
+
+static uint32_t rtadv_lladdr_hash(const struct rtadv_lladdr *a)
+{
+	return jhash(&a->ll_addr, sizeof(a->ll_addr), 0x6f458853);
+}
+
+DECLARE_HASH(rtadv_lladdrs, struct rtadv_lladdr, item, rtadv_lladdr_cmp,
+	     rtadv_lladdr_hash);
+
+DECLARE_DLIST(rtadv_ll_prefixes, struct rtadv_prefix, llitem);
 
 static inline struct accessd_vrf *accessd_if_to_vrf(struct accessd_iface *acif)
 {
@@ -140,6 +159,44 @@ static void rtadv_vrf_decref(struct accessd_vrf *acvrf)
 	XFREE(MTYPE_RTADV_VRF, acvrf->rtadv_vrf);
 }
 
+void rtadv_lladdr_addref(struct accessd_iface *acif,
+			 struct rtadv_prefix *ra_prefix)
+{
+	struct rtadv_iface *ra_if = acif->rtadv;
+	struct rtadv_lladdr *ll_addr, ref = {};
+	SHA256_CTX sha[1];
+	uint8_t sha_hash[32];
+
+	SHA256_Init(sha);
+	SHA256_Update(sha, &ra_prefix->prefix.prefix,
+		      sizeof(ra_prefix->prefix.prefix));
+	SHA256_Update(sha, acif->ifp->hw_addr, acif->ifp->hw_addr_len);
+	SHA256_Final(sha_hash, sha);
+
+	ref.ll_addr.s6_addr32[0] = htonl(0xfe800000);
+	ref.ll_addr.s6_addr32[1] = 0;
+	memcpy(&ref.ll_addr.s6_addr32[2], sha_hash, 8);
+	ref.ll_addr.s6_addr[8] &= ~0x02; /* locally generated */
+	ref.ll_addr.s6_addr[8] |= 0x01; /* avoid collisions */
+
+	ll_addr = rtadv_lladdrs_find(ra_if->lladdrs, &ref);
+	if (!ll_addr) {
+		ll_addr = XCALLOC(MTYPE_RTADV_LLADDR, sizeof(*ll_addr));
+		ll_addr->ll_addr = ref.ll_addr;
+		rtadv_ll_prefixes_init(ll_addr->prefixes);
+
+		rtadv_lladdrs_add(ra_if->lladdrs, ll_addr);
+		CPP_NOTICE("ask zebra to create address");
+	}
+	rtadv_ll_prefixes_add_tail(ll_addr->prefixes, ra_prefix);
+}
+
+void rtadv_lladdr_delref(struct accessd_iface *acif,
+			 struct rtadv_prefix *ra_prefix)
+{
+	CPP_NOTICE("STUB - IMPLEMENT THIS");
+}
+
 struct rtadv_iface *rtadv_ifp_get(struct accessd_iface *acif)
 {
 	if (acif->rtadv)
@@ -147,8 +204,12 @@ struct rtadv_iface *rtadv_ifp_get(struct accessd_iface *acif)
 
 	acif->rtadv = XCALLOC(MTYPE_RTADV_IF, sizeof(*acif->rtadv));
 	acif->rtadv->cfg = rtadv_ifp_defaults;
+	rtadv_prefixes_init(acif->rtadv->prefixes);
+	rtadv_lladdrs_init(acif->rtadv->lladdrs);
 	return acif->rtadv;
 }
+
+CPP_NOTICE("clean up acif->rtadv");
 
 static void rtadv_ra_header(struct rtadv_iface *raif, struct zbuf *zb)
 {
@@ -261,9 +322,33 @@ static void rtadv_option_prefix(struct accessd_iface *acif,
 				struct rtadv_prefix *ra_prefix,
 				struct zbuf *zb)
 {
+	struct nd_opt_prefix_info *ndopt_pi;
+
+	ndopt_pi = zbuf_push(zb, struct nd_opt_prefix_info);
+	assert(ndopt_pi);
+	memset(ndopt_pi, 0, sizeof(*ndopt_pi));
+
+	ndopt_pi->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
+	ndopt_pi->nd_opt_pi_len = 4;
+	ndopt_pi->nd_opt_pi_prefix_len = ra_prefix->prefix.prefixlen;
+	ndopt_pi->nd_opt_pi_flags_reserved = 0;
+
+	if (ra_prefix->cfg.onlink)
+		ndopt_pi->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_ONLINK;
+	if (ra_prefix->cfg.autonomous)
+		ndopt_pi->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
+	if (ra_prefix->cfg.router_addr)
+		ndopt_pi->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
+
+	ndopt_pi->nd_opt_pi_valid_time = htonl(ra_prefix->cfg.valid_sec);
+	ndopt_pi->nd_opt_pi_preferred_time =
+		htonl(ra_prefix->cfg.preferred_sec);
+	ndopt_pi->nd_opt_pi_reserved2 = 0;
+	ndopt_pi->nd_opt_pi_prefix = ra_prefix->prefix.prefix;
 }
 
 static void rtadv_send_ip6(struct accessd_iface *acif,
+			   const struct in6_addr *src,
 			   const struct in6_addr *dst,
 			   struct zbuf *zb)
 {
@@ -308,6 +393,8 @@ static void rtadv_send_ip6(struct accessd_iface *acif,
 
 	pktinfo = (struct in6_pktinfo *)CMSG_DATA(cmh);
 	pktinfo->ipi6_ifindex = acif->ifp->ifindex;
+	if (src)
+		pktinfo->ipi6_addr = *src;
 
 	ret = sendmsg(acvrf->rtadv_vrf->sock, mh, 0);
 	if (ret < 0)
@@ -315,12 +402,14 @@ static void rtadv_send_ip6(struct accessd_iface *acif,
 }
 
 static void rtadv_ra_send(struct accessd_iface *acif,
-			  struct rtadv_prefix *ra_prefix,
+			  struct rtadv_lladdr *ll_addr,
 			  const struct in6_addr *dst,
 			  const struct ethaddr *ethdst)
 {
 	struct rtadv_iface *raif = acif->rtadv;
+	struct rtadv_prefix *ra_prefix;
 	struct zbuf *zb = zbuf_alloc(1280);
+	const struct in6_addr *src = NULL;
 
 	assert(raif);
 
@@ -330,232 +419,26 @@ static void rtadv_ra_send(struct accessd_iface *acif,
 	rtadv_option_lladdr(acif, zb);
 	rtadv_option_mtu(acif, zb);
 
-	if (ra_prefix)
-		rtadv_option_prefix(acif, ra_prefix, zb);
-	else
+	if (ll_addr) {
+		src = &ll_addr->ll_addr;
+
+		frr_each (rtadv_ll_prefixes, ll_addr->prefixes, ra_prefix)
+			rtadv_option_prefix(acif, ra_prefix, zb);
+	} else
 		frr_each (rtadv_prefixes, raif->prefixes, ra_prefix)
-			if (!ra_prefix->cfg.make_addr)
+			if (!ra_prefix->ll_addr)
 				rtadv_option_prefix(acif, ra_prefix, zb);
 
 	if (!ethdst)
-		rtadv_send_ip6(acif, dst, zb);
+		rtadv_send_ip6(acif, src, dst, zb);
 	/* else: send ETH */
 }
-
-#if 0
-/* Send router advertisement packet. */
-static void rtadv_send_packet(int sock, struct interface *ifp,
-			      enum ipv6_nd_suppress_ra_status stop)
-{
-	struct msghdr msg;
-	struct iovec iov;
-	struct cmsghdr *cmsgptr;
-	struct in6_pktinfo *pkt;
-	struct sockaddr_in6 addr;
-	static void *adata = NULL;
-	unsigned char buf[RTADV_MSG_SIZE];
-	struct nd_router_advert *rtadv;
-	int ret;
-	int len = 0;
-	struct zebra_if *zif;
-	struct rtadv_prefix *rprefix;
-	struct listnode *node;
-	uint16_t pkt_RouterLifetime;
-
-	/*
-	 * Allocate control message bufffer.  This is dynamic because
-	 * CMSG_SPACE is not guaranteed not to call a function.  Note that
-	 * the size will be different on different architectures due to
-	 * differing alignment rules.
-	 */
-	if (adata == NULL) {
-		/* XXX Free on shutdown. */
-		adata = calloc(1, CMSG_SPACE(sizeof(struct in6_pktinfo)));
-
-		if (adata == NULL) {
-			zlog_debug(
-				"rtadv_send_packet: can't malloc control data");
-			exit(-1);
-		}
-	}
-
-	/* Logging of packet. */
-	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s(%s:%u): Tx RA, socket %u", ifp->name,
-			   ifp->vrf->name, ifp->ifindex, sock);
-
-	/* Fetch interface information. */
-	zif = ifp->info;
-
-	/* If both the Home Agent Preference and Home Agent Lifetime are set to
-	 * their default values specified above, this option SHOULD NOT be
-	 * included in the Router Advertisement messages sent by this home
-	 * agent. -- RFC6275, 7.4 */
-	if (zif->rtadv.AdvHomeAgentFlag
-	    && (zif->rtadv.HomeAgentPreference
-		|| zif->rtadv.HomeAgentLifetime != -1)) {
-		struct nd_opt_homeagent_info *ndopt_hai =
-			(struct nd_opt_homeagent_info *)(buf + len);
-		ndopt_hai->nd_opt_hai_type = ND_OPT_HA_INFORMATION;
-		ndopt_hai->nd_opt_hai_len = 1;
-		ndopt_hai->nd_opt_hai_reserved = 0;
-		ndopt_hai->nd_opt_hai_preference =
-			htons(zif->rtadv.HomeAgentPreference);
-		/* 16-bit unsigned integer.  The lifetime associated with the
-		 * home
-		 * agent in units of seconds.  The default value is the same as
-		 * the
-		 * Router Lifetime, as specified in the main body of the Router
-		 * Advertisement.  The maximum value corresponds to 18.2 hours.
-		 * A
-		 * value of 0 MUST NOT be used. -- RFC6275, 7.5 */
-		ndopt_hai->nd_opt_hai_lifetime =
-			htons(zif->rtadv.HomeAgentLifetime != -1
-				      ? zif->rtadv.HomeAgentLifetime
-				      : MAX(1, pkt_RouterLifetime) /* 0 is OK
-								      for RL,
-								      but not
-								      for HAL*/
-			      );
-		len += sizeof(struct nd_opt_homeagent_info);
-	}
-
-	/* Fill in prefix. */
-	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
-		struct nd_opt_prefix_info *pinfo;
-
-		pinfo = (struct nd_opt_prefix_info *)(buf + len);
-
-		pinfo->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
-		pinfo->nd_opt_pi_len = 4;
-		pinfo->nd_opt_pi_prefix_len = rprefix->prefix.prefixlen;
-
-		pinfo->nd_opt_pi_flags_reserved = 0;
-		if (rprefix->AdvOnLinkFlag)
-			pinfo->nd_opt_pi_flags_reserved |=
-				ND_OPT_PI_FLAG_ONLINK;
-		if (rprefix->AdvAutonomousFlag)
-			pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
-		if (rprefix->AdvRouterAddressFlag)
-			pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
-
-		pinfo->nd_opt_pi_valid_time = htonl(rprefix->AdvValidLifetime);
-		pinfo->nd_opt_pi_preferred_time =
-			htonl(rprefix->AdvPreferredLifetime);
-		pinfo->nd_opt_pi_reserved2 = 0;
-
-		IPV6_ADDR_COPY(&pinfo->nd_opt_pi_prefix,
-			       &rprefix->prefix.prefix);
-
-		len += sizeof(struct nd_opt_prefix_info);
-	}
-
-	/*
-	 * There is no limit on the number of configurable recursive DNS
-	 * servers or search list entries. We don't want the RA message
-	 * to exceed the link's MTU (risking fragmentation) or even
-	 * blow the stack buffer allocated for it.
-	 */
-	size_t max_len = MIN(ifp->mtu6 - 40, sizeof(buf));
-
-	/* Recursive DNS servers */
-	struct rtadv_rdnss *rdnss;
-
-	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
-		size_t opt_len =
-			sizeof(struct nd_opt_rdnss) + sizeof(struct in6_addr);
-
-		if (len + opt_len > max_len) {
-			zlog_warn(
-				"%s(%s:%u): Tx RA: RDNSS option would exceed MTU, omitting it",
-				ifp->name, ifp->vrf->name, ifp->ifindex);
-			goto no_more_opts;
-		}
-		struct nd_opt_rdnss *opt = (struct nd_opt_rdnss *)(buf + len);
-
-		opt->nd_opt_rdnss_type = ND_OPT_RDNSS;
-		opt->nd_opt_rdnss_len = opt_len / 8;
-		opt->nd_opt_rdnss_reserved = 0;
-		opt->nd_opt_rdnss_lifetime = htonl(
-			rdnss->lifetime_set
-				? rdnss->lifetime
-				: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval));
-
-		len += sizeof(struct nd_opt_rdnss);
-
-		IPV6_ADDR_COPY(buf + len, &rdnss->addr);
-		len += sizeof(struct in6_addr);
-	}
-
-	/* DNS search list */
-	struct rtadv_dnssl *dnssl;
-
-	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvDNSSLList, node, dnssl)) {
-		size_t opt_len = sizeof(struct nd_opt_dnssl)
-				 + ((dnssl->encoded_len + 7) & ~7);
-
-		if (len + opt_len > max_len) {
-			zlog_warn(
-				"%s(%u): Tx RA: DNSSL option would exceed MTU, omitting it",
-				ifp->name, ifp->ifindex);
-			goto no_more_opts;
-		}
-		struct nd_opt_dnssl *opt = (struct nd_opt_dnssl *)(buf + len);
-
-		opt->nd_opt_dnssl_type = ND_OPT_DNSSL;
-		opt->nd_opt_dnssl_len = opt_len / 8;
-		opt->nd_opt_dnssl_reserved = 0;
-		opt->nd_opt_dnssl_lifetime = htonl(
-			dnssl->lifetime_set
-				? dnssl->lifetime
-				: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval));
-
-		len += sizeof(struct nd_opt_dnssl);
-
-		memcpy(buf + len, dnssl->encoded_name, dnssl->encoded_len);
-		len += dnssl->encoded_len;
-
-		/* Zero-pad to 8-octet boundary */
-		while (len % 8)
-			buf[len++] = '\0';
-	}
-
-no_more_opts:
-
-	msg.msg_name = (void *)&addr;
-	msg.msg_namelen = sizeof(struct sockaddr_in6);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_control = (void *)adata;
-	msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
-	msg.msg_flags = 0;
-	iov.iov_base = buf;
-	iov.iov_len = len;
-
-	cmsgptr = CMSG_FIRSTHDR(&msg);
-	cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
-	cmsgptr->cmsg_level = IPPROTO_IPV6;
-	cmsgptr->cmsg_type = IPV6_PKTINFO;
-
-	pkt = (struct in6_pktinfo *)CMSG_DATA(cmsgptr);
-	memset(&pkt->ipi6_addr, 0, sizeof(struct in6_addr));
-	pkt->ipi6_ifindex = ifp->ifindex;
-
-	ret = sendmsg(sock, &msg, 0);
-	if (ret < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "%s(%u): Tx RA failed, socket %u error %d (%s)",
-			     ifp->name, ifp->ifindex, sock, errno,
-			     safe_strerror(errno));
-	} else
-		zif->ra_sent++;
-}
-#endif
 
 static void rtadv_ifp_timer(struct event *ev)
 {
 	struct accessd_iface *acif = EVENT_ARG(ev);
 	struct rtadv_iface *rtadv = acif->rtadv;
+	struct rtadv_lladdr *ll_addr;
 
 	event_add_timer_msec(master, rtadv_ifp_timer, acif,
 			      rtadv->cfg.interval_msec, &rtadv->t_periodic);
@@ -564,6 +447,9 @@ static void rtadv_ifp_timer(struct event *ev)
 		  acif->ifp->name, rtadv->t_periodic);
 
 	rtadv_ra_send(acif, NULL, &all_nodes, NULL);
+
+	frr_each (rtadv_lladdrs, rtadv->lladdrs, ll_addr)
+		rtadv_ra_send(acif, ll_addr, &all_nodes, NULL);
 }
 
 static void rtadv_ifp_refresh(struct accessd_iface *acif)

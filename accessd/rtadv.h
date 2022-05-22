@@ -37,6 +37,8 @@ struct rtadv_vrf {
 };
 
 PREDECL_RBTREE_UNIQ(rtadv_prefixes);
+PREDECL_HASH(rtadv_lladdrs);
+PREDECL_DLIST(rtadv_ll_prefixes);
 
 enum {
 	RTADV_MTU_NOINCLUDE = 0,
@@ -65,6 +67,7 @@ struct rtadv_iface {
 	struct rtadv_iface_cfg cfg;
 
 	struct rtadv_prefixes_head prefixes[1];
+	struct rtadv_lladdrs_head lladdrs[1];
 
 	struct event *t_periodic;
 };
@@ -80,18 +83,31 @@ struct rtadv_prefix_cfg {
 	bool make_addr : 1;
 };
 
+struct rtadv_lladdr {
+	struct rtadv_lladdrs_item item;
+
+	struct in6_addr ll_addr;
+	struct rtadv_ll_prefixes_head prefixes[1];
+};
+
 struct rtadv_prefix {
 	struct rtadv_prefixes_item item;
+	struct rtadv_ll_prefixes_item llitem;
 
 	struct prefix_ipv6 prefix;
 	struct rtadv_prefix_cfg cfg;
 
-	struct in6_addr ll_addr;
+	struct rtadv_lladdr *ll_addr;
 	struct event *t_periodic;
 };
 
 extern struct rtadv_iface *rtadv_ifp_get(struct accessd_iface *acif);
 extern void rtadv_ifp_reconfig(struct interface *ifp);
+
+extern void rtadv_lladdr_addref(struct accessd_iface *acif,
+				struct rtadv_prefix *ra_prefix);
+extern void rtadv_lladdr_delref(struct accessd_iface *acif,
+				struct rtadv_prefix *ra_prefix);
 
 extern void rtadv_cli_init(void);
 

@@ -27,6 +27,19 @@
 #include "lib/vty.h"
 #include "lib/command.h"
 
+DEFINE_MTYPE_STATIC(ACCESSD, RTADV_PREFIX, "IPv6 RA prefix");
+
+CPP_NOTICE("FIXME: duplicate");
+static int rtadv_prefix_cmp(const struct rtadv_prefix *a,
+			    const struct rtadv_prefix *b)
+{
+	return prefix_cmp(&a->prefix, &b->prefix);
+}
+
+DECLARE_RBTREE_UNIQ(rtadv_prefixes, struct rtadv_prefix, item,
+		    rtadv_prefix_cmp);
+
+
 #ifndef VTYSH_EXTRACT_PL
 #include "rtadv_vty_clippy.c"
 #endif
@@ -250,10 +263,15 @@ DEFPY (ipv6_nd_other_config_flag,
 	return CMD_SUCCESS;
 }
 
-#if 0
-DEFPY (ipv6_nd_prefix,
-       ipv6_nd_prefix_cmd,
-       "ipv6 nd prefix X:X::X:X/M [<(0-4294967295)|infinite> <(0-4294967295)|infinite>] [<router-address|off-link [no-autoconfig]|no-autoconfig [off-link]>]",
+DEFPY (ipv6_nd_prefix_ac,
+       ipv6_nd_prefix_ac_cmd,
+       "[no] ipv6 nd prefix X:X::X:X/M [<(0-4294967295)$lifetime|infinite$lt_inf> <(0-4294967295)$preftime|infinite$pref_inf>] [{"
+       "   <router-address|no-router-address>$rta"
+       "  |<off-link|on-link>$offlink"
+       "  |<no-autoconfig|autoconfig>$auton"
+       "  |<dad-lladdr|no-dad-lladdr>$makell"
+       " }]",
+       NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
@@ -263,119 +281,72 @@ DEFPY (ipv6_nd_prefix,
        "Preferred lifetime in seconds\n"
        "Infinite preferred lifetime\n"
        "Set Router Address flag\n"
+       "Unset Router Address flag\n"
        "Do not use prefix for onlink determination\n"
+       "Use prefix for onlink determination\n"
        "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
+       "Use prefix for autoconfiguration\n"
+       "Create link-local address on router for prefix DAD\n"
+       "Do not create link-local address on router for prefix DAD\n")
 {
-	/* prelude */
-	char *prefix = argv[3]->arg;
-	int lifetimes = (argc > 4) && (argv[4]->type == RANGE_TKN
-				       || strmatch(argv[4]->text, "infinite"));
-	int routeropts = lifetimes ? argc > 6 : argc > 4;
+	VTY_RTADV_CONTEXT(ifp, rtadv_if);
+	struct rtadv_prefix *ra_prefix, ref = {};
 
-	int idx_routeropts = routeropts ? (lifetimes ? 6 : 4) : 0;
+	ref.prefix = *prefix;
+	apply_mask_ipv6(&ref.prefix);
+	ra_prefix = rtadv_prefixes_find(rtadv_if->prefixes, &ref);
 
-	char *lifetime = NULL, *preflifetime = NULL;
-	int routeraddr = 0, offlink = 0, noautoconf = 0;
-	if (lifetimes) {
-		lifetime = argv[4]->type == RANGE_TKN ? argv[4]->arg
-						      : argv[4]->text;
-		preflifetime = argv[5]->type == RANGE_TKN ? argv[5]->arg
-							  : argv[5]->text;
-	}
-	if (routeropts) {
-		routeraddr =
-			strmatch(argv[idx_routeropts]->text, "router-address");
-		if (!routeraddr) {
-			offlink = (argc > idx_routeropts + 1
-				   || strmatch(argv[idx_routeropts]->text,
-					       "off-link"));
-			noautoconf = (argc > idx_routeropts + 1
-				      || strmatch(argv[idx_routeropts]->text,
-						  "no-autoconfig"));
+	if (no) {
+		if (!ra_prefix) {
+			vty_out(vty, "%% prefix %pFX does not exist\n", prefix);
+			return CMD_WARNING;
 		}
+
+		CPP_NOTICE("cleanup prefix here!");
+		rtadv_prefixes_del(rtadv_if->prefixes, ra_prefix);
+		XFREE(MTYPE_RTADV_PREFIX, ra_prefix);
+		return CMD_SUCCESS;
 	}
 
-	/* business */
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zebra_if = ifp->info;
-	int ret;
-	struct rtadv_prefix rp;
-
-	ret = str2prefix_ipv6(prefix, &rp.prefix);
-	if (!ret) {
-		vty_out(vty, "Malformed IPv6 prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&rp.prefix); /* RFC4861 4.6.2 */
-	rp.AdvOnLinkFlag = !offlink;
-	rp.AdvAutonomousFlag = !noautoconf;
-	rp.AdvRouterAddressFlag = routeraddr;
-	rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
-	rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
-
-	if (lifetimes) {
-		rp.AdvValidLifetime = strmatch(lifetime, "infinite")
-					      ? UINT32_MAX
-					      : strtoll(lifetime, NULL, 10);
-		rp.AdvPreferredLifetime =
-			strmatch(preflifetime, "infinite")
-				? UINT32_MAX
-				: strtoll(preflifetime, NULL, 10);
-		if (rp.AdvPreferredLifetime > rp.AdvValidLifetime) {
-			vty_out(vty, "Invalid preferred lifetime\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+	if (!ra_prefix) {
+		ra_prefix = XCALLOC(MTYPE_RTADV_PREFIX, sizeof(*ra_prefix));
+		ra_prefix->prefix = ref.prefix;
+		ra_prefix->cfg.valid_sec = RTADV_PREFIX_DFLT_VALID;
+		ra_prefix->cfg.preferred_sec = RTADV_PREFIX_DFLT_PREFERRED;
+		ra_prefix->cfg.onlink = true;
+		ra_prefix->cfg.autonomous = true;
+		rtadv_prefixes_add(rtadv_if->prefixes, ra_prefix);
 	}
 
-	rtadv_prefix_set(zebra_if, &rp);
+	if (lifetime_str)
+		ra_prefix->cfg.valid_sec = lifetime;
+	else if (lt_inf)
+		ra_prefix->cfg.valid_sec = ~0U;
 
+	if (preftime_str)
+		ra_prefix->cfg.preferred_sec = preftime;
+	else if (pref_inf)
+		ra_prefix->cfg.preferred_sec = ~0U;
+
+	if (rta)
+		ra_prefix->cfg.router_addr = !strcmp(rta, "router-addr");
+	if (offlink)
+		ra_prefix->cfg.onlink = !strcmp(offlink, "on-link");
+	if (auton)
+		ra_prefix->cfg.autonomous = !strcmp(auton, "autoconfig");
+	if (makell)
+		ra_prefix->cfg.make_addr = !strcmp(makell, "dad-lladdr");
+
+	if (ra_prefix->cfg.make_addr && !ra_prefix->ll_addr) {
+		rtadv_lladdr_addref(ifp->info, ra_prefix);
+
+		zlog_info("LL for %pFX: %pI6", &ra_prefix->prefix,
+			  &ra_prefix->ll_addr->ll_addr);
+	}
+
+	rtadv_ifp_reconfig(ifp);
 	return CMD_SUCCESS;
 }
-
-DEFPY (no_ipv6_nd_prefix,
-       no_ipv6_nd_prefix_cmd,
-       "no ipv6 nd prefix X:X::X:X/M [<(0-4294967295)|infinite> <(0-4294967295)|infinite>] [<router-address|off-link [no-autoconfig]|no-autoconfig [off-link]>]",
-        NO_STR
-       "Interface IPv6 config commands\n"
-       "Neighbor discovery\n"
-       "Prefix information\n"
-       "IPv6 prefix\n"
-       "Valid lifetime in seconds\n"
-       "Infinite valid lifetime\n"
-       "Preferred lifetime in seconds\n"
-       "Infinite preferred lifetime\n"
-       "Set Router Address flag\n"
-       "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for autoconfiguration\n"
-       "Do not use prefix for onlink determination\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct zebra_if *zebra_if = ifp->info;
-	int ret;
-	struct rtadv_prefix rp;
-	char *prefix = argv[4]->arg;
-
-	ret = str2prefix_ipv6(prefix, &rp.prefix);
-	if (!ret) {
-		vty_out(vty, "Malformed IPv6 prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&rp.prefix); /* RFC4861 4.6.2 */
-	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
-
-	ret = rtadv_prefix_reset(zebra_if, &rp);
-	if (!ret) {
-		vty_out(vty, "Non-existant IPv6 prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-#endif
 
 #if 0
 DEFPY (ipv6_nd_router_preference,
@@ -470,7 +441,7 @@ void rtadv_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE,
 			&ipv6_nd_adv_interval_config_option_cmd);
-	//install_element(INTERFACE_NODE, &ipv6_nd_prefix_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_prefix_ac_cmd);
 	//install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
 	//install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	//install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
