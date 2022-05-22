@@ -480,7 +480,8 @@ void if_addr_wakeup(struct interface *ifp)
 	frr_each_safe (if_connected, ifp->connected, ifc) {
 		p = ifc->address;
 
-		if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)
+		if ((CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)
+		     || ifc->zapi_count)
 		    && !CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)) {
 			/* Address check. */
 			if (p->family == AF_INET) {
@@ -701,7 +702,8 @@ static void if_delete_connected(struct interface *ifp)
 					/* Remove from interface address list
 					 * (unconditionally). */
 					if (!CHECK_FLAG(ifc->conf,
-							ZEBRA_IFC_CONFIGURED)) {
+							ZEBRA_IFC_CONFIGURED) &&
+					    !ifc->zapi_count) {
 						if (ifc == ifc_next)
 							ifc_next = if_connected_next(
 								ifp->connected,
@@ -725,7 +727,10 @@ static void if_delete_connected(struct interface *ifp)
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-			if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
+			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED) ||
+			    ifc->zapi_count)
+				last = node;
+			else {
 				if_connected_del(ifp->connected, ifc);
 				connected_free(&ifc);
 			}
@@ -3835,6 +3840,8 @@ void if_ip_address_uninstall(struct interface *ifp, struct prefix *prefix,
 	assert(ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+	if (ifc->zapi_count)
+		return 0;
 
 	/* This is not real address or interface is not active. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
