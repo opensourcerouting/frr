@@ -68,6 +68,8 @@ struct client_gr_info {
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
 
+PREDECL_HASH(zserv_if_addrs);
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -119,6 +121,9 @@ struct zserv {
 
 	/* Router-id information. */
 	vrf_bitmap_t neighinfo[AFI_MAX];
+
+	/* ZEBRA_INTERFACE_ADDRESS_INSTALL tracked for cleanup on disconnect */
+	struct zserv_if_addrs_head if_addrs[1];
 
 	bool notify_owner;
 
@@ -226,6 +231,13 @@ struct zserv {
 	 * each instance
 	 */
 	TAILQ_HEAD(info_list, client_gr_info) gr_info_queue;
+};
+
+struct zserv_if_addr {
+	struct zserv_if_addrs_item item;
+
+	struct interface *ifp;
+	struct connected *ifc;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \

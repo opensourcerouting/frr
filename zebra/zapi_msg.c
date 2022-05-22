@@ -3846,6 +3846,48 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 	return;
 }
 
+static void zread_if_addr(ZAPI_HANDLER_ARGS)
+{
+	bool create = (hdr->command == ZEBRA_INTERFACE_ADDRESS_INSTALL);
+	struct prefix p;
+	ifindex_t ifindex;
+	struct interface *ifp;
+
+	STREAM_GETL(msg, ifindex);
+	STREAM_GETW(msg, p.family);
+	STREAM_GETC(msg, p.prefixlen);
+
+	switch (p.family) {
+	case AF_INET:
+		if (p.prefixlen > IPV4_MAX_BITLEN)
+			goto stream_failure;
+
+		STREAM_GET(&p.u.prefix4, msg, IPV4_MAX_BYTELEN);
+		break;
+
+	case AF_INET6:
+		if (p.prefixlen > IPV6_MAX_BITLEN)
+			goto stream_failure;
+
+		STREAM_GET(&p.u.prefix6, msg, IPV6_MAX_BYTELEN);
+		break;
+
+	default:
+		goto stream_failure;
+	}
+
+	ifp = if_lookup_by_index(ifindex, zvrf->vrf->vrf_id);
+	if (!ifp)
+		/* possible race condition */
+		return;
+
+	if_addr_zapi(client, ifp, &p, create);
+	return;
+
+stream_failure:
+	zlog_err("invalid ZEBRA_INTERFACE_ADDRESS_[UN]INSTALL command");
+}
+
 static void zsend_error_msg(struct zserv *client, enum zebra_error_types error,
 			    struct zmsghdr *bad_hdr)
 {
@@ -3970,6 +4012,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_INTERFACE_ADDRESS_INSTALL] = zread_if_addr,
+	[ZEBRA_INTERFACE_ADDRESS_UNINSTALL] = zread_if_addr,
 };
 
 /*

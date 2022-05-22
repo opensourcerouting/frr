@@ -38,6 +38,7 @@
 #include "zebra/zebra_evpn_mh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
+DEFINE_MTYPE_STATIC(ZEBRA, ZAPI_IFADDR, "IP address requested by daemon");
 
 #define ZEBRA_PTM_SUPPORT
 
