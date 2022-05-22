@@ -20,6 +20,7 @@
 #define _FRR_ACCESSD_ZEBRA_H
 
 #include "lib/hook.h"
+#include "lib/prefix.h"
 
 struct connected;
 struct zclient;
@@ -28,5 +29,8 @@ extern struct zclient *zclient;
 
 DECLARE_HOOK(accessd_if_addr_add, (struct connected *c), (c));
 DECLARE_KOOH(accessd_if_addr_del, (struct connected *c), (c));
+
+extern int if_addr_install(struct interface *ifp, union prefixconstptr pu);
+extern int if_addr_uninstall(struct interface *ifp, union prefixconstptr pu);
 
 #endif /* _FRR_DHCP6_ZEBRA_H */

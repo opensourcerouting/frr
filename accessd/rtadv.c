@@ -25,6 +25,7 @@
 #include "accessd.h"
 #include "accessd_vrf.h"
 #include "accessd_iface.h"
+#include "accessd_zebra.h"
 
 #include "nhrpd/zbuf.h"
 #include "lib/vrf.h"
@@ -181,13 +182,20 @@ void rtadv_lladdr_addref(struct accessd_iface *acif,
 
 	ll_addr = rtadv_lladdrs_find(ra_if->lladdrs, &ref);
 	if (!ll_addr) {
+		struct prefix_ipv6 pfx;
+
 		ll_addr = XCALLOC(MTYPE_RTADV_LLADDR, sizeof(*ll_addr));
 		ll_addr->ll_addr = ref.ll_addr;
 		rtadv_ll_prefixes_init(ll_addr->prefixes);
 
 		rtadv_lladdrs_add(ra_if->lladdrs, ll_addr);
-		CPP_NOTICE("ask zebra to create address");
+
+		pfx.family = AF_INET6;
+		pfx.prefixlen = 64;
+		pfx.prefix = ll_addr->ll_addr;
+		if_addr_install(acif->ifp, &pfx);
 	}
+	ra_prefix->ll_addr = ll_addr;
 	rtadv_ll_prefixes_add_tail(ll_addr->prefixes, ra_prefix);
 }
 
