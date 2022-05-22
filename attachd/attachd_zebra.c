@@ -23,25 +23,51 @@ extern struct zebra_privs_t attachd_privs;
 
 static int attachd_if_addr_add(ZAPI_CALLBACK_ARGS)
 {
-	struct connected *c;
+	struct connected *ifc;
 
-	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
-	hook_call(attachd_if_addr_add, c);
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
+	hook_call(attachd_if_addr_add, ifc);
 	return 0;
 }
 
 static int attachd_if_addr_del(ZAPI_CALLBACK_ARGS)
 {
-	struct connected *c;
+	struct connected *ifc;
 
-	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
-
-	if (!c)
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
+	if (!ifc)
 		return 0;
+	hook_call(attachd_if_addr_del, ifc);
 
-	hook_call(attachd_if_addr_del, c);
-	connected_free(&c);
+	connected_free(&ifc);
 	return 0;
+}
+
+static int if_addr_do(uint16_t cmd, struct interface *ifp,
+		      union prefixconstptr pu)
+{
+	struct stream *s = attachd_zclient->obuf;
+
+	stream_reset(s);
+	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
+
+	stream_putl(s, ifp->ifindex);
+	stream_putw(s, pu.p->family);
+	stream_putc(s, pu.p->prefixlen);
+	stream_put(s, &pu.p->u.prefix, prefix_blen(pu.p));
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return zclient_send_message(attachd_zclient);
+}
+
+int if_addr_install(struct interface *ifp, union prefixconstptr pu)
+{
+	return if_addr_do(ZEBRA_INTERFACE_ADDRESS_INSTALL, ifp, pu.p);
+}
+
+int if_addr_uninstall(struct interface *ifp, union prefixconstptr pu)
+{
+	return if_addr_do(ZEBRA_INTERFACE_ADDRESS_UNINSTALL, ifp, pu.p);
 }
 
 static void attachd_zebra_connected(struct zclient *zclient)
