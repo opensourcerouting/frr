@@ -1,83 +1,65 @@
-<p align="center">
-<img src="http://docs.frrouting.org/en/latest/_static/frr-icon.svg" alt="Icon" width="20%"/>
-</p>
+accessd rtadv PoC branch
+========================
 
-FRRouting
-=========
+This is a **proof of concept** branch for rtadv in a separate daemon, and
+creating link-local addresses per RA prefix advertisement.
 
-FRR is free software that implements and manages various IPv4 and IPv6 routing
-protocols. It runs on nearly all distributions of Linux and BSD and
-supports all modern CPU architectures.
+The code here is **not done**.  A lot of cleanup is missing, i.e. there are
+memory leaks and addresses are not deleted after use.
 
-FRR currently supports the following protocols:
+How to use
+----------
 
-* BGP
-* OSPFv2
-* OSPFv3
-* RIPv1
-* RIPv2
-* RIPng
-* IS-IS
-* PIM-SM/MSDP
-* LDP
-* BFD
-* Babel
-* PBR
-* OpenFabric
-* VRRP
-* EIGRP (alpha)
-* NHRP (alpha)
+1. build according to regular build instructions under doc/developer/build...
+   (don't install into system, not needed & not tested)
 
-Installation & Use
-------------------
+2. remove any existing FRR configuration
 
-For source tarballs, see the
-[releases page](https://github.com/FRRouting/frr/releases).
+3. start zebra:  `sudo zebra/zebra --log stdout --log-level debug -t`  (this
+   will run in foreground with logs and an open terminal session.)
 
-For Debian and its derivatives, use the APT repository at
-[https://deb.frrouting.org/](https://deb.frrouting.org/).
+4. start accessd:  `sudo accessd/accessd --log stdout --log-level debug -t`
+   (again, runs in foreground with logs and terminal session.)
 
-Instructions on building and installing from source for supported platforms may
-be found in the
-[developer docs](http://docs.frrouting.org/projects/dev-guide/en/latest/building.html).
+5. on the accessd terminal session, configure IPv6 RA with:
+   ```
+   configure
+   interface XYZ
+   no ipv6 nd suppress-ra
+   ipv6 nd prefix 2001:db8:1234:5678::/64 dad-lladdr
+   ipv6 nd prefix 2001:db8:2345:6789::/64 dad-lladdr
+   ```
 
-Once installed, please refer to the [user guide](http://docs.frrouting.org/)
-for instructions on use.
+6. you should see a message like this:
+```
+2022/05/23 09:32:33 ACCESSD: [YR33T-VY7T0] LL for 2001:db8:1234:5678::/64: fe80::35a5:7fa5:a554:cc81
+```
 
-Community
----------
+The LL addr is based on sha256 of the prefix + the router's MAC address on
+the interface, so it'll stay consistent.  No attempts are made to somehow
+resolve duplicate addresses.
 
-The FRRouting email list server is located
-[here](https://lists.frrouting.org/listinfo) and offers the following public
-lists:
-
-| Topic             | List                         |
-|-------------------|------------------------------|
-| Development       | dev@lists.frrouting.org      |
-| Users & Operators | frog@lists.frrouting.org     |
-| Announcements     | announce@lists.frrouting.org |
-
-For chat, we currently use [Slack](https://frrouting.slack.com). You can join
-by clicking the "Slack" link under the
-[Participate](https://frrouting.org/community) section of our website.
+On the highest byte of the IID (`fe80::X...:....:....:....`), bit 0 is always
+set and bit 1 is always cleared. Because bit 0 is always set, it won't collide
+with manual LL addrs like `fe80::1`.
 
 
-Contributing
+Known issues
 ------------
 
-FRR maintains [developer's documentation](http://docs.frrouting.org/projects/dev-guide/en/latest/index.html)
-which contains the [project workflow](http://docs.frrouting.org/projects/dev-guide/en/latest/workflow.html)
-and expectations for contributors. Some technical documentation on project
-internals is also available.
-
-We welcome and appreciate all contributions, no matter how small!
-
-
-Security
---------
-
-To report security issues, please use our security mailing list:
-
-```
-security [at] lists.frrouting.org
-```
+- the LL addrs added for prefix advertisements may also be used for other
+  things.  Specifically, the code sends a RA without prefixes too, but that
+  might wrongly be sent with one of the "special" prefix LL addrs.
+- the LL addr will not be deleted after the prefix advertisement is removed.
+  You need to remove it manually with `ip addr del fe80::ABCD dev XYZ`
+- the RA config is NOT displayed under `show running-config`.  You need to
+  configure "blind".
+- removing anything from the config will probably lead to crashes from missing
+  cleanup.  Just restart accessd, the config isn't saved anyway, and you can
+  add back a subset of the same prefixes.
+- a bunch of RA config options are broken.  RDNSS/DNSSL are missing.
+- there's memory leaks all around.
+- the entire thing is a giant hack done in 2 days and will probably crash
+  randomly.
+- the RA code in zebra is still there and uses the same commands.  Don't use
+  `vtysh`, it will configure `zebra` instead of `accessd`.
