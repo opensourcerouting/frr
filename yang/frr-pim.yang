@@ -341,6 +341,13 @@ module frr-pim {
         "Disable exchange of protocol packets.";
     }
 
+    leaf pim-assume-connected {
+      type boolean;
+      default "false";
+      description
+        "Bypass connected source check, forward proxied packets.";
+    }
+
     leaf hello-interval {
       type uint8 {
         range "1..max";

@@ -237,6 +237,12 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/pim-assume-connected",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_pim_assume_connected_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/dr-priority",
 			.cbs = {
 				.modify = lib_interface_pim_address_family_dr_priority_modify,

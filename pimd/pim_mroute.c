@@ -198,11 +198,18 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	 * us
 	 */
 	if (!pim_if_connected_to_source(ifp, msg->msg_im_src)) {
-		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s: incoming packet to %pSG from non-connected source",
-				ifp->name, &sg);
-		return 0;
+		if (pim_ifp->pim_assume_connected) {
+			if (PIM_DEBUG_MROUTE_DETAIL)
+				zlog_debug(
+					"%s: forwarding %pSG with connected check bypass",
+					ifp->name, &sg);
+		} else {
+			if (PIM_DEBUG_MROUTE)
+				zlog_debug(
+					"%s: incoming packet to %pSG from non-connected source",
+					ifp->name, &sg);
+			return 0;
+		}
 	}
 
 	if (!(PIM_I_am_DR(pim_ifp))) {

@@ -3834,6 +3834,21 @@ DEFPY (interface_ip_pim,
 	return CMD_SUCCESS;
 }
 
+DEFPY (interface_ip_pim_assume_connected,
+       interface_ip_pim_assume_connected_cmd,
+       "[no] ip pim assume-connected",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Treat all sources on this interface as directly connected\n")
+{
+	nb_cli_enqueue_change(vty, "./pim-assume-connected", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty,
+			FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv4");
+}
+
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	      interface_no_ip_pim_ssm_cmd,
 	      "no ip pim ssm",
@@ -6241,6 +6256,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_assume_connected_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);

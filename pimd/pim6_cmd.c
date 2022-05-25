@@ -314,6 +314,21 @@ DEFPY (interface_ipv6_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
+DEFPY (interface_ipv6_pim_assume_connected,
+       interface_ipv6_pim_assume_connected_cmd,
+       "[no] ipv6 pim assume-connected",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Treat all sources on this interface as directly connected\n")
+{
+	nb_cli_enqueue_change(vty, "./pim-assume-connected", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty,
+			FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv6");
+}
+
 DEFPY_HIDDEN (interface_ipv6_pim_ssm,
               interface_ipv6_pim_ssm_cmd,
               "ipv6 pim ssm",
@@ -1763,6 +1778,7 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_assume_connected_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
