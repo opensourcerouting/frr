@@ -1645,6 +1645,30 @@ int lib_interface_pim_address_family_pim_passive_enable_modify(
 }
 
 /*
+ * XPath:
+ * /frr-interface:lib/interface/frr-pim:pim/address-family/pim-assume-connected
+ */
+int lib_interface_pim_address_family_pim_assume_connected_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		pim_ifp = pim_ifp_get(args->dnode, NULL, NULL);
+		pim_ifp->pim_assume_connected =
+			yang_dnode_get_bool(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/hello-interval
  */
 int lib_interface_pim_address_family_hello_interval_modify(
