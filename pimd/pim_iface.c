@@ -1586,6 +1586,17 @@ struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 	return NULL;
 }
 
+bool pim_if_connected_or_assume(struct interface *ifp, pim_addr src)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (pim_ifp && pim_ifp->pim_assume_connected)
+		return true;
+	if (pim_if_connected_to_source(ifp, src))
+		return true;
+	return false;
+}
+
 bool pim_if_is_vrf_device(struct interface *ifp)
 {
 	if (if_is_vrf(ifp))

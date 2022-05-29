@@ -128,7 +128,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 					&addr);
 			i++;
 		} else if (neighbor_needed &&
-			   !pim_if_connected_to_source(ifp, addr)) {
+			   !pim_if_connected_or_assume(ifp, addr)) {
 			nbr = pim_neighbor_find(
 				ifp, nexthop_tab[i].nexthop_addr, true);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)

@@ -250,6 +250,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 void pim_if_create_pimreg(struct pim_instance *pim);
 
 struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src);
+bool pim_if_connected_or_assume(struct interface *ifp, pim_addr src);
 int pim_update_source_set(struct interface *ifp, pim_addr source);
 
 bool pim_if_is_vrf_device(struct interface *ifp);
