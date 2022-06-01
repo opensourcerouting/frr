@@ -34,6 +34,8 @@
 #include "pim_msg.h"
 
 static void mroute_read_on(struct pim_instance *pim);
+static int pim_upstream_mroute_update(struct channel_oil *c_oil,
+		const char *name);
 
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
@@ -242,6 +244,10 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
+	/* we just got NOCACHE from the kernel, so...  MFC is not in the
+	 * kernel for some reason or another.  Try installing again.
+	 */
+	pim_upstream_mroute_update(up->channel_oil, __func__);
 	return 0;
 }
 
