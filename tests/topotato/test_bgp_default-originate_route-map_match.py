@@ -85,7 +85,7 @@ def testenv(configs):
     return FRRNetworkInstance(configs.topology, configs).prepare()
   
   
-class BGPAggregateAddressOrigin(TestBase):
+class BGPDefaultOriginateRouteMapMatch(TestBase):
     instancefn = testenv
     
     # Establish BGP connection  
