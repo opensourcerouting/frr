@@ -261,9 +261,10 @@ void pim_bsm_proc_init(struct pim_instance *pim)
 	cand_rp_groups_init(scope->cand_rp_groups);
 
 	scope->unicast_sock = pim_socket_raw(IPPROTO_PIM);
-	pim_socket_ip_hdr(scope->unicast_sock);
+	set_nonblocking(scope->unicast_sock);
 	sockopt_reuseaddr(scope->unicast_sock);
 	setsockopt_ipv6_pktinfo(scope->unicast_sock, 1);
+	pim_socket_ip_hdr(scope->unicast_sock);
 
 	frr_with_privs (&pimd_privs) {
 		vrf_bind(pim->vrf->vrf_id, scope->unicast_sock,
