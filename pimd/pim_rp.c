@@ -558,6 +558,9 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 				pim_zebra_update_all_interfaces(pim);
 
 			pim_rp_check_interfaces(pim, rp_all);
+			if (rp_all->i_am_rp && PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug("new RP %pPA for %pFX is ourselves",
+					   &rp_all->rp.rpf_addr, &rp_all->group);
 			pim_rp_refresh_group_to_rp_mapping(pim);
 			pim_find_or_track_nexthop(pim, nht_p, NULL, rp_all,
 						  NULL);
@@ -565,7 +568,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			if (!pim_ecmp_nexthop_lookup(pim,
 						     &rp_all->rp.source_nexthop,
 						     nht_p, &rp_all->group, 1))
-				return PIM_RP_NO_PATH;
+				return PIM_SUCCESS;
 			return PIM_SUCCESS;
 		}
 
@@ -649,6 +652,9 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		pim_zebra_update_all_interfaces(pim);
 
 	pim_rp_check_interfaces(pim, rp_info);
+	if (rp_info->i_am_rp && PIM_DEBUG_PIM_NHT_RP)
+		zlog_debug("new RP %pPA for %pFX is ourselves",
+			   &rp_info->rp.rpf_addr, &rp_info->group);
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
 	/* Register addr with Zebra NHT */
@@ -659,7 +665,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	pim_find_or_track_nexthop(pim, nht_p, NULL, rp_info, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, nht_p,
 				     &rp_info->group, 1))
-		return PIM_RP_NO_PATH;
+		return PIM_SUCCESS; // PIM_RP_NO_PATH;
 
 	return PIM_SUCCESS;
 }
