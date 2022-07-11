@@ -158,6 +158,7 @@ struct bsm_scope {
 
 	/* Candidate RP state */
 	int unicast_sock;
+	struct thread *unicast_read;
 	struct thread *cand_rp_adv_timer;
 	unsigned int cand_rp_adv_trigger; /* # trigg. C-RP-Adv left to send */
 
