@@ -32,15 +32,28 @@
 #include "lib/sockopt.h"
 #include "lib/jhash.h"
 #include "lib/sha256.h"
+#include "lib/checksum.h"
+
+#include "pimd/pim6_mld_protocol.h"
 
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_VRF, "IPv6 RA VRF state");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_IF, "IPv6 RA interface");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_LLADDR, "IPv6 prefix-DAD link-local");
+DEFINE_MTYPE_STATIC(ACCESSD, RTADV_PACKET, "IPv6 RA packet");
+
+static void rtadv_vrf_recv(struct thread *t);
 
 static const struct in6_addr all_nodes = {
 	.s6_addr = {
 		0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+	}
+};
+
+static const struct in6_addr all_routers = {
+	.s6_addr = {
+		0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
 	}
 };
 
@@ -82,6 +95,7 @@ static struct rtadv_vrf *rtadv_vrf_getref(struct accessd_vrf *acvrf)
 	struct rtadv_vrf *ravrf;
 	int sock;
 	int ret;
+	int intval;
 	struct icmp6_filter filter;
 
 	if (acvrf->rtadv_vrf) {
@@ -126,6 +140,12 @@ static struct rtadv_vrf *rtadv_vrf_getref(struct accessd_vrf *acvrf)
 		return ret;
 	}
 #endif
+	intval = 1;
+	ret = setsockopt(sock, SOL_IPV6, IPV6_RECVHOPLIMIT, &intval,
+			 sizeof(intval));
+	if (ret)
+		zlog_err("(VRF %s) failed to set IPV6_RECVHOPLIMIT: %m",
+			 acvrf->vrf->name);
 
 	ICMP6_FILTER_SETBLOCKALL(&filter);
 	ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
@@ -139,7 +159,8 @@ static struct rtadv_vrf *rtadv_vrf_getref(struct accessd_vrf *acvrf)
 	ravrf = XCALLOC(MTYPE_RTADV_VRF, sizeof(*ravrf));
 	ravrf->refcnt = 1;
 	ravrf->sock = sock;
-	// t_read
+	thread_add_read(master, rtadv_vrf_recv, acvrf, ravrf->sock,
+			&ravrf->t_read);
 
 	acvrf->rtadv_vrf = ravrf;
 	return ravrf;
@@ -460,6 +481,172 @@ static void rtadv_ifp_timer(struct event *ev)
 		rtadv_ra_send(acif, ll_addr, &all_nodes, NULL);
 }
 
+/* shorthand for log messages */
+#define log_ifp(msg)                                                           \
+	"[RA %s:%s] " msg, acif->ifp->vrf->name, acif->ifp->name
+#define log_pkt_src(msg)                                                       \
+	"[RA %s:%s %pI6] " msg, acif->ifp->vrf->name, acif->ifp->name,         \
+		&pkt_src->sin6_addr
+
+static void rtadv_handle_advert(struct accessd_iface *acif,
+				const struct sockaddr_in6 *pkt_src,
+				const struct in6_addr *pkt_dst,
+				void *data, size_t pktlen)
+{
+	zlog_info(log_pkt_src("RA received"));
+}
+
+static void rtadv_handle_solicit(struct accessd_iface *acif,
+				 const struct sockaddr_in6 *pkt_src,
+				 const struct in6_addr *pkt_dst,
+				 void *data, size_t pktlen)
+{
+	zlog_info(log_pkt_src("RS received"));
+}
+
+static void rtadv_rx_process(struct accessd_iface *acif,
+			     const struct sockaddr_in6 *pkt_src,
+			     const struct in6_addr *pkt_dst,
+			     void *data, size_t pktlen)
+{
+	struct icmp6_plain_hdr *icmp6 = data;
+	uint16_t pkt_csum, ref_csum;
+	struct ipv6_ph ph6 = {
+		.src = pkt_src->sin6_addr,
+		.dst = *pkt_dst,
+		.ulpl = htons(pktlen),
+		.next_hdr = IPPROTO_ICMPV6,
+	};
+
+	pkt_csum = icmp6->icmp6_cksum;
+	icmp6->icmp6_cksum = 0;
+	ref_csum = in_cksum_with_ph6(&ph6, data, pktlen);
+
+	if (pkt_csum != ref_csum) {
+		zlog_warn(
+			log_pkt_src(
+				"(dst %pI6) packet RX checksum failure, expected %04hx, got %04hx"),
+			pkt_dst, pkt_csum, ref_csum);
+		return;
+	}
+
+	data = (icmp6 + 1);
+	pktlen -= sizeof(*icmp6);
+
+	switch (icmp6->icmp6_type) {
+	case ND_ROUTER_ADVERT:
+		rtadv_handle_advert(acif, pkt_src, pkt_dst, data, pktlen);
+		break;
+	case ND_ROUTER_SOLICIT:
+		rtadv_handle_solicit(acif, pkt_src, pkt_dst, data, pktlen);
+		break;
+	}
+}
+
+static void rtadv_vrf_recv(struct thread *t)
+{
+	struct accessd_vrf *acvrf = THREAD_ARG(t);
+	struct rtadv_vrf *ravrf = acvrf->rtadv_vrf;
+	union {
+		char buf[CMSG_SPACE(sizeof(struct in6_pktinfo)) +
+			 CMSG_SPACE(sizeof(int)) /* hopcount */];
+		struct cmsghdr align;
+	} cmsgbuf;
+	struct cmsghdr *cmsg;
+	struct in6_pktinfo *pktinfo = NULL;
+	int *hoplimit = NULL;
+	char rxbuf[2048];
+	struct msghdr mh[1] = {};
+	struct iovec iov[1];
+	struct sockaddr_in6 pkt_src[1];
+	ssize_t nread;
+	size_t pktlen;
+
+	thread_add_read(master, rtadv_vrf_recv, acvrf, ravrf->sock,
+			&ravrf->t_read);
+
+	iov->iov_base = rxbuf;
+	iov->iov_len = sizeof(rxbuf);
+
+	mh->msg_name = pkt_src;
+	mh->msg_namelen = sizeof(pkt_src);
+	mh->msg_control = cmsgbuf.buf;
+	mh->msg_controllen = sizeof(cmsgbuf.buf);
+	mh->msg_iov = iov;
+	mh->msg_iovlen = array_size(iov);
+	mh->msg_flags = 0;
+
+	nread = recvmsg(ravrf->sock, mh, MSG_PEEK | MSG_TRUNC);
+	if (nread <= 0) {
+		zlog_err("(VRF %s) RX error: %m", acvrf->vrf->name);
+		return;
+	}
+
+	if ((size_t)nread > sizeof(rxbuf)) {
+		iov->iov_base = XMALLOC(MTYPE_RTADV_PACKET, nread);
+		iov->iov_len = nread;
+	}
+	nread = recvmsg(ravrf->sock, mh, 0);
+	if (nread <= 0) {
+		zlog_err("(VRF %s) RX error: %m", acvrf->vrf->name);
+		goto out_free;
+	}
+
+	struct interface *ifp;
+
+	ifp = if_lookup_by_index(pkt_src->sin6_scope_id, acvrf->vrf->vrf_id);
+	if (!ifp || !ifp->info)
+		goto out_free;
+
+	struct accessd_iface *acif = ifp->info;
+	struct rtadv_iface *raif = acif ? acif->rtadv : NULL;
+
+	if (!raif)
+		goto out_free;
+
+	for (cmsg = CMSG_FIRSTHDR(mh); cmsg; cmsg = CMSG_NXTHDR(mh, cmsg)) {
+		if (cmsg->cmsg_level != SOL_IPV6)
+			continue;
+
+		switch (cmsg->cmsg_type) {
+		case IPV6_PKTINFO:
+			pktinfo = (struct in6_pktinfo *)CMSG_DATA(cmsg);
+			break;
+		case IPV6_HOPLIMIT:
+			hoplimit = (int *)CMSG_DATA(cmsg);
+			break;
+		}
+	}
+
+	if (!pktinfo || !hoplimit) {
+		zlog_err(log_ifp("BUG: packet without IPV6_PKTINFO or IPV6_HOPLIMIT"));
+		goto out_free;
+	}
+
+	if (*hoplimit != 255) {
+		zlog_err(log_pkt_src("packet with hop limit != 255"));
+		goto out_free;
+	}
+
+	if (!IN6_IS_ADDR_LINKLOCAL(&pkt_src->sin6_addr)) {
+		zlog_warn(log_pkt_src("packet from invalid source address"));
+		goto out_free;
+	}
+
+	pktlen = nread;
+	if (pktlen < sizeof(struct icmp6_plain_hdr)) {
+		zlog_warn(log_pkt_src("truncated packet"));
+		goto out_free;
+	}
+
+	rtadv_rx_process(acif, pkt_src, &pktinfo->ipi6_addr, iov->iov_base,
+			 pktlen);
+
+out_free:
+	if (iov->iov_base != rxbuf)
+		XFREE(MTYPE_RTADV_PACKET, iov->iov_base);
+}
+
 static void rtadv_ifp_refresh(struct accessd_iface *acif)
 {
 	struct rtadv_iface *rtadv = acif->rtadv;
@@ -483,6 +670,20 @@ static void rtadv_ifp_refresh(struct accessd_iface *acif)
 
 		event_add_timer_msec(master, rtadv_ifp_timer, acif, 0,
 				      &rtadv->t_periodic);
+
+		frr_with_privs (&accessd_privs) {
+			struct ipv6_mreq mreq;
+			int ret;
+
+			/* all-MLDv2 group */
+			mreq.ipv6mr_multiaddr = all_routers;
+			mreq.ipv6mr_interface = acif->ifp->ifindex;
+			ret = setsockopt(ravrf->sock, SOL_IPV6,
+					 IPV6_JOIN_GROUP, &mreq, sizeof(mreq));
+			if (ret)
+				zlog_err("(%s) failed to join ff02::2 (all-routers): %m",
+					 acif->ifp->name);
+		}
 
 		zlog_info("if %s enabled", acif->ifp->name);
 	}
