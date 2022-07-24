@@ -675,7 +675,6 @@ static void rtadv_ifp_refresh(struct accessd_iface *acif)
 			struct ipv6_mreq mreq;
 			int ret;
 
-			/* all-MLDv2 group */
 			mreq.ipv6mr_multiaddr = all_routers;
 			mreq.ipv6mr_interface = acif->ifp->ifindex;
 			ret = setsockopt(ravrf->sock, SOL_IPV6,
