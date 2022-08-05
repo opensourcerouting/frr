@@ -286,14 +286,18 @@ prefix_list_entry_make(struct prefix *prefix, enum prefix_list_type type,
 void prefix_list_add_hook(void (*func)(struct prefix_list *plist))
 {
 	prefix_master_ipv4.add_hook = func;
+	prefix_master_orf_v4.add_hook = func;
 	prefix_master_ipv6.add_hook = func;
+	prefix_master_orf_v6.add_hook = func;
 }
 
 /* Delete hook function. */
 void prefix_list_delete_hook(void (*func)(struct prefix_list *plist))
 {
 	prefix_master_ipv4.delete_hook = func;
+	prefix_master_orf_v4.delete_hook = func;
 	prefix_master_ipv6.delete_hook = func;
+	prefix_master_orf_v6.delete_hook = func;
 }
 
 /* Calculate new sequential number. */

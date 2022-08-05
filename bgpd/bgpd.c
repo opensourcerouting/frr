@@ -6739,6 +6739,9 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			FOREACH_AFI_SAFI (afi, safi) {
+				if (!peer->afc_nego[afi][safi])
+					continue;
+
 				filter = &peer->filter[afi][safi];
 
 				for (direct = FILTER_IN; direct < FILTER_MAX;
@@ -6753,6 +6756,8 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 						filter->plist[direct].plist =
 							NULL;
 				}
+
+				//peer_on_policy_change(peer, afi, safi, 0);
 			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
