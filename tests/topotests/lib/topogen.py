@@ -1331,6 +1331,7 @@ def diagnose_env_freebsd():
 
 def diagnose_env(rundir):
     if sys.platform.startswith("linux"):
+        return True
         return diagnose_env_linux(rundir)
     elif sys.platform.startswith("freebsd"):
         return diagnose_env_freebsd()
