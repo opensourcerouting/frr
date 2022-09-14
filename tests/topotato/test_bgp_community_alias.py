@@ -8,11 +8,12 @@ Test if BGP community alias is visible in CLI outputs.
 __topotests_file__ = "bgp_community_alias/test_bgp-community-alias.py"
 __topotests_gitrev__ = "a53c08bc131c02f4a20931d7aa9f974194ab16e7"
 
+# pylint: disable=wildcard-import,unused-import,unused-wildcard-import
 from topotato import *
 
 
 @topology_fixture()
-def allproto_topo(topo):
+def allproto_topo(topo):  # pylint: disable=redefined-outer-name
     """
     [ r1 ]
        |
@@ -107,12 +108,14 @@ class Configs(FRRConfigs):
 
 
 @config_fixture(Configs)
-def configs(config, allproto_topo):
-    return
+def configs(
+    config, allproto_topo  # pylint: disable=bad-continuation
+):  # pylint: disable=redefined-outer-name,unused-argument
+    return config
 
 
 @instance_fixture()
-def testenv(configs):
+def testenv(configs):  # pylint: disable=redefined-outer-name
     return FRRNetworkInstance(configs.topology, configs).prepare()
 
 
@@ -120,7 +123,7 @@ class BGPCommunityAliasTest(TestBase):
     instancefn = testenv
 
     @topotatofunc
-    def _bgp_converge(self, topo, r1, r2):
+    def _bgp_converge(self, _topo, r1, r2):  # pylint: disable=no-self-use
         expected = {
             str(r2.lo_ip4[0]): [
                 {
@@ -154,7 +157,7 @@ class BGPCommunityAliasTest(TestBase):
         )
 
     @topotatofunc
-    def _bgp_show_prefixes_by_alias(self, topo, r1, r2):
+    def _bgp_show_prefixes_by_alias(self, _topo, r1, r2):  # pylint: disable=no-self-use
         expected = {
             "routes": {
                 str(r2.lo_ip4[0]): [
@@ -175,7 +178,9 @@ class BGPCommunityAliasTest(TestBase):
         )
 
     @topotatofunc
-    def _bgp_show_prefixes_by_large_community_list(self, topo, r1, r2):
+    def _bgp_show_prefixes_by_large_community_list(
+        self, _topo, r1, r2  # pylint: disable=bad-continuation
+    ):  # pylint: disable=no-self-use
         expected = {"routes": {str(r2.lo_ip4[0]): [{"valid": True}]}}
 
         yield from AssertVtysh.make(
