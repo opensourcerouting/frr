@@ -26,6 +26,9 @@ static struct rip_peer *rip_peer_new(void)
 
 void rip_peer_free(struct rip_peer *peer)
 {
+	if (peer->rip->log_neighbor_changes)
+		zlog_info("RIP Peer disappeared: %pI4 on %s", &peer->addr, peer->ri->ifp->name);
+
 	bfd_sess_free(&peer->bfd_session);
 	event_cancel(&peer->t_timeout);
 	XFREE(MTYPE_RIP_PEER, peer);
@@ -74,6 +77,9 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct rip_interface *ri,
 	if (peer) {
 		event_cancel(&peer->t_timeout);
 	} else {
+		if (rip->log_neighbor_changes)
+			zlog_info("RIP Peer discovered: %pI4 on %s", addr, ri->ifp->name);
+
 		peer = rip_peer_new();
 		peer->rip = rip;
 		peer->ri = ri;
