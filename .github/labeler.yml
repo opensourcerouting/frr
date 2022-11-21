@@ -1,2 +1,2 @@
-backport:
-  - '(Mergifyio backport )'
+docker:
+- docker/**/*
