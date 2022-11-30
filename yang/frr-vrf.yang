@@ -4,6 +4,10 @@ module frr-vrf {
   namespace "http://frrouting.org/yang/vrf";
   prefix frr-vrf;
 
+  import frr-codegen {
+    prefix cg;
+  }
+
   organization
     "Free Range Routing";
   contact
@@ -56,6 +60,8 @@ module frr-vrf {
       key "name";
       description
         "VRF.";
+      cg:context-type "struct vrf *";
+
       leaf name {
         type string {
           length "1..36";

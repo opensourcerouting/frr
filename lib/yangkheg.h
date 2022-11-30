@@ -30,12 +30,17 @@ enum yangkheg_tokens {
 	YK_MODIFY,
 	YK_DESTROY,
 
+	YK_TYPE,
+	YK_CTYPE,
+	YK_DEFAULT,
+	YK_KIND,
+	YK_LYD_VALUE,
+
 	YKCC_OPEN,
 	YKCC_CLOSE,
 	YKCC_WSP,
 	YKCC_ID,
 	YKCC_AT,
-	YKCC_OPERATOR,
 };
 
 struct yangkheg_file {
@@ -43,7 +48,10 @@ struct yangkheg_file {
 	char *filename;
 };
 
+PREDECL_DLIST(yk_ctokens);
+
 struct yangkheg_token {
+	struct yk_ctokens_item itm;
 	size_t refcount;
 
 	int token;
@@ -57,10 +65,12 @@ struct yangkheg_token {
 	unsigned int line_s, line_e, col_s, col_e;
 };
 
+DECLARE_DLIST(yk_ctokens, struct yangkheg_token, itm);
+
 struct yangkheg_lexer;
 
 extern struct yangkheg_token *yk_token_create(void);
-extern struct yangkheg_token *yk_token_get(struct yangkheg_token *tkn);
+extern struct yangkheg_token *yk_token_get(const struct yangkheg_token *tkn);
 extern void yk_token_put(struct yangkheg_token **tkn);
 
 extern struct yangkheg_lexer *yangkheg_begin(struct yangkheg_file *file);
@@ -98,49 +108,92 @@ static inline void yk_token_diag(enum diag_level lvl,
 
 /* cblock */
 
-PREDECL_DLIST(yk_cargs);
-
-enum yk_carg_type {
-	YK_CARG_EMPTY,
-	YK_CARG_STRING,
-};
-
-struct yk_carg {
-	struct yk_cargs_item itm;
-	enum yk_carg_type type;
-
-	char *strval;
-};
-
 PREDECL_DLIST(yk_citems);
 
 enum yk_citem_type {
 	YK_CIT_TEXT,
-	YK_CIT_AT_VAR,
-	YK_CIT_AT_FUNC,
+	YK_CIT_AT,
 };
 
 struct yk_citem {
 	struct yk_citems_item itm;
 	enum yk_citem_type type;
+
 	int lineno, column;
 
 	char *text;
-	char *atname;
-	struct yk_cargs_head args[1];
+	struct yk_ctokens_head tokens[1];
 };
 
 DECLARE_DLIST(yk_citems, struct yk_citem, itm);
-DECLARE_DLIST(yk_cargs, struct yk_carg, itm);
 
 struct yk_cblock {
 	struct yk_citems_head items[1];
+	struct yangkheg_token *close_token;
+};
+
+struct yk_crender_ctx {
+	FILE *out;
+
+	struct yangkheg_state *state;
+	struct yangkheg_stack *stk;
 };
 
 struct ykat_ctx {
-	int dummy;
+	struct yk_citem *item;
+	struct yk_crender_ctx *ctx;
+
+	bool started;
+	struct yangkheg_token *pos;
+};
+
+struct ykat_loc {
+	struct yangkheg_token *first, *last;
 };
 
 extern struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex);
+extern void yk_cblock_render(struct yk_crender_ctx *ctx,
+			     struct yk_cblock *cblock);
+extern char *yk_cblock_typename(struct yk_cblock *cblock);
+
+extern int ykat_parse(struct ykat_ctx *ctx);
+extern void ykat_mktab(void);
+extern int ykat_find_id_token(const char *text);
+
+struct lysc_type;
+struct yk_yangtype;
+
+PREDECL_DLIST(yk_cmaps);
+PREDECL_HASH(yk_yangtypes);
+
+enum cmap_kind {
+	CMAP_SIMPLE_VALUE = 1,
+	CMAP_ALLOC_POINTER,
+};
+
+struct yk_cmap {
+	struct yk_cmaps_item itm;
+	struct yk_yangtype *yangtype;
+	struct yangkheg_token *origin_loc;
+
+	char *name;
+	bool dflt;
+
+	enum cmap_kind kind;
+	struct yk_cblock *lyd_value;
+};
+
+struct yk_yangtype {
+	struct yk_yangtypes_item itm;
+
+	struct lysc_type *lysc_type;
+	const struct lys_module *mod;
+	const char *name;
+
+	struct yk_cmap *dflt;
+	struct yk_cmaps_head cmaps[1];
+};
+
+DECLARE_DLIST(yk_cmaps, struct yk_cmap, itm);
 
 #endif /* _YANGKHEG_H */

@@ -17,8 +17,10 @@ struct yangkheg_token *yk_token_create(void)
 	return tkn;
 }
 
-struct yangkheg_token *yk_token_get(struct yangkheg_token *tkn)
+struct yangkheg_token *yk_token_get(const struct yangkheg_token *csttkn)
 {
+	struct yangkheg_token *tkn = (struct yangkheg_token *)csttkn;
+
 	tkn->refcount++;
 	return tkn;
 }
@@ -59,12 +61,17 @@ static const char * const tkn_names[] = {
 	item(YK_MODIFY),
 	item(YK_DESTROY),
 
+	item(YK_TYPE),
+	item(YK_CTYPE),
+	item(YK_DEFAULT),
+	item(YK_KIND),
+	item(YK_LYD_VALUE),
+
 	item(YKCC_OPEN),
 	item(YKCC_CLOSE),
 	item(YKCC_WSP),
 	item(YKCC_ID),
 	item(YKCC_AT),
-	item(YKCC_OPERATOR),
 };
 
 printfrr_ext_autoreg_i("YKN", printfrr_ykn)
