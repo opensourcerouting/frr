@@ -52,6 +52,7 @@ static const char * const tkn_names[] = {
 	item(YK_PATH),
 	item(YK_IMPLEMENTS),
 	item(YK_EMIT),
+	item(YK_TEMPLATE),
 
 	item(YK_NOOP),
 	item(YK_NODEVAL),
@@ -74,7 +75,7 @@ static const char * const tkn_names[] = {
 	item(YKCC_AT),
 };
 
-printfrr_ext_autoreg_i("YKN", printfrr_ykn)
+printfrr_ext_autoreg_i("YKN", printfrr_ykn);
 static ssize_t printfrr_ykn(struct fbuf *buf, struct printfrr_eargs *ea,
 			    uintmax_t uival)
 {
@@ -97,7 +98,7 @@ static ssize_t printfrr_ykn(struct fbuf *buf, struct printfrr_eargs *ea,
 	return rv;
 }
 
-printfrr_ext_autoreg_p("YKT", printfrr_ykt)
+printfrr_ext_autoreg_p("YKT", printfrr_ykt);
 static ssize_t printfrr_ykt(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {

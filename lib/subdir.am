@@ -476,10 +476,12 @@ lib_clippy_SOURCES = \
 
 if BUILD_CLIPPY
 noinst_PROGRAMS += lib/yangkheg
+noinst_PROGRAMS += lib/yakshave
 endif
-lib_yangkheg_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
+lib_yangkheg_CPPFLAGS = $(CPPFLAGS_BASE) $(LIBYANG_CFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_yangkheg_CFLAGS = $(AC_CFLAGS) # $(PYTHON_CFLAGS)
 lib_yangkheg_LDADD = $(LIBYANG_LIBS) $(LIBM)
+lib_yangkheg_LDFLAGS =  -Wl,-rpath,/home/equinox/c/libyang/inst/lib
 lib_yangkheg_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@ykat_@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 lib_yangkheg_SOURCES = \
 	lib/yangkheg_lex.l \
@@ -494,6 +496,11 @@ lib_yangkheg_SOURCES = \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
+	# end
+
+lib_yakshave_LDADD = lib/libfrr.la
+lib_yakshave_SOURCES = \
+	lib/yakshave.c \
 	# end
 
 # (global) clippy rules for all directories

@@ -23,7 +23,9 @@
   #include <stdlib.h>
   #include <string.h>
   #include <ctype.h>
+  #include <assert.h>
 
+  #include "printfrr.h"
   #include "yangkheg.h"
 
 #define YKAT_LTYPE		struct ykat_loc
@@ -43,6 +45,7 @@
 
 %union {
   struct yangkheg_token *token;
+  const struct yk_carg *carg;
   intmax_t number;
   const char *string;
 }
@@ -57,7 +60,10 @@ extern int ykat_locprint(FILE *fd, const YKAT_LTYPE *loc);
 %token <token>	YKAT_ID
 %token <token>	YKAT_STRING
 
+%type <token>	"if" "ifeq" "else" "endif"
+
 %type <string>	strexpr
+%type <carg>	carg
 
 %code {
 
@@ -73,22 +79,62 @@ extern int ykat_locprint(FILE *fd, const YKAT_LTYPE *loc);
 %%
 
 start:
-	'@' {
-		printf("bison: @@\n");
+	carg '@' {
+		if (!ctx->ctx->suppress) {
+			if ($1)
+				fprintf(ctx->ctx->out, "%s", $1->value);
+			else
+				fprintf(ctx->ctx->out, "{@???@}");
+			ctx->line_at_token = true;
+		}
 	}
 |
-	YKAT_ID '@' {
-		printf("bison: @%s@\n", $1->text);
+	"str" '(' carg ')' {
+		if (!ctx->ctx->suppress) {
+			if ($3)
+				fprintfrr(ctx->ctx->out, "%pSQq\n", $3->value);
+			else
+				fprintfrr(ctx->ctx->out, "\"{@???@}\"\n");
+		}
+	}
+|	"ifeq" '(' carg ',' carg ')' {
+		bool val = false;
+
+		if ($3 && $5)
+			val = !strcmp($3->value, $5->value);
+		yk_crender_cond_push(ctx->ctx, $1, val);
+	}
+|	"if" '(' carg ')' {
+		yk_crender_cond_push(ctx->ctx, $1, $3 && strlen($3->value));
+	}
+|	"else" '(' ')' {
+		yk_crender_cond_else(ctx->ctx, $1, true);
+	}
+|	"endif" '(' ')' {
+		yk_crender_cond_pop(ctx->ctx, $1);
 	}
 |
 	"debug_show_type" '(' strexpr ')' {
-		printf("bison: dst(%s)\n", $3);
+		ykat_debug_show_type(ctx->ctx, ctx->item, $3);
+	}
+|
+	"implement" '(' strexpr ')' {
+		if (!ctx->ctx->suppress)
+			ykat_implement(ctx, $3);
 	}
 ;
 
+carg:
+	YKAT_ID {
+		$$ = yk_crender_arg_gettkn(ctx->ctx, $1);
+	}
+|	{
+		$$ = yk_crender_arg_gettkn(ctx->ctx, NULL);
+	}
+
 strexpr:
 	YKAT_STRING {
-		$$ = $1->text;
+		$$ = $1->cooked;
 	}
 ;
 
@@ -117,19 +163,17 @@ static inline uint32_t ykat_hash(const struct ykat_id *i)
 
 DECLARE_HASH(ykat_ids, struct ykat_id, itm, ykat_cmp, ykat_hash);
 
-static struct ykat_id identry[array_size(yytname)];
+static struct ykat_id identry[array_size(yytranslate)];
 static struct ykat_ids_head ids[1];
 
 void ykat_mktab(void)
 {
-	int token = 254;
-
 	ykat_ids_init(ids);
 
-	for (size_t i = 0; i < array_size(identry); i++) {
-		identry[i].value = token++;
-		identry[i].text = yytname[i];
-		if (yytname[i])
+	for (size_t i = 0; i < array_size(yytranslate) - 256; i++) {
+		identry[i].value = 256 + i;
+		identry[i].text = yytname[yytranslate[256 + i]];
+		if (identry[i].text)
 			ykat_ids_add(ids, &identry[i]);
 	}
 }

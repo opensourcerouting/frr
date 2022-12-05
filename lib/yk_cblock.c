@@ -11,6 +11,8 @@ DEFINE_MTYPE_STATIC(LIB, YK_CBLOCK, "C code block");
 DEFINE_MTYPE_STATIC(LIB, YK_CITEM,  "C code block item");
 DEFINE_MTYPE_STATIC(LIB, YK_CITTKN, "C code block item token");
 DEFINE_MTYPE_STATIC(LIB, YK_CTEXT,  "C code block text");
+DEFINE_MTYPE_STATIC(LIB, YK_CARG,   "C render argument");
+DEFINE_MTYPE_STATIC(LIB, YK_CCOND,  "C render condition");
 
 static void parse_cat(struct yangkheg_lexer *lex, struct yk_citem *atitem)
 {
@@ -43,8 +45,8 @@ static void parse_cat(struct yangkheg_lexer *lex, struct yk_citem *atitem)
 	}
 	yk_ctokens_add_tail(atitem->tokens, yk_token_get(ntoken));
 
-	while ((ntoken = yangkheg_next(lex))
-	       && (ntoken->token != YKCC_CLOSE) && brace_level) {
+	while (brace_level && (ntoken = yangkheg_next(lex))
+	       && (ntoken->token != YKCC_CLOSE)) {
 		if (ntoken->token == COMMENT)
 			continue;
 
@@ -68,6 +70,7 @@ struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex)
 	struct yk_citem *textitem = NULL, *atitem;
 	const char *text;
 	char chbuf[2];
+	bool after_at = false;
 
 	cblock = XCALLOC(MTYPE_YK_CBLOCK, sizeof(*cblock));
 	yk_citems_init(cblock->items);
@@ -83,6 +86,7 @@ struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex)
 			yk_ctokens_init(atitem->tokens);
 			parse_cat(lex, atitem);
 			yk_citems_add_tail(cblock->items, atitem);
+			after_at = true;
 			break;
 
 		case STRING:
@@ -100,6 +104,10 @@ struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex)
 				chbuf[0] = ntoken->token;
 				chbuf[1] = '\0';
 				text = chbuf;
+			}
+			if (after_at && ntoken->token != YKCC_ID) {
+				textitem = NULL;
+				after_at = false;
 			}
 			if (textitem) {
 				size_t len1 = strlen(textitem->text);
@@ -133,35 +141,204 @@ struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex)
 	return cblock;
 }
 
+static int yk_carg_cmp(const struct yk_carg *a, const struct yk_carg *b)
+{
+	return strcmp(a->name, b->name);
+}
+
+static uint32_t yk_carg_hash(const struct yk_carg *a)
+{
+	return jhash(a->name, strlen(a->name), 0xd1044749);
+}
+
+DECLARE_HASH(yk_cargs, struct yk_carg, item, yk_carg_cmp, yk_carg_hash);
+
+void yk_crender_init(struct yk_crender_ctx *ctx, FILE *out)
+{
+	ctx->out = out;
+	yk_cargs_init(ctx->cargs);
+	yk_condstack_init(ctx->condstack);
+}
+
+void yk_crender_arg_set(struct yk_crender_ctx *ctx, const char *name,
+			const char *value)
+{
+	struct yk_carg *carg, *prev;
+	size_t vallen = strlen(value) + 1;
+
+	carg = XCALLOC(MTYPE_YK_CARG, sizeof(*carg) + vallen);
+	carg->name = name;
+	memcpy(carg->value, value, vallen);
+
+	prev = yk_cargs_add(ctx->cargs, carg);
+	if (prev) {
+		yk_cargs_del(ctx->cargs, prev);
+		XFREE(MTYPE_YK_CARG, prev);
+		yk_cargs_add(ctx->cargs, carg);
+	}
+}
+
+const struct yk_carg *yk_crender_arg_gettkn(struct yk_crender_ctx *ctx,
+					    const struct yangkheg_token *tkn)
+{
+	struct yk_carg ref, *res;
+
+	if (!tkn)
+		ref.name = "";
+	else
+		ref.name = tkn->text;
+
+	res = yk_cargs_find(ctx->cargs, &ref);
+	if (!res && !ctx->suppress)
+		yk_token_diag(DIAG_ERR, tkn,
+			      "undefined template argument %pSQq", ref.name);
+	return res;
+}
+
+void yk_crender_cond_push(struct yk_crender_ctx *ctx,
+			  const struct yangkheg_token *tkn,
+			  bool value)
+{
+	struct yk_cond *cond;
+
+	cond = XCALLOC(MTYPE_YK_CCOND, sizeof(*cond));
+	cond->open_at = yk_token_get(tkn);
+	cond->value = value;
+	cond->any_arc_taken = value;
+
+	yk_condstack_add_head(ctx->condstack, cond);
+	ctx->suppress = !cond->value;
+}
+
+void yk_crender_cond_else(struct yk_crender_ctx *ctx,
+			  const struct yangkheg_token *tkn,
+			  bool value)
+{
+	struct yk_cond *cond = yk_condstack_first(ctx->condstack);
+
+	if (!cond) {
+		yk_token_diag(DIAG_ERR, tkn,
+			      "else() without if()");
+		return;
+	}
+	cond->value = !cond->any_arc_taken && value;
+	cond->any_arc_taken |= value;
+
+	ctx->suppress = !cond->value;
+}
+
+void yk_crender_cond_pop(struct yk_crender_ctx *ctx,
+			  const struct yangkheg_token *tkn)
+{
+	struct yk_cond *cond;
+
+	cond = yk_condstack_pop(ctx->condstack);
+	if (!cond) {
+		yk_token_diag(DIAG_ERR, tkn,
+			      "endif() without if()");
+		return;
+	}
+	yk_token_put(&cond->open_at);
+	XFREE(MTYPE_YK_CCOND, cond);
+
+	cond = yk_condstack_first(ctx->condstack);
+	if (cond && !cond->value)
+		ctx->suppress = true;
+	else
+		ctx->suppress = false;
+}
+
+void yk_crender_fini(struct yk_crender_ctx *ctx)
+{
+	struct yk_carg *carg;
+	struct yk_cond *cond;
+
+	while ((cond = yk_condstack_pop(ctx->condstack))) {
+		yk_token_put(&cond->open_at);
+		XFREE(MTYPE_YK_CCOND, cond);
+	}
+
+	yk_condstack_fini(ctx->condstack);
+
+	while ((carg = yk_cargs_pop(ctx->cargs)))
+		XFREE(MTYPE_YK_CARG, carg);
+
+	yk_cargs_fini(ctx->cargs);
+}
+
+
+static void emit_line(FILE *out, struct yangkheg_token *tkn)
+{
+	long startpos = tkn->byte_s - tkn->col_s;
+	fpos_t savepos;
+	char rbuf[256];
+	ssize_t nread;
+
+	fprintf(out, "#line %d \"%s\"\n", tkn->line_s, tkn->file->filename);
+
+	fgetpos(tkn->file->fd, &savepos);
+	fseek(tkn->file->fd, startpos, SEEK_SET);
+	nread = fread(rbuf, 1, sizeof(rbuf), tkn->file->fd);
+	fsetpos(tkn->file->fd, &savepos);
+
+	for (size_t i = 0; (ssize_t)i < nread && i < tkn->col_s; i++) {
+		if (rbuf[i] == '\t')
+			putc('\t', out);
+		else
+			putc(' ', out);
+	}
+}
+
 void yk_cblock_render(struct yk_crender_ctx *ctx, struct yk_cblock *cblock)
 {
 	bool needline = true;
+	bool line_at_token = false;
 	struct yk_citem *it;
 
 	fprintf(ctx->out, "\n/* begin cblock { */\n");
 	frr_each (yk_citems, cblock->items, it) {
 		if (it->type == YK_CIT_TEXT) {
+			struct yangkheg_token *first;
+
+			if (ctx->suppress)
+				continue;
+
+			first = yk_ctokens_first(it->tokens);
+			if (line_at_token && first->token != YKCC_ID) {
+				line_at_token = false;
+				needline = true;
+				fputs("\n", ctx->out);
+			}
 			if (needline) {
-				fprintf(ctx->out, "#line %d \"test.yk\"\n",
-					it->lineno - 1);
+				emit_line(ctx->out, first);
 				needline = false;
 			}
 			fputs(it->text ?: "(NULL?!?)", ctx->out);
 			continue;
 		}
 
-		struct ykat_ctx ctx = {
+		struct ykat_ctx at_ctx = {
 			.item = it,
+			.ctx = ctx,
+			.line_at_token = false,
 		};
 
-		int ret = ykat_parse(&ctx);
+		int ret = ykat_parse(&at_ctx);
 
-		yk_token_diag(DIAG_TRACE, yk_ctokens_first(it->tokens),
-			      "atexpr returned %d", ret);
+		(void)ret;
+		//yk_token_diag(DIAG_TRACE, yk_ctokens_first(it->tokens),
+		//	      "atexpr returned %d", ret);
 
-		needline = true;
+		if (at_ctx.line_at_token)
+			line_at_token = true;
+		else
+			needline = true;
 	}
 	fprintf(ctx->out, "\n/* } end cblock */\n");
+
+	if (yk_condstack_count(ctx->condstack)) {
+		fprintf(stderr, "conditional unterminated\n");
+	}
 }
 
 char *yk_cblock_typename(struct yk_cblock *cblock)

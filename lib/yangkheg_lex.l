@@ -191,6 +191,7 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 <INITIAL>"implements"		return YK_IMPLEMENTS;
 <INITIAL>"emit"			return YK_EMIT;
 <INITIAL>"trace!"		return YK_TRACE;
+<INITIAL>"template"		return YK_TEMPLATE;
 
 <INITIAL>"noop"			return YK_NOOP;
 <INITIAL>"nodeval"		return YK_NODEVAL;
@@ -211,7 +212,7 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 <INITIAL>";"			return ';';
 
 <INITIAL>[ \t\n]+		set_start(yyextra);
-<INITIAL>\/[a-zA-Z_][a-zA-Z_.-]*(:[a-zA-Z_][a-zA-Z_.-]*)? {
+<INITIAL>\/[a-zA-Z_][a-zA-Z0-9_.-]*(:[a-zA-Z_][a-zA-Z0-9_.-]*)? {
 					BEGIN(INITIAL);
 					/* exclude starting / */
 					yyextra->tkn->raw = strdup(yytext + 1);
@@ -219,7 +220,7 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 				}
 
 
-{YID}				yyextra->tkn->raw = strdup(yytext); return ID;
+<INITIAL>{YID}			yyextra->tkn->raw = strdup(yytext); return ID;
 
 	/* {OPERATOR}			yyextra->value = strdup(yytext); return YKCCOPERATOR; */
 

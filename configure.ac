@@ -2420,7 +2420,7 @@ AX_COMPARE_VERSION([$frr_ac_flex_version], [lt], [2.5.20], [
   AC_SUBST([LEXLIB], [''])
 ])
 
-AC_PROG_YACC
+AC_PROG_YACC([noylwrap])
 dnl thanks GNU bison for this b*llshit...
 AC_MSG_CHECKING([version of bison])
 frr_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"

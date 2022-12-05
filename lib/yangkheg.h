@@ -22,6 +22,7 @@ enum yangkheg_tokens {
 	YK_IMPLEMENTS,
 	YK_EMIT,
 	YK_TRACE,
+	YK_TEMPLATE,
 
 	YK_NOOP,
 	YK_NODEVAL,
@@ -108,6 +109,27 @@ static inline void yk_token_diag(enum diag_level lvl,
 
 /* cblock */
 
+PREDECL_HASH(yk_cargs);
+
+struct yk_carg {
+	struct yk_cargs_item item;
+
+	const char *name;
+	char value[0];
+};
+
+PREDECL_DLIST(yk_condstack);
+
+struct yk_cond {
+	struct yk_condstack_item item;
+	struct yangkheg_token *open_at;
+
+	bool value;
+	bool any_arc_taken;
+};
+
+DECLARE_DLIST(yk_condstack, struct yk_cond, item);
+
 PREDECL_DLIST(yk_citems);
 
 enum yk_citem_type {
@@ -137,6 +159,10 @@ struct yk_crender_ctx {
 
 	struct yangkheg_state *state;
 	struct yangkheg_stack *stk;
+
+	struct yk_cargs_head cargs[1];
+	struct yk_condstack_head condstack[1];
+	bool suppress;
 };
 
 struct ykat_ctx {
@@ -144,6 +170,7 @@ struct ykat_ctx {
 	struct yk_crender_ctx *ctx;
 
 	bool started;
+	bool line_at_token;
 	struct yangkheg_token *pos;
 };
 
@@ -155,6 +182,25 @@ extern struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex);
 extern void yk_cblock_render(struct yk_crender_ctx *ctx,
 			     struct yk_cblock *cblock);
 extern char *yk_cblock_typename(struct yk_cblock *cblock);
+extern void yk_crender_init(struct yk_crender_ctx *ctx, FILE *out);
+extern void yk_crender_arg_set(struct yk_crender_ctx *ctx, const char *name,
+			       const char *value);
+extern const struct yk_carg *yk_crender_arg_gettkn(struct yk_crender_ctx *ctx,
+						   const struct yangkheg_token *tkn);
+extern void yk_crender_fini(struct yk_crender_ctx *ctx);
+
+extern void yk_crender_cond_push(struct yk_crender_ctx *ctx,
+			  const struct yangkheg_token *tkn,
+			  bool value);
+extern void yk_crender_cond_else(struct yk_crender_ctx *ctx,
+			  const struct yangkheg_token *tkn,
+			  bool value);
+extern void yk_crender_cond_pop(struct yk_crender_ctx *ctx,
+			  const struct yangkheg_token *tkn);
+
+extern void ykat_debug_show_type(struct yk_crender_ctx *ctx,
+				 struct yk_citem *item, const char *xpath);
+extern void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath);
 
 extern int ykat_parse(struct ykat_ctx *ctx);
 extern void ykat_mktab(void);
@@ -189,11 +235,17 @@ struct yk_yangtype {
 	struct lysc_type *lysc_type;
 	const struct lys_module *mod;
 	const char *name;
+	int basetype;
 
 	struct yk_cmap *dflt;
 	struct yk_cmaps_head cmaps[1];
 };
 
 DECLARE_DLIST(yk_cmaps, struct yk_cmap, itm);
+
+struct yk_nodeinfo {
+	const struct lysc_node *node;
+	struct yk_cblock *nodeval;
+};
 
 #endif /* _YANGKHEG_H */

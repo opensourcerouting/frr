@@ -14,4 +14,9 @@ module frr-codegen {
     description "Indicates the C structure that corresponds to a container";
     argument "ctype";
   }
+
+  extension brief-name {
+    description "Brief name of this node for use in generated code";
+    argument "name";
+  }
 }

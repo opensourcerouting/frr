@@ -88,7 +88,7 @@ void yk_token_diagv(enum diag_level lvl, const struct yangkheg_token *tkn,
 			  CC("\033[1m"), tkn, CC("\033[m"), lstr, &vaf);
 }
 
-printfrr_ext_autoreg_p("LYCN", printfrr_lycn)
+printfrr_ext_autoreg_p("LYCN", printfrr_lycn);
 static ssize_t printfrr_lycn(struct fbuf *buf, struct printfrr_eargs *ea,
 			     const void *ptr)
 {
@@ -101,7 +101,7 @@ static ssize_t printfrr_lycn(struct fbuf *buf, struct printfrr_eargs *ea,
 			 node->module->name, node->name);
 }
 
-printfrr_ext_autoreg_p("LYCT", printfrr_lyct)
+printfrr_ext_autoreg_p("LYCT", printfrr_lyct);
 static ssize_t printfrr_lyct(struct fbuf *buf, struct printfrr_eargs *ea,
 			     const void *ptr)
 {
@@ -125,7 +125,7 @@ static ssize_t printfrr_lyct(struct fbuf *buf, struct printfrr_eargs *ea,
 	return rv;
 }
 
-printfrr_ext_autoreg_p("LYM", printfrr_lym)
+printfrr_ext_autoreg_p("LYM", printfrr_lym);
 static ssize_t printfrr_lym(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
@@ -426,6 +426,7 @@ handler_prototype(handle_path);
 handler_prototype(handle_implements);
 handler_prototype(handle_emit);
 handler_prototype(handle_trace);
+handler_prototype(handle_template);
 
 handler_prototype(handle_nodeval);
 handler_prototype(handle_lval);
@@ -440,6 +441,8 @@ static const struct yangkheg_handler h_root[] = {
 	{ { YK_IMPLEMENTS, },	H_STANDALONE,	handle_implements },
 	{ { YK_EMIT, STRING, YKCC_OPEN },
 				0,		handle_emit },
+	{ { YK_TEMPLATE, STRING, YKCC_OPEN },
+				0,		handle_template },
 	{ { YK_TRACE, },	H_STANDALONE,	handle_trace },
 
 	{ { YK_NOOP, },
@@ -528,6 +531,13 @@ static enum handler_res handle_path(struct yangkheg_state *state,
 	}
 
 	nextstk->lysc_node = yn;
+	if (!yn->priv) {
+		struct yk_nodeinfo *nodeinfo;
+
+		nodeinfo = XCALLOC(MTYPE_TMP, sizeof(*nodeinfo));
+		nodeinfo->node = yn;
+		((struct lysc_node *)yn)->priv = nodeinfo;
+	}
 
 	yk_token_diag(DIAG_TRACE, token, "path: {%s}%s",
 		      yn->module->name, yn->name);
@@ -548,6 +558,7 @@ static enum handler_res handle_nodeval(struct yangkheg_state *state,
 				       size_t tokenc)
 {
 	struct yangkheg_stack *stk = state->stack;
+	struct yk_nodeinfo *nodeinfo;
 
 	if (!stk) {
 		yk_token_diag(DIAG_ERR, tokens[0],
@@ -555,7 +566,16 @@ static enum handler_res handle_nodeval(struct yangkheg_state *state,
 		return H_ERROR;
 	}
 
-	printf("\tbind to cblock %p\n", cblocks[1]);
+	nodeinfo = stk->lysc_node->priv;
+	assert(nodeinfo);
+
+	if (nodeinfo->nodeval) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "duplicate nodeval");
+		return H_OK;
+	}
+
+	nodeinfo->nodeval = cblocks[1];
 	return H_OK;
 }
 
@@ -580,26 +600,29 @@ const struct lysp_tpdf *get_type(const struct lysc_node_leaf *node)
 }
 #endif
 
-static void render_debug_show_type(struct render_ctx *ctx,
-				   struct yk_citem *item)
+static const struct render_fn render_fns[] = {
+	{ "debug_show_type", render_debug_show_type },
+	{ },
+};
+#endif
+
+void ykat_debug_show_type(struct yk_crender_ctx *ctx, struct yk_citem *item,
+			  const char *xpath)
 {
 	struct yangkheg_state *state = ctx->state;
 	struct yangkheg_stack *stk = ctx->stk;
-	struct yk_carg *arg = yk_cargs_first(item->args);
-	const char *xpath = ".";
 	struct ly_set *set = NULL;
+	const struct lysc_node *node = stk ? stk->lysc_node : NULL;
 	LY_ERR err;
 
-	if (arg->type == YK_CARG_STRING)
-		xpath = arg->strval;
-
-	err = lys_find_xpath(state->ly_ctx, stk->lysc_node, xpath, 0, &set);
+	err = lys_find_xpath(state->ly_ctx, node, xpath,
+			     0, &set);
 	if (err != LY_SUCCESS) {
 		fprintf(stderr, "xpath error\n");
 		return;
 	}
 
-	fprintf(stderr, "debug_show_type(%s) =>\n", xpath);
+	fprintfrr(stderr, "debug_show_type(%s@%pLYCN) => (%u)\n", xpath, node, set->count);
 	for (size_t i = 0; i < set->count; i++) {
 		const struct lysc_node *node = set->snodes[i];
 
@@ -610,13 +633,22 @@ static void render_debug_show_type(struct render_ctx *ctx,
 		struct lysc_ext_instance *ext;
 
 		LY_ARRAY_FOR(node->exts, struct lysc_ext_instance, ext) {
-			printfrr("\text {%s}%s %pSQq\n",
+			fprintfrr(stderr, "\text {%s}%s %pSQq\n",
 				 ext->def->module->name, ext->def->name,
 				 ext->argument);
 		}
 
-		if (node->nodetype != LYS_LEAF)
+		if (node->nodetype == LYS_LIST) {
+			const struct lysc_node_list *list =
+				container_of(node, struct lysc_node_list, node);
+			fprintfrr(stderr, "\tlist\n");
 			continue;
+		}
+
+		if (node->nodetype != LYS_LEAF) {
+			fprintfrr(stderr, "\tnot a leaf\n");
+			continue;
+		}
 
 		const struct lysc_node_leaf *leaf =
 			container_of(node, struct lysc_node_leaf, node);
@@ -625,12 +657,12 @@ static void render_debug_show_type(struct render_ctx *ctx,
 
 		for (typ = leaf->type; typ && (ti = lysc_typeinfo(typ));
 		     typ = ti ? ti->base : NULL) {
-			printfrr("\ttype: %p {%s}%s %p\n", typ,
+			fprintfrr(stderr, "\ttype: %p {%s}%s %p\n", typ,
 				 ti->mod ? ti->mod->name : "BUILTIN",
 				 ti->name, ti->base);
 
 			LY_ARRAY_FOR(typ->exts, struct lysc_ext_instance, ext) {
-				printfrr("\text {%s}%s %pSQq\n",
+				fprintfrr(stderr, "\text {%s}%s %pSQq\n",
 					 ext->def->module->name, ext->def->name,
 					 ext->argument);
 			}
@@ -639,12 +671,6 @@ static void render_debug_show_type(struct render_ctx *ctx,
 
 	ly_set_free(set, NULL);
 }
-
-static const struct render_fn render_fns[] = {
-	{ "debug_show_type", render_debug_show_type },
-	{ },
-};
-#endif
 
 static enum handler_res handle_emit(struct yangkheg_state *state,
 				    struct yangkheg_lexer *lex,
@@ -655,27 +681,186 @@ static enum handler_res handle_emit(struct yangkheg_state *state,
 	struct yangkheg_stack *stk = state->stack;
 	struct yk_crender_ctx ctx = { .state = state, .stk = stk };
 	const char *outname;
+	FILE *out;
 
 	outname = tokens[1]->cooked;
 
 	if (!strcmp(outname, "")) {
-		ctx.out = stdout;
+		out = stdout;
 		yk_token_diag(DIAG_TRACE, tokens[0], "rendering to stdout");
 	} else {
-		ctx.out = fopen(outname, "w");
-		if (!ctx.out) {
+		out = fopen(outname, "w");
+		if (!out) {
 			perror(outname);
 			exit(1);
 		}
 	}
 
+	yk_crender_init(&ctx, out);
 	yk_cblock_render(&ctx, cblocks[2]);
+	yk_crender_fini(&ctx);
 
-	if (ctx.out != stdout)
-		fclose(ctx.out);
+	if (out != stdout)
+		fclose(out);
 	else
 		yk_token_diag(DIAG_TRACE, tokens[0], "end of render");
 	return H_OK;
+}
+
+PREDECL_HASH(yk_templates);
+
+struct yk_template {
+	struct yk_templates_item item;
+
+	const char *name;
+	struct yangkheg_token *loc_name;
+	struct yk_cblock *cblock;
+};
+
+static int yk_template_cmp(const struct yk_template *a,
+			   const struct yk_template *b)
+{
+	return strcmp(a->name, b->name);
+}
+
+static uint32_t yk_template_hash(const struct yk_template *a)
+{
+	return jhash(a->name, strlen(a->name), 0xd1044749);
+}
+
+DECLARE_HASH(yk_templates, struct yk_template, item, yk_template_cmp,
+	     yk_template_hash);
+
+static struct yk_templates_head yk_templates[1] = {
+	INIT_HASH(yk_templates[0]),
+};
+
+static enum handler_res handle_template(struct yangkheg_state *state,
+					struct yangkheg_lexer *lex,
+					const struct yangkheg_token *tokens[],
+					struct yk_cblock *cblocks[],
+					size_t tokenc)
+{
+	struct yk_template *tpl, ref;
+
+	ref.name = tokens[1]->cooked;
+	tpl = yk_templates_find(yk_templates, &ref);
+
+	if (tpl) {
+		yk_token_diag(DIAG_ERR, tokens[1], "template already exists");
+		yk_token_diag(DIAG_ERR, tpl->loc_name, "previously defined here");
+		return H_ERROR;
+	}
+
+	tpl = XCALLOC(MTYPE_TMP, sizeof(*tpl));
+	tpl->loc_name = yk_token_get(tokens[1]);
+	tpl->name = tpl->loc_name->cooked;
+	tpl->cblock = cblocks[2];
+	yk_templates_add(yk_templates, tpl);
+
+	yk_token_diag(DIAG_TRACE, tokens[0], "template %pSQq defined",
+		      tpl->name);
+	return H_OK;
+}
+
+static const char *ykgen_ext_val(const struct lysc_node *node,
+				 const char *extname)
+{
+	struct lysc_ext_instance *ext;
+
+	LY_ARRAY_FOR(node->exts, struct lysc_ext_instance, ext) {
+		if (strcmp(ext->def->module->name, "frr-codegen"))
+			continue;
+		if (strcmp(ext->def->name, extname))
+			continue;
+		return ext->argument;
+	}
+
+	return NULL;
+}
+
+void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath)
+{
+	struct yk_crender_ctx *ctx = at_ctx->ctx;
+	struct yangkheg_state *state = ctx->state;
+	struct yangkheg_stack *stk = ctx->stk;
+	struct ly_set *set = NULL;
+	const struct lysc_node *node = stk ? stk->lysc_node : NULL;
+	LY_ERR err;
+
+	err = lys_find_xpath(state->ly_ctx, node, xpath, 0, &set);
+	if (err != LY_SUCCESS) {
+		fprintf(stderr, "xpath error\n");
+		return;
+	}
+
+	for (size_t i = 0; i < set->count; i++) {
+		struct yk_template *tpl, ref;
+		const struct lysc_node *node = set->snodes[i];
+		const struct lysc_node *parent;
+		struct yk_nodeinfo *nodeinfo = node->priv;
+		const char *ctxtype;
+		const char *bname, *parentbname, *inheritbname;
+
+		fprintf(stderr, "[%zu] %s {%s}%s\n", i,
+			lys_nodetype2str(node->nodetype), node->module->name,
+			node->name);
+
+		ref.name = "dispatch";
+		tpl = yk_templates_find(yk_templates, &ref);
+
+		if (!tpl) {
+			fprintf(stderr, "cannot find \"dispatch\" template\n");
+			return;
+		}
+
+		struct yk_crender_ctx subctx = {
+			.state = ctx->state,
+			.stk = ctx->stk,
+		};
+
+		yk_crender_init(&subctx, ctx->out);
+
+		bname = ykgen_ext_val(node, "brief-name");
+		yk_crender_arg_set(&subctx, "", bname);
+
+		if (node->parent)
+			parentbname = ykgen_ext_val(node->parent, "brief-name");
+		else
+			parentbname = "root";
+		yk_crender_arg_set(&subctx, "parent", parentbname);
+
+		for (parent = node->parent; parent; parent = parent->parent) {
+			inheritbname = ykgen_ext_val(parent, "brief-name");
+			if (inheritbname && ykgen_ext_val(parent, "context-type"))
+				break;
+		}
+		if (!parent)
+			inheritbname = "root";
+		yk_crender_arg_set(&subctx, "ctx_parent", inheritbname);
+
+		ctxtype = ykgen_ext_val(node, "context-type");
+		if (ctxtype && nodeinfo->nodeval) {
+			yk_crender_arg_set(&subctx, "this_ctxname", yk_cblock_typename(nodeinfo->nodeval));
+			yk_crender_arg_set(&subctx, "this_ctxtype", ctxtype);
+			yk_crender_arg_set(&subctx, "ctx_this", bname);
+		} else
+			yk_crender_arg_set(&subctx, "ctx_this", inheritbname);
+
+		char namebuf[256];
+
+		if (node->parent && node->module == node->parent->module)
+			snprintfrr(namebuf, sizeof(namebuf), "%s", node->name);
+		else
+			snprintfrr(namebuf, sizeof(namebuf), "%s:%s",
+				   node->module->prefix, node->name);
+		yk_crender_arg_set(&subctx, "nodename", namebuf);
+
+		yk_cblock_render(&subctx, tpl->cblock);
+		yk_crender_fini(&subctx);
+	}
+
+	ly_set_free(set, NULL);
 }
 
 static enum handler_res handle_lval(struct yangkheg_state *state,
@@ -834,7 +1019,7 @@ static void close_type(struct yangkheg_state *state,
 	switch (cmap->kind) {
 	case CMAP_SIMPLE_VALUE:
 		if (!cmap->lyd_value) {
-			yk_token_diag(DIAG_ERR, token,
+			yk_token_diag(DIAG_WARN, token,
 				      "missing `lyd-value` for type %pLYCT (%s)",
 				      cmap->yangtype->lysc_type, cmap->name);
 			return;
@@ -843,7 +1028,7 @@ static void close_type(struct yangkheg_state *state,
 
 	case CMAP_ALLOC_POINTER:
 		if (!cmap->lyd_value) {
-			yk_token_diag(DIAG_ERR, token,
+			yk_token_diag(DIAG_WARN, token,
 				      "missing `lyd-value` for type %pLYCT (%s)",
 				      cmap->yangtype->lysc_type, cmap->name);
 			return;
@@ -881,36 +1066,37 @@ handler_prototype(handle_type)
 			return H_ERROR;
 		}
 		mod = pfxres->module;
+
+		yk_token_diag(DIAG_TRACE, tokens[1], "looking for %pSQq in %pLYM",
+			      item, mod);
+
+		modp = mod->parsed;
+
+		LY_ARRAY_FOR(modp->typedefs, struct lysp_tpdf, tpdf)
+			if (!strcmp(tpdf->name, item))
+				break;
+
+		if (!tpdf) {
+			yk_token_diag(DIAG_ERR, tokens[1],
+				      "cannot find type %pSQq in %pLYM", item, mod);
+			free(freeme);
+			return H_ERROR;
+		}
+		if (!tpdf->type.compiled) {
+			yk_token_diag(DIAG_TRACE, tokens[1],
+				      "ignoring unused type %pSQs in %pLYM", item, mod);
+			free(freeme);
+			return H_OK;
+		}
+
+		typec = tpdf->type.compiled;
 	} else {
-		yk_token_diag(DIAG_ERR, tokens[1],
-			      "TODO: builtin types");
-		free(freeme);
-		return H_ERROR;
+		yk_token_diag(DIAG_TRACE, tokens[1], "implementing built-in %pSQq",
+			      item);
+
+		mod = NULL;
+		typec = NULL;
 	}
-
-	yk_token_diag(DIAG_TRACE, tokens[1], "looking for %pSQq in %pLYM",
-		      item, mod);
-
-	modp = mod->parsed;
-
-	LY_ARRAY_FOR(modp->typedefs, struct lysp_tpdf, tpdf)
-		if (!strcmp(tpdf->name, item))
-			break;
-
-	if (!tpdf) {
-		yk_token_diag(DIAG_ERR, tokens[1],
-			      "cannot find type %pSQq in %pLYM", item, mod);
-		free(freeme);
-		return H_ERROR;
-	}
-	if (!tpdf->type.compiled) {
-		yk_token_diag(DIAG_TRACE, tokens[1],
-			      "ignoring unused type %pSQs in %pLYM", item, mod);
-		free(freeme);
-		return H_OK;
-	}
-
-	typec = tpdf->type.compiled;
 
 	struct yk_yangtype ref, *yktyp;
 
@@ -918,7 +1104,12 @@ handler_prototype(handle_type)
 	ref.name = item;
 	yktyp = yk_yangtypes_find(types, &ref);
 
-	if (!yktyp) {
+	if (!yktyp && !mod) {
+		yk_token_diag(DIAG_ERR, tokens[1], "refusing to create built-in %pSQq",
+			      item);
+		free(freeme);
+		return H_ERROR;
+	} else if (!yktyp) {
 		yk_token_diag(DIAG_TRACE, tokens[1], "new type %pLYCT", typec);
 
 		yktyp = XCALLOC(MTYPE_YANGTYPE, sizeof(*yktyp));
@@ -1041,6 +1232,13 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		fprintf(stderr, "ly<%d>%s\n", level, msg);
 }
 
+static struct yk_yangtype builtin_types[] = {
+	{
+		.name = "uint32",
+		.basetype = LY_TYPE_UINT32,
+	},
+};
+
 int main(int argc, char **argv)
 {
 	struct yangkheg_lexer *lex;
@@ -1052,6 +1250,11 @@ int main(int argc, char **argv)
 
 	ykat_mktab();
 	yk_yangtypes_init(types);
+
+	for (size_t i = 0; i < array_size(builtin_types); i++) {
+		yk_cmaps_init(builtin_types[i].cmaps);
+		yk_yangtypes_add(types, &builtin_types[i]);
+	}
 
 	file->filename = argv[1];
 	file->fd = fopen(argv[1], "r");
