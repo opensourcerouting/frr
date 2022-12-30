@@ -129,3 +129,177 @@ uint32_t frr_sequence32_next(void)
 	/* coverity[Y2K38_SAFETY] */
 	return (uint32_t)frr_sequence_next();
 }
+
+/**
+ * Parses a address port from string and validates its format.
+ *
+ * If `error` parameter is `NULL` no error explanation will be returned.
+ *
+ * \param port_string the port in string format.
+ * \param error pointer to buffer to write errors.
+ * \param error_size error buffer size.
+ * \returns port value on success otherwise `0`.
+ */
+static uint16_t parse_port(const char *port_string, char *error, size_t error_size)
+{
+	char *nullbyte;
+	long rv;
+
+	errno = 0;
+	rv = strtol(port_string, &nullbyte, 10);
+	/* No conversion performed. */
+	if (rv == 0 && errno == EINVAL) {
+		if (error)
+			snprintf(error, error_size, "invalid format: %s", port_string);
+		return 0;
+	}
+	/* Invalid number range. */
+	if ((rv <= 0 || rv >= 65535) || errno == ERANGE) {
+		if (error)
+			snprintf(error, error_size, "outside valid range: %s", port_string);
+		return 0;
+	}
+	/* There was garbage at the end of the string. */
+	if (*nullbyte != 0) {
+		if (error)
+			snprintf(error, error_size, "unexpected ending: %s", nullbyte);
+		return 0;
+	}
+
+	return (uint16_t)rv;
+}
+
+bool network_address_parse(const char *address_string, struct network_address *address,
+			   uint16_t default_port)
+{
+	char *str_pos, *str_pos_aux;
+	size_t str_len;
+	char addr[64];
+	char type[64];
+	char port_error[64];
+
+	memset(address, 0, sizeof(*address));
+
+	/* Basic parsing: find ':' to figure out type part and address part. */
+	str_pos = strchr(address_string, ':');
+	if (!str_pos) {
+		snprintf(address->error, sizeof(address->error), "invalid address format: %s",
+			 address_string);
+		return false;
+	}
+
+	/* Calculate type string length. */
+	str_len = (size_t)(str_pos - address_string);
+
+	/* Copy the address part. */
+	str_pos++;
+	strlcpy(addr, str_pos, sizeof(addr));
+
+	/* Copy type part. */
+	strlcpy(type, address_string, str_len + 1);
+
+	/* Fill the address information. */
+	if (strcmp(type, "unix") == 0 || strcmp(type, "unixc") == 0) {
+		struct sockaddr_un *sun = (struct sockaddr_un *)&address->address;
+
+		address->listen = (strcmp(type, "unixc") != 0);
+
+		sun->sun_family = AF_UNIX;
+		strlcpy(sun->sun_path, addr, sizeof(sun->sun_path));
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sun->sun_len = sizeof(*sun);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+		address->address_size = sizeof(struct sockaddr_un);
+	} else if (strcmp(type, "ipv4") == 0 || strcmp(type, "ipv4c") == 0) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)&address->address;
+
+		address->listen = (strcmp(type, "ipv4c") != 0);
+
+		sin->sin_family = AF_INET;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin->sin_len = sizeof(*sin);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+		address->address_size = sizeof(struct sockaddr_in);
+
+		/* Parse port if any. */
+		str_pos = strchr(addr, ':');
+		if (str_pos != NULL) {
+			uint16_t port;
+
+			*str_pos = 0;
+			port = parse_port(str_pos + 1, port_error, sizeof(port_error));
+			if (port == 0) {
+				snprintf(address->error, sizeof(address->error),
+					 "invalid port: %s", port_error);
+				return false;
+			}
+
+			sin->sin_port = htons(port);
+		} else
+			sin->sin_port = htons(default_port);
+
+		if (inet_pton(AF_INET, addr, &sin->sin_addr) != 1) {
+			snprintf(address->error, sizeof(address->error),
+				 "invalid IPv4 address: %s", addr);
+			return false;
+		}
+	} else if (strcmp(type, "ipv6") == 0 || strcmp(type, "ipv6c") == 0) {
+		struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&address->address;
+
+		address->listen = (strcmp(type, "ipv6c") != 0);
+
+		sin6->sin6_family = AF_INET6;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin6->sin6_len = sizeof(*sin6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+		address->address_size = sizeof(struct sockaddr_in6);
+
+		/* Check for IPv6 enclosures '[]' */
+		str_pos = &addr[0];
+		if (*str_pos != '[') {
+			snprintf(address->error, sizeof(address->error),
+				 "invalid IPv6 format (expected '['): %s", addr);
+			return false;
+		}
+
+		str_pos_aux = strrchr(addr, ']');
+		if (!str_pos_aux) {
+			snprintf(address->error, sizeof(address->error),
+				 "invalid IPv6 format (expected ']'): %s", addr);
+			return false;
+		}
+
+		/* Consume the '[]:' part. */
+		str_len = (size_t)(str_pos_aux - str_pos);
+		memmove(addr, addr + 1, str_len);
+		addr[str_len - 1] = 0;
+
+		/* Parse port if any. */
+		str_pos_aux++;
+		str_pos = strrchr(str_pos_aux, ':');
+		if (str_pos != NULL) {
+			uint16_t port;
+
+			*str_pos = 0;
+			port = parse_port(str_pos + 1, port_error, sizeof(port_error));
+			if (port == 0) {
+				snprintf(address->error, sizeof(address->error),
+					 "invalid port: %s", port_error);
+				return false;
+			}
+			sin6->sin6_port = htons(port);
+		} else
+			sin6->sin6_port = htons(default_port);
+
+		if (inet_pton(AF_INET6, addr, &sin6->sin6_addr) != 1) {
+			snprintf(address->error, sizeof(address->error),
+				 "invalid IPv6 address: %s", addr);
+			return false;
+		}
+	} else {
+		snprintf(address->error, sizeof(address->error), "invalid address type: %s", addr);
+		return false;
+	}
+
+	return true;
+}
