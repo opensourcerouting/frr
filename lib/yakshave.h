@@ -49,3 +49,21 @@ struct ykchild_root {
 };
 
 
+/* */
+
+PREDECL_RBTREE_UNIQ(items);
+
+struct item {
+	struct items_item itm;
+	uint32_t id;
+};
+
+static inline int items_cmp(const struct item *a,
+			    const struct item *b)
+{
+	return numcmp(a->id, b->id);
+}
+
+DECLARE_RBTREE_UNIQ(items, struct item, itm, items_cmp);
+
+extern struct items_head items[1];

@@ -46,6 +46,28 @@ static uint32_t yang_prefix_hash(const struct yang_prefix *i)
 DECLARE_HASH(yang_prefix, struct yang_prefix, itm, yang_prefix_cmp,
 	     yang_prefix_hash);
 
+static int yk_yangtype_cmp(const struct yk_yangtype *a,
+			   const struct yk_yangtype *b)
+{
+	if (a->mod != b->mod)
+		return numcmp(a->mod, b->mod);
+	return strcmp(a->name, b->name);
+}
+
+static uint32_t yk_yangtype_hash(const struct yk_yangtype *typ)
+{
+	uint32_t hashval = 0xfbcec464;
+
+	hashval = jhash(typ->name, strlen(typ->name), hashval);
+	hashval = jhash(&typ->mod, sizeof(typ->mod), hashval);
+	return hashval;
+}
+
+DECLARE_HASH(yk_yangtypes, struct yk_yangtype, itm, yk_yangtype_cmp,
+	     yk_yangtype_hash);
+
+static struct yk_yangtypes_head types[1] = { INIT_HASH(types[0]), };
+
 void vzlogx(const struct xref_logmsg *xref, int prio,
 	    const char *format, va_list args)
 {
@@ -436,6 +458,9 @@ handler_prototype(handle_dflt);
 handler_prototype(handle_kind);
 handler_prototype(handle_lyd_value);
 
+handler_prototype(handle_key_input);
+handler_prototype(handle_json_output);
+
 static const struct yangkheg_handler h_root[] = {
 	{ { YK_PATH, },		0,		handle_path },
 	{ { YK_IMPLEMENTS, },	H_STANDALONE,	handle_implements },
@@ -462,6 +487,11 @@ static const struct yangkheg_handler h_root[] = {
 	{ { YK_KIND, ID, },	0,		handle_kind },
 	{ { YK_LYD_VALUE, YKCC_OPEN, },
 				0,		handle_lyd_value },
+
+	{ { YK_KEY_INPUT, YKCC_OPEN, },
+				0,		handle_key_input },
+	{ { YK_JSON_OUTPUT, YKCC_OPEN, },
+				0,		handle_json_output },
 	{ },
 };
 
@@ -779,6 +809,145 @@ static const char *ykgen_ext_val(const struct lysc_node *node,
 	return NULL;
 }
 
+static void ykat_implement_container(struct yk_crender_ctx *ctx,
+				     const struct lysc_node *node )
+{
+	struct yk_template *tpl, ref;
+	const struct lysc_node *parent;
+	struct yk_nodeinfo *nodeinfo = node->priv;
+	const char *ctxtype;
+	const char *bname, *parentbname, *inheritbname;
+
+	ref.name = "dispatch";
+	tpl = yk_templates_find(yk_templates, &ref);
+
+	if (!tpl) {
+		fprintf(stderr, "cannot find \"dispatch\" template\n");
+		return;
+	}
+
+	struct yk_crender_ctx subctx = {
+		.state = ctx->state,
+		.stk = ctx->stk,
+	};
+
+	yk_crender_init(&subctx, ctx->out);
+
+	bname = ykgen_ext_val(node, "brief-name");
+	yk_crender_arg_set(&subctx, "", bname);
+
+	if (node->parent)
+		parentbname = ykgen_ext_val(node->parent, "brief-name");
+	else
+		parentbname = "root";
+	yk_crender_arg_set(&subctx, "parent", parentbname);
+
+	for (parent = node->parent; parent; parent = parent->parent) {
+		inheritbname = ykgen_ext_val(parent, "brief-name");
+		if (inheritbname && ykgen_ext_val(parent, "context-type"))
+			break;
+	}
+	if (!parent)
+		inheritbname = "root";
+	yk_crender_arg_set(&subctx, "ctx_parent", inheritbname);
+
+	ctxtype = ykgen_ext_val(node, "context-type");
+	if (ctxtype && nodeinfo->nodeval) {
+		yk_crender_arg_set(&subctx, "this_ctxname", yk_cblock_typename(nodeinfo->nodeval));
+		yk_crender_arg_set(&subctx, "this_ctxtype", ctxtype);
+		yk_crender_arg_set(&subctx, "ctx_this", bname);
+	} else
+		yk_crender_arg_set(&subctx, "ctx_this", inheritbname);
+
+	char namebuf[256];
+
+	if (node->parent && node->module == node->parent->module)
+		snprintfrr(namebuf, sizeof(namebuf), "%s", node->name);
+	else
+		snprintfrr(namebuf, sizeof(namebuf), "%s:%s",
+			   node->module->prefix, node->name);
+	yk_crender_arg_set(&subctx, "nodename", namebuf);
+
+	yk_cblock_render(&subctx, tpl->cblock);
+	yk_crender_fini(&subctx);
+}
+
+static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
+				const struct lysc_node *node )
+{
+	struct yk_template *tpl, ref;
+	const struct lysc_node *parent;
+	struct yk_nodeinfo *nodeinfo = node->priv;
+	const char *parentbname, *inheritbname;
+
+	const struct lysc_node_leaf *leaf;
+	const struct lysc_type *typ;
+	const struct lysc_typeinfo *ti;
+
+	ref.name = "leaf";
+	tpl = yk_templates_find(yk_templates, &ref);
+
+	if (!tpl) {
+		fprintf(stderr, "cannot find \"leaf\" template\n");
+		return;
+	}
+
+	struct yk_crender_ctx subctx = {
+		.state = ctx->state,
+		.stk = ctx->stk,
+	};
+
+	yk_crender_init(&subctx, ctx->out);
+
+	yk_crender_arg_set(&subctx, "", node->name);
+
+	if (node->parent)
+		parentbname = ykgen_ext_val(node->parent, "brief-name");
+	else
+		parentbname = "root";
+	yk_crender_arg_set(&subctx, "parent", parentbname);
+
+	for (parent = node->parent; parent; parent = parent->parent) {
+		inheritbname = ykgen_ext_val(parent, "brief-name");
+		if (inheritbname && ykgen_ext_val(parent, "context-type"))
+			break;
+	}
+	if (!parent)
+		inheritbname = "root";
+	yk_crender_arg_set(&subctx, "ctx_parent", inheritbname);
+
+	char namebuf[256];
+
+	if (node->parent && node->module == node->parent->module)
+		snprintfrr(namebuf, sizeof(namebuf), "%s", node->name);
+	else
+		snprintfrr(namebuf, sizeof(namebuf), "%s:%s",
+			   node->module->prefix, node->name);
+	yk_crender_arg_set(&subctx, "nodename", namebuf);
+
+	leaf = container_of(node, struct lysc_node_leaf, node);
+
+	struct yk_yangtype *yktyp = NULL;
+
+	for (typ = leaf->type; typ && (ti = lysc_typeinfo(typ));
+	     typ = ti ? ti->base : NULL) {
+		struct yk_yangtype ref;
+
+		ref.mod = ti->mod;
+		ref.name = ti->name;
+		yktyp = yk_yangtypes_find(types, &ref);
+		if (yktyp)
+			break;
+	}
+
+	if (!yktyp) {
+		fprintf(stderr, "unknown type to implement\n");
+	} else {
+		yk_cblock_render(&subctx, tpl->cblock);
+	}
+	yk_crender_fini(&subctx);
+}
+
 void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath)
 {
 	struct yk_crender_ctx *ctx = at_ctx->ctx;
@@ -795,69 +964,24 @@ void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath)
 	}
 
 	for (size_t i = 0; i < set->count; i++) {
-		struct yk_template *tpl, ref;
 		const struct lysc_node *node = set->snodes[i];
-		const struct lysc_node *parent;
-		struct yk_nodeinfo *nodeinfo = node->priv;
-		const char *ctxtype;
-		const char *bname, *parentbname, *inheritbname;
 
 		fprintf(stderr, "[%zu] %s {%s}%s\n", i,
 			lys_nodetype2str(node->nodetype), node->module->name,
 			node->name);
 
-		ref.name = "dispatch";
-		tpl = yk_templates_find(yk_templates, &ref);
-
-		if (!tpl) {
-			fprintf(stderr, "cannot find \"dispatch\" template\n");
-			return;
+		switch (node->nodetype) {
+		case LYS_CONTAINER:
+		case LYS_LIST:
+			ykat_implement_container(ctx, node);
+			break;
+		case LYS_LEAF:
+			ykat_implement_leaf(ctx, node);
+			break;
+		default:
+			fprintf(stderr, "\tnode type %s not implemented!\n",
+				lys_nodetype2str(node->nodetype));
 		}
-
-		struct yk_crender_ctx subctx = {
-			.state = ctx->state,
-			.stk = ctx->stk,
-		};
-
-		yk_crender_init(&subctx, ctx->out);
-
-		bname = ykgen_ext_val(node, "brief-name");
-		yk_crender_arg_set(&subctx, "", bname);
-
-		if (node->parent)
-			parentbname = ykgen_ext_val(node->parent, "brief-name");
-		else
-			parentbname = "root";
-		yk_crender_arg_set(&subctx, "parent", parentbname);
-
-		for (parent = node->parent; parent; parent = parent->parent) {
-			inheritbname = ykgen_ext_val(parent, "brief-name");
-			if (inheritbname && ykgen_ext_val(parent, "context-type"))
-				break;
-		}
-		if (!parent)
-			inheritbname = "root";
-		yk_crender_arg_set(&subctx, "ctx_parent", inheritbname);
-
-		ctxtype = ykgen_ext_val(node, "context-type");
-		if (ctxtype && nodeinfo->nodeval) {
-			yk_crender_arg_set(&subctx, "this_ctxname", yk_cblock_typename(nodeinfo->nodeval));
-			yk_crender_arg_set(&subctx, "this_ctxtype", ctxtype);
-			yk_crender_arg_set(&subctx, "ctx_this", bname);
-		} else
-			yk_crender_arg_set(&subctx, "ctx_this", inheritbname);
-
-		char namebuf[256];
-
-		if (node->parent && node->module == node->parent->module)
-			snprintfrr(namebuf, sizeof(namebuf), "%s", node->name);
-		else
-			snprintfrr(namebuf, sizeof(namebuf), "%s:%s",
-				   node->module->prefix, node->name);
-		yk_crender_arg_set(&subctx, "nodename", namebuf);
-
-		yk_cblock_render(&subctx, tpl->cblock);
-		yk_crender_fini(&subctx);
 	}
 
 	ly_set_free(set, NULL);
@@ -869,6 +993,25 @@ static enum handler_res handle_lval(struct yangkheg_state *state,
 				    struct yk_cblock *cblocks[],
 				    size_t tokenc)
 {
+	struct yangkheg_stack *stk = state->stack;
+	struct yk_nodeinfo *nodeinfo;
+
+	if (!stk) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "no path to bind here");
+		return H_ERROR;
+	}
+
+	nodeinfo = stk->lysc_node->priv;
+	assert(nodeinfo);
+
+	if (nodeinfo->lval) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "duplicate nodeval");
+		return H_OK;
+	}
+
+	nodeinfo->lval = cblocks[1];
 	return H_OK;
 }
 
@@ -973,30 +1116,8 @@ static enum handler_res handle_implements(struct yangkheg_state *state,
 	return H_OK;
 }
 
-static int yk_yangtype_cmp(const struct yk_yangtype *a,
-			   const struct yk_yangtype *b)
-{
-	if (a->mod != b->mod)
-		return numcmp(a->mod, b->mod);
-	return strcmp(a->name, b->name);
-}
-
-static uint32_t yk_yangtype_hash(const struct yk_yangtype *typ)
-{
-	uint32_t hashval = 0xfbcec464;
-
-	hashval = jhash(typ->name, strlen(typ->name), hashval);
-	hashval = jhash(&typ->mod, sizeof(typ->mod), hashval);
-	return hashval;
-}
-
-DECLARE_HASH(yk_yangtypes, struct yk_yangtype, itm, yk_yangtype_cmp,
-	     yk_yangtype_hash);
-
 DEFINE_MTYPE_STATIC(YANGKHEG, YANGTYPE, "YANG type information");
 DEFINE_MTYPE_STATIC(YANGKHEG, CMAP,     "YANG type to C mapping");
-
-static struct yk_yangtypes_head types[1];
 
 static void close_type(struct yangkheg_state *state,
 		       struct yangkheg_token *token)
@@ -1224,6 +1345,50 @@ handler_prototype(handle_lyd_value)
 	return H_OK;
 }
 
+handler_prototype(handle_key_input)
+{
+	struct yangkheg_stack *stk = state->stack;
+	struct yk_cmap *cmap;
+
+	if (!stk || !stk->cmap) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "`key-input` keyword without a type to apply to");
+		return H_ERROR;
+	}
+
+	cmap = stk->cmap;
+	if (cmap->key_input) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "`key-input` already specified for this type");
+		return H_ERROR;
+	}
+
+	cmap->key_input = cblocks[1];
+	return H_OK;
+}
+
+handler_prototype(handle_json_output)
+{
+	struct yangkheg_stack *stk = state->stack;
+	struct yk_cmap *cmap;
+
+	if (!stk || !stk->cmap) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "`json-output` keyword without a type to apply to");
+		return H_ERROR;
+	}
+
+	cmap = stk->cmap;
+	if (cmap->json_output) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "`json-output` already specified for this type");
+		return H_ERROR;
+	}
+
+	cmap->json_output = cblocks[1];
+	return H_OK;
+}
+
 static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 {
 	if (path)
@@ -1238,6 +1403,8 @@ static struct yk_yangtype builtin_types[] = {
 		.basetype = LY_TYPE_UINT32,
 	},
 };
+
+bool f_no_line_numbers;
 
 int main(int argc, char **argv)
 {
@@ -1256,8 +1423,42 @@ int main(int argc, char **argv)
 		yk_yangtypes_add(types, &builtin_types[i]);
 	}
 
-	file->filename = argv[1];
-	file->fd = fopen(argv[1], "r");
+	char *filename = NULL;
+
+	argc--, argv++;
+
+	while (argc--) {
+		char *arg = *argv++;
+
+		if (!strcmp(arg, "--")) {
+			argc--, argv++;
+			assert(argc == 1 && !filename);
+			filename = argv[0];
+			break;
+		}
+
+		if (arg[0] != '-') {
+			assert(!filename);
+			filename = arg;
+			continue;
+		}
+
+		if (!strcmp(arg, "-fno-line-numbers")) {
+			f_no_line_numbers = true;
+			continue;
+		}
+
+		fprintf(stderr, "invalid argument: %s\n", arg);
+		exit(1);
+	}
+
+	if (!filename) {
+		fprintf(stderr, "no filename given\n");
+		exit(1);
+	}
+
+	file->filename = filename;
+	file->fd = fopen(filename, "r");
 	if (!file->fd) {
 		perror("fopen");
 		return 1;

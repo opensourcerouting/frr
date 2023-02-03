@@ -37,6 +37,10 @@ enum yangkheg_tokens {
 	YK_KIND,
 	YK_LYD_VALUE,
 
+	YK_KEY_INPUT,
+	YK_JSON_INPUT,
+	YK_JSON_OUTPUT,
+
 	YKCC_OPEN,
 	YKCC_CLOSE,
 	YKCC_WSP,
@@ -227,6 +231,10 @@ struct yk_cmap {
 
 	enum cmap_kind kind;
 	struct yk_cblock *lyd_value;
+
+	struct yk_cblock *key_input;
+	struct yk_cblock *json_input;
+	struct yk_cblock *json_output;
 };
 
 struct yk_yangtype {
@@ -246,6 +254,9 @@ DECLARE_DLIST(yk_cmaps, struct yk_cmap, itm);
 struct yk_nodeinfo {
 	const struct lysc_node *node;
 	struct yk_cblock *nodeval;
+	struct yk_cblock *lval;
 };
+
+extern bool f_no_line_numbers;
 
 #endif /* _YANGKHEG_H */

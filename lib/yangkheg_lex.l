@@ -206,6 +206,9 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 <INITIAL>"default"		return YK_DEFAULT;
 <INITIAL>"kind"			return YK_KIND;
 <INITIAL>"lyd-value"		return YK_LYD_VALUE;
+<INITIAL>"key-input"		return YK_KEY_INPUT;
+<INITIAL>"json-input"		return YK_JSON_INPUT;
+<INITIAL>"json-output"		return YK_JSON_OUTPUT;
 
 <INITIAL>"{"			return '{';
 <INITIAL>"}"			return '}';

@@ -274,6 +274,9 @@ static void emit_line(FILE *out, struct yangkheg_token *tkn)
 	char rbuf[256];
 	ssize_t nread;
 
+	if (f_no_line_numbers)
+		return;
+
 	fprintf(out, "#line %d \"%s\"\n", tkn->line_s, tkn->file->filename);
 
 	fgetpos(tkn->file->fd, &savepos);
@@ -307,7 +310,8 @@ void yk_cblock_render(struct yk_crender_ctx *ctx, struct yk_cblock *cblock)
 			if (line_at_token && first->token != YKCC_ID) {
 				line_at_token = false;
 				needline = true;
-				fputs("\n", ctx->out);
+				if (!f_no_line_numbers)
+					fputs("\n", ctx->out);
 			}
 			if (needline) {
 				emit_line(ctx->out, first);

@@ -68,6 +68,10 @@ static const char * const tkn_names[] = {
 	item(YK_KIND),
 	item(YK_LYD_VALUE),
 
+	item(YK_KEY_INPUT),
+	item(YK_JSON_INPUT),
+	item(YK_JSON_OUTPUT),
+
 	item(YKCC_OPEN),
 	item(YKCC_CLOSE),
 	item(YKCC_WSP),

@@ -48,7 +48,7 @@ static void yk_dispatch(struct yk_request *req)
 
 	if (!req->pathpos) {
 		zlog_debug("local dispatch at root");
-		return;
+	return;
 	}
 
 	ref.name = req->pathpos->name;
@@ -76,17 +76,19 @@ void yk_register_root(struct ykchild_root *child)
 
 /* end root node */
 
-struct ykchild_cont_a {
-	struct yk_child setup;
-
-	void (*dispatch)(struct ykctx_root *ctx,
-			 struct yk_request *req);
-};
-
 #include "../test.c"
+
+struct items_head items[1] = { INIT_RBTREE_UNIQ(items[0]), };
+
+static struct item item23 = { .id = 23, };
+static struct item item42 = { .id = 42, };
+
 int main(int argc, char **argv)
 {
 	zlog_aux_init("NONE: ", LOG_DEBUG);
+
+	items_add(items, &item23);
+	items_add(items, &item42);
 
 	struct yk_request req = {
 		.op = YK_OP_GET,

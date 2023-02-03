@@ -92,9 +92,10 @@ start:
 	"str" '(' carg ')' {
 		if (!ctx->ctx->suppress) {
 			if ($3)
-				fprintfrr(ctx->ctx->out, "%pSQq\n", $3->value);
+				fprintfrr(ctx->ctx->out, "%pSQq", $3->value);
 			else
-				fprintfrr(ctx->ctx->out, "\"{@???@}\"\n");
+				fprintfrr(ctx->ctx->out, "\"{@???@}\"");
+			ctx->line_at_token = true;
 		}
 	}
 |	"ifeq" '(' carg ',' carg ')' {
