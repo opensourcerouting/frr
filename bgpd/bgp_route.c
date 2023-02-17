@@ -11449,6 +11449,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				if (!bgp_attr_get_lcommunity(pi->attr))
 					continue;
 			}
+			if (type == bgp_show_type_ecommunity_list) {
+				struct community_list *list = output_arg;
+
+				if (!ecommunity_list_match(
+					    bgp_attr_get_ecommunity(pi->attr),
+					    list))
+					continue;
+			}
 			if (type == bgp_show_type_dampend_paths
 			    || type == bgp_show_type_damp_neighbor) {
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_DAMPED)
@@ -12423,6 +12431,60 @@ DEFUN (show_ip_bgp_large_community,
 		return bgp_show(vty, bgp, afi, safi,
 				bgp_show_type_lcommunity_all, NULL, show_flags,
 				RPKI_NOT_BEING_USED);
+}
+
+static int bgp_show_ecommunity_list(struct vty *vty, struct bgp *bgp,
+				    const char *community, afi_t afi,
+				    safi_t safi, bool uj)
+{
+	struct community_list *list;
+	uint8_t show_flags = 0;
+
+	if (uj)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+
+
+	list = community_list_lookup(bgp_clist, community, 0,
+				     EXTCOMMUNITY_LIST_MASTER);
+	if (list == NULL) {
+		vty_out(vty,
+			"%% %s is not a valid extended-community-list name\n",
+			community);
+		return CMD_WARNING;
+	}
+
+	return bgp_show(vty, bgp, afi, safi, (bgp_show_type_ecommunity_list),
+			list, show_flags, RPKI_NOT_BEING_USED);
+}
+
+DEFPY(show_ip_bgp_extended_community_list,
+      show_ip_bgp_extended_community_list_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] extended-community-list <EXTCOMMUNITY_LIST_NAME>$clist_number_or_name [json$json]",
+      SHOW_STR
+      IP_STR
+      BGP_STR
+      BGP_INSTANCE_HELP_STR
+      BGP_AFI_HELP_STR
+      BGP_SAFI_WITH_LABEL_HELP_STR
+      "Display routes matching the extended-community-list\n"
+      "Extended community list name\n"
+      JSON_STR)
+{
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
+	int idx = 0;
+	struct bgp *bgp = NULL;
+
+	if (json)
+		argc--;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, json);
+	if (!idx)
+		return CMD_WARNING;
+
+	return bgp_show_ecommunity_list(vty, bgp, clist_number_or_name, afi,
+					safi, json);
 }
 
 static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
@@ -15955,6 +16017,9 @@ void bgp_route_init(void)
 	/* Large Communities */
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_cmd);
+
+	/* Extended Communities. */
+	install_element(VIEW_NODE, &show_ip_bgp_extended_community_list_cmd);
 
 	/* show bgp ipv4 flowspec detailed */
 	install_element(VIEW_NODE, &show_ip_bgp_flowspec_routes_detailed_cmd);

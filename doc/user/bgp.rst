@@ -2584,6 +2584,10 @@ Extended Community Lists
    This command displays current extcommunity-list information. When `name` is
    specified the community list's information is shown.
 
+.. clicmd:: show bgp extended-community-list NAME [json]
+
+   This command displays the routes matching the provided extended community
+   list.
 
 .. _bgp-extended-communities-in-route-map:
 

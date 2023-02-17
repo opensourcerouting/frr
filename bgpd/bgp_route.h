@@ -39,6 +39,7 @@ enum bgp_show_type {
 	bgp_show_type_lcommunity_exact,
 	bgp_show_type_lcommunity_list,
 	bgp_show_type_lcommunity_list_exact,
+	bgp_show_type_ecommunity_list,
 	bgp_show_type_flap_statistics,
 	bgp_show_type_flap_neighbor,
 	bgp_show_type_dampend_paths,
