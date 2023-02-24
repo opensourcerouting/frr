@@ -41,7 +41,6 @@ from .exceptions import (
     TopotatoUnhandledArgs,
 )
 from .livescapy import LiveScapy
-from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
     from _pytest._code.code import ExceptionInfo, TracebackEntry
@@ -111,7 +110,7 @@ class ItemGroup(list):
 
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
-class TopotatoItem(nodes.Item, ClassHooks):
+class TopotatoItem(nodes.Item):
     """
     pytest base class for test "items" - asserts, route checks, etc.
 
@@ -171,6 +170,7 @@ class TopotatoItem(nodes.Item, ClassHooks):
             consumer = base.__dict__.get("consume_kwargs")
             if not consumer:
                 continue
+            # pylint: disable=unnecessary-dunder-call
             consumer = consumer.__get__(None, cls)
             finalize.extend(consumer(kw))
 
@@ -797,7 +797,9 @@ class TopotatoClass(_pytest.python.Class):
                     continue
 
                 try:
-                    out, rc = router.vtysh_fast(daemon, "show version")
+                    _, out, rc = router.vtysh_polled(
+                        netinst.timeline, daemon, "show version"
+                    )
                 except ConnectionRefusedError:
                     failed.append((rtr, daemon))
                 startitem.commands.setdefault((rtr, daemon), []).append(
@@ -820,9 +822,5 @@ class TopotatoClass(_pytest.python.Class):
         netinst = stopitem.instance
 
         netinst.stop()
-
-        for router in netinst.routers.values():
-            for daemonlog in router.livelogs.values():
-                daemonlog.close_prep()
 
         netinst.timeline.sleep(1, final=True)
