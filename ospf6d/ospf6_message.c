@@ -2233,6 +2233,10 @@ void ospf6_hello_send(struct thread *thread)
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 
+	/* Check if the GR hello-delay is active. */
+	if (oi->gr.hello_delay.t_grace_send)
+		return;
+
 	if (oi->state <= OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
 			zlog_debug("Unable to send Hello on down interface %s",
