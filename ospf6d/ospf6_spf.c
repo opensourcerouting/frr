@@ -1263,6 +1263,7 @@ static void ospf6_ase_calculate_timer(struct thread *t)
 		 * no longer valid.
 		 */
 		ospf6_zebra_gr_disable(ospf6);
+		ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
 		ospf6->gr_info.finishing_restart = false;
 	}
 }
