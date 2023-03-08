@@ -964,6 +964,7 @@ struct ospf_area *ospf_area_new(struct ospf *ospf, struct in_addr area_id)
 
 	new->oiflist = list_new();
 	new->ranges = route_table_init();
+	new->nssa_ranges = route_table_init();
 
 	if (area_id.s_addr == OSPF_AREA_BACKBONE)
 		ospf->backbone = new;
@@ -1007,6 +1008,7 @@ static void ospf_area_free(struct ospf_area *area)
 	ospf_lsa_unlock(&area->router_lsa_self);
 
 	route_table_finish(area->ranges);
+	route_table_finish(area->nssa_ranges);
 	list_delete(&area->oiflist);
 
 	if (EXPORT_NAME(area))
@@ -1031,7 +1033,7 @@ void ospf_area_check_free(struct ospf *ospf, struct in_addr area_id)
 
 	area = ospf_area_lookup_by_area_id(ospf, area_id);
 	if (area && listcount(area->oiflist) == 0 && area->ranges->top == NULL
-	    && !ospf_vl_count(ospf, area)
+	    && area->nssa_ranges->top == NULL && !ospf_vl_count(ospf, area)
 	    && area->shortcut_configured == OSPF_SHORTCUT_DEFAULT
 	    && area->external_routing == OSPF_AREA_DEFAULT
 	    && area->no_summary == 0 && area->default_cost == 1
