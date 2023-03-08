@@ -433,6 +433,11 @@ def test_gr_rt7():
     start_router_daemons(tgen, "rt7", ["ospfd"])
     check_routers(restarting="rt7")
 
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
+        kill_router_daemons(tgen, rname, ["ospfd"], save_config=False)
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
+        start_router_daemons(tgen, rname, ["ospfd"])
+    check_routers(initial_convergence=True)
 
 #
 # Test rt1 performing an unplanned graceful restart
