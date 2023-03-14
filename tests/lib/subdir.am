@@ -225,6 +225,7 @@ tests_lib_test_plist_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_plist_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_plist_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_plist_SOURCES = tests/lib/test_plist.c tests/lib/cli/common_cli.c
+clippy_scan += tests/lib/test_plist.c
 
 
 check_PROGRAMS += tests/lib/test_prefix2str
