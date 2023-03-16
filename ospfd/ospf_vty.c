@@ -3884,10 +3884,18 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				OSPF_IF_PARAM(oi, retransmit_interval));
 		}
 
+#if CONFDATE > 20240316
+		CPP_NOTICE(
+			"Remove show_ip_ospf_interface_sub() JSON keys: timerPassiveIface")
+#endif
+
 		if (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_ACTIVE) {
 			char timebuf[OSPF_TIME_DUMP_SIZE];
 			if (use_json) {
 				long time_store = 0;
+
+				json_object_boolean_false_add(
+					json_interface_sub, "passive");
 				if (oi->t_hello)
 					time_store =
 						monotime_until(
@@ -3903,11 +3911,15 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 							sizeof(timebuf)));
 		} else /* passive-interface is set */
 		{
-			if (use_json)
+			if (use_json) {
+				/* deprecated */
 				json_object_boolean_true_add(
 					json_interface_sub,
 					"timerPassiveIface");
-			else
+
+				json_object_boolean_true_add(json_interface_sub,
+							     "passive");
+			} else
 				vty_out(vty,
 					"    No Hellos (Passive interface)\n");
 		}
@@ -5360,13 +5372,23 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		else
 			vty_out(vty, "\n");
 	} else {
+#if CONFDATE > 20240316
+		CPP_NOTICE(
+			"Remove show_ip_ospf_neighbor_detail_sub() JSON keys: graceInterval, helperRejectReason, helperExitReason")
+#endif
+
 		json_object_string_add(json_neigh, "grHelperStatus",
 				       OSPF_GR_IS_ACTIVE_HELPER(nbr) ?
 							"Inprogress"
 							: "None");
 		if (OSPF_GR_IS_ACTIVE_HELPER(nbr)) {
+			/* deprecated */
 			json_object_int_add(
 				json_neigh, "graceInterval",
+				nbr->gr_helper_info.recvd_grace_period);
+
+			json_object_int_add(
+				json_neigh, "grGraceInterval",
 				nbr->gr_helper_info.recvd_grace_period);
 			json_object_string_add(
 				json_neigh, "grRestartReason",
@@ -5375,19 +5397,34 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 		}
 
 		if (nbr->gr_helper_info.rejected_reason
-		    != OSPF_HELPER_REJECTED_NONE)
+		    != OSPF_HELPER_REJECTED_NONE) {
+			/* deprecated */
 			json_object_string_add(
 				json_neigh, "helperRejectReason",
 				ospf_rejected_reason2str(
 					nbr->gr_helper_info.rejected_reason));
 
+			json_object_string_add(
+				json_neigh, "grHelperRejectReason",
+				ospf_rejected_reason2str(
+					nbr->gr_helper_info.rejected_reason));
+		}
+
 		if (nbr->gr_helper_info.helper_exit_reason
-		    != OSPF_GR_HELPER_EXIT_NONE)
+		    != OSPF_GR_HELPER_EXIT_NONE) {
+			/* deprecated */
 			json_object_string_add(
 				json_neigh, "helperExitReason",
 				ospf_exit_reason2str(
 					nbr->gr_helper_info
 						 .helper_exit_reason));
+
+			json_object_string_add(
+				json_neigh, "grHelperExitReason",
+				ospf_exit_reason2str(
+					nbr->gr_helper_info
+						 .helper_exit_reason));
+		}
 	}
 
 	bfd_sess_show(vty, json_neigh, nbr->bfd_session);
