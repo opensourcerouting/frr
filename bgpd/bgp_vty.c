@@ -18119,7 +18119,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	vty_endframe(vty, " exit-address-family\n");
 }
 
-int bgp_config_write(struct vty *vty)
+static void bgp_config_write_vrf(struct vty *vty, bool default_instance)
 {
 	struct bgp *bgp;
 	struct peer_group *group;
@@ -18130,43 +18130,11 @@ int bgp_config_write(struct vty *vty)
 	safi_t safi;
 	uint32_t tovpn_sid_index = 0;
 
-	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
-		vty_out(vty, "bgp route-map delay-timer %u\n",
-			bm->rmap_update_timer);
-
-	if (bm->v_update_delay != BGP_UPDATE_DELAY_DEF) {
-		vty_out(vty, "bgp update-delay %d", bm->v_update_delay);
-		if (bm->v_update_delay != bm->v_establish_wait)
-			vty_out(vty, " %d", bm->v_establish_wait);
-		vty_out(vty, "\n");
-	}
-
-	if (bm->wait_for_fib)
-		vty_out(vty, "bgp suppress-fib-pending\n");
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
-		vty_out(vty, "bgp graceful-shutdown\n");
-
-	/* No-RIB (Zebra) option flag configuration */
-	if (bgp_option_check(BGP_OPT_NO_FIB))
-		vty_out(vty, "bgp no-rib\n");
-
-	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
-		vty_out(vty, "bgp send-extra-data zebra\n");
-
-	/* BGP session DSCP value */
-	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
-		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
-
-	/* BGP InQ limit */
-	if (bm->inq_limit != BM_DEFAULT_Q_LIMIT)
-		vty_out(vty, "bgp input-queue-limit %u\n", bm->inq_limit);
-
-	if (bm->outq_limit != BM_DEFAULT_Q_LIMIT)
-		vty_out(vty, "bgp output-queue-limit %u\n", bm->outq_limit);
-
-	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		/* Print the default VRF instance first */
+		if ((default_instance && bgp->vrf_id != VRF_DEFAULT) ||
+		    (!default_instance && bgp->vrf_id == VRF_DEFAULT))
+			continue;
 
 		/* skip all auto created vrf as they dont have user config */
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
@@ -18584,6 +18552,49 @@ int bgp_config_write(struct vty *vty)
 		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
+}
+
+int bgp_config_write(struct vty *vty)
+{
+	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
+		vty_out(vty, "bgp route-map delay-timer %u\n",
+			bm->rmap_update_timer);
+
+	if (bm->v_update_delay != BGP_UPDATE_DELAY_DEF) {
+		vty_out(vty, "bgp update-delay %d", bm->v_update_delay);
+		if (bm->v_update_delay != bm->v_establish_wait)
+			vty_out(vty, " %d", bm->v_establish_wait);
+		vty_out(vty, "\n");
+	}
+
+	if (bm->wait_for_fib)
+		vty_out(vty, "bgp suppress-fib-pending\n");
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN))
+		vty_out(vty, "bgp graceful-shutdown\n");
+
+	/* No-RIB (Zebra) option flag configuration */
+	if (bgp_option_check(BGP_OPT_NO_FIB))
+		vty_out(vty, "bgp no-rib\n");
+
+	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
+		vty_out(vty, "bgp send-extra-data zebra\n");
+
+	/* BGP session DSCP value */
+	if (bm->tcp_dscp != IPTOS_PREC_INTERNETCONTROL)
+		vty_out(vty, "bgp session-dscp %u\n", bm->tcp_dscp >> 2);
+
+	/* BGP InQ limit */
+	if (bm->inq_limit != BM_DEFAULT_Q_LIMIT)
+		vty_out(vty, "bgp input-queue-limit %u\n", bm->inq_limit);
+
+	if (bm->outq_limit != BM_DEFAULT_Q_LIMIT)
+		vty_out(vty, "bgp output-queue-limit %u\n", bm->outq_limit);
+
+	/* BGP configuration. */
+	bgp_config_write_vrf(vty, true);
+	bgp_config_write_vrf(vty, false);
+
 	return 0;
 }
 
