@@ -32,7 +32,7 @@
 #include "dhcp6_zebra.h"
 #include "dhcp6_iface.h"
 
-struct zclient *zclient = NULL;
+static struct zclient *zclient = NULL;
 
 extern struct thread_master *master;
 

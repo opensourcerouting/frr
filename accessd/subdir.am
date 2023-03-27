@@ -26,7 +26,6 @@ accessd_accessd_SOURCES = \
 	accessd/dhcp6_upstream.c \
 	accessd/dhcp6_zebra.c \
 	\
-	accessd/accessd.c \
 	accessd/persist.c \
 	\
 	nhrpd/zbuf.c \

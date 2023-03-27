@@ -30,7 +30,7 @@
 #include "thread.h"
 #include "zclient.h"
 
-struct zclient *zclient = NULL;
+static struct zclient *zclient = NULL;
 
 extern struct thread_master *master;
 

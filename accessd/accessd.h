@@ -22,6 +22,7 @@
 #include "lib/memory.h"
 #include "lib/privs.h"
 
+DECLARE_MGROUP(ACCESSD);
 DECLARE_MGROUP(DHCP6);
 
 struct thread_master;
