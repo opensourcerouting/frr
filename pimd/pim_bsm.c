@@ -1579,7 +1579,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	}
 
 	/* Drop if bsr is not preferred bsr */
-	if (!is_preferred_bsr(pim, bsr_addr, bshdr->bsr_prio)) {
+	if (is_preferred_bsr(pim, bsr_addr, bshdr->bsr_prio)) {
 		/* continue below */
 	} else if (pim->global_scope.state == BSR_PENDING && !no_fwd) {
 		/* in P-BSR state, non-preferred BSMs are forwarded, but
