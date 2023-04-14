@@ -1,6 +1,6 @@
 from lib.lutil import luCommand
 
-luCommand("ce1", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
+luCommand("ce1", 'strace vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand("ce2", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand("ce3", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand(
