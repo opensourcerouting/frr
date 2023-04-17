@@ -156,7 +156,12 @@ void pim_bsm_generate(struct bsm_scope *scope)
 	pos += sizeof(*hdr);
 	assert(pos <= end);
 
-	hdr->hm_len = 30; CPP_NOTICE("FIXME CONFIG");
+	CPP_NOTICE("FIXME make BSR hashmasklen configurable");
+#if PIM_IPV == 6
+	hdr->hm_len = 126;
+#else
+	hdr->hm_len = 30;
+#endif
 	hdr->bsr_prio = scope->current_bsr_prio;
 	hdr->bsr_addr.family = PIM_IANA_AFI;
 	hdr->bsr_addr.reserved = 0;
