@@ -50,6 +50,7 @@ cd frr
     --enable-vty-group=frrvty \
     --with-pkg-git-version \
     --with-pkg-extra-version=-MyOwnFRRVersion
+make
 
 sudo install -m 775 -o frr -g frrvty -d /etc/frr
 sudo cp /etc/sysctl.conf /etc/sysctl.conf.bak
