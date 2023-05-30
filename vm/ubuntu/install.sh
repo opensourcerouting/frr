@@ -5,6 +5,7 @@ sudo apt-get install \
    git autoconf automake libtool make libreadline-dev texinfo \
    pkg-config libpam0g-dev libjson-c-dev bison flex \
    libc-ares-dev python3-dev python3-sphinx \
+   python3-pytest python3-scapy python3-exabgp \
    install-info build-essential libsnmp-dev perl linux-modules-extra-`uname -r` \
    libcap-dev python2 libelf-dev libunwind-dev cmake libpcre2-dev \
    protobuf-c-compiler libprotobuf-c-dev libzmq5 libzmq3-dev -y
