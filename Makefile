@@ -7,7 +7,7 @@ vsc := $(vs) -c
 t := ./run_userns.sh --frr-builddir=/home/vagrant/frr --log-cli-level=DEBUG -v -v -x
 cwd := cd /home/vagrant/dev/topotato
 build:
-	$(v) --provision
+	$(vu) --provision
 
 reload:
 	$(vr)
