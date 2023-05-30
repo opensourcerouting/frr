@@ -3,7 +3,7 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.box = "ubuntu/focal64"
+  config.vm.box = "ubuntu/jammy64"
 
   config.vm.hostname = "topotato-dev"
 
@@ -19,8 +19,15 @@ Vagrant.configure("2") do |config|
   # config.vm.provision "shell", inline: <<-SHELL
   #   apt-get update 
   # SHELL
-
-  config.vbguest.auto_update = false
+  # Due to mounting issues, you can use vbguest
+  # if Vagrant asks you to mount,
+  # fix it using:
+  # sudo ln -sf /usr/lib/x86_64-linux-gnu/VBoxGuestAdditions/mount.vboxsf /sbin/mount.vboxsf
+  if Vagrant.has_plugin? "vagrant-vbguest"
+    config.vbguest.no_install  = true
+    config.vbguest.auto_update = false
+    config.vbguest.no_remote   = true
+  end
 
   config.vm.provision "shell", path: "./vm/ubuntu/install.sh"
   config.vm.provision "shell", path: "./vm/ubuntu/topotato-install.sh"
