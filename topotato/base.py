@@ -46,7 +46,7 @@ from .generatorwrap import GeneratorWrapper, GeneratorChecks
 if typing.TYPE_CHECKING:
     from _pytest._code.code import ExceptionInfo, TracebackEntry
 
-    from .frr import FRRNetworkInstance
+    from .network import TopotatoNetwork
     from .timeline import Timeline
 
 logger = logging.getLogger("topotato")
@@ -144,7 +144,7 @@ class TopotatoItem(nodes.Item):
     instance of WhateverTestClass defined in test_something.py
     """
 
-    instance: "FRRNetworkInstance"
+    instance: "TopotatoNetwork"
     """
     Running network instance this item belongs to.
     """
@@ -308,7 +308,9 @@ class TopotatoItem(nodes.Item):
         """
         testinst = self.getparent(TopotatoClass)
         if testinst.skipall:
-            raise TopotatoEarlierFailSkip() from testinst.skipall
+            raise TopotatoEarlierFailSkip(
+                testinst.skipall.topotato_node
+            ) from testinst.skipall
 
         self.session.config.hook.pytest_topotato_run(item=self, testfunc=self)
 
@@ -445,9 +447,11 @@ class InstanceStartup(TopotatoItem):
         try:
             self.parent.do_start(self)
         except TopotatoFail as e:
+            e.topotato_node = self
             self.parent.skipall = e
             raise
         except Exception as e:
+            e.topotato_node = self
             self.parent.skipall = e
             raise
 
@@ -484,22 +488,9 @@ class TestBase:
     doesn't need to be direct, i.e. further subclassing is possible.
     """
 
-    instancefn: ClassVar[Callable[..., "FRRNetworkInstance"]]
+    instancefn: ClassVar[Callable[..., "TopotatoNetwork"]]
     """
-    Network instance/topology fixture (required.)
-
-    This must be set to the :py:func:`topotato.fixtures.instance_fixture`
-    decorated network instance setup function for this test.  This normally
-    looks something like this::
-
-       @instance_fixture()
-       def testenv(configs):
-           return FRRNetworkInstance(configs.topology, configs).prepare()
-
-       class MyTest(TestBase):
-           instancefn = testenv
-
-    With ``configs`` again referring to a configuration fixture and so on.
+    TBD (rework in progress)
     """
 
     @classmethod
@@ -719,7 +710,7 @@ class TopotatoClass(_pytest.python.Class):
 
     starting_ts: float
     started_ts: float
-    netinst: "FRRNetworkInstance"
+    netinst: "TopotatoNetwork"
 
     # pylint: disable=protected-access
     @classmethod
@@ -791,19 +782,7 @@ class TopotatoClass(_pytest.python.Class):
         failed = []
         for rtr in netinst.network.routers.keys():
             router = netinst.routers[rtr]
-
-            for daemon in netinst.configs.daemons:
-                if not netinst.configs.want_daemon(rtr, daemon):
-                    continue
-
-                try:
-                    _, _, rc = router.vtysh_polled(
-                        netinst.timeline, daemon, "show version"
-                    )
-                except ConnectionRefusedError:
-                    failed.append((rtr, daemon))
-                if rc != 0:
-                    failed.append((rtr, daemon))
+            router.start_post(netinst.timeline, failed)
 
         if len(failed) > 0:
             netinst.timeline.sleep(0)

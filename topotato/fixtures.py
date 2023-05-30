@@ -6,12 +6,12 @@ Topotato topology/config fixtures
 """
 
 import sys
-import inspect
 import functools
 
 from .parse import Topology
 from .toponom import Network
-from .frr import FRRNetworkInstance
+from .network import TopotatoNetwork
+from .frr import FRRRouterNS
 
 
 # this is * imported for all tests
@@ -19,8 +19,6 @@ __all__ = [
     "mkfixture",
     "mkfixture_pytest",
     "topology_fixture",
-    "config_fixture",
-    "instance_fixture",
     "AutoFixture",
 ]
 
@@ -81,72 +79,6 @@ def topology_fixture():
     return getwrap
 
 
-def config_fixture(cfgclass):
-    """
-    Fixture to generate configs for a test topology
-
-    The decorator takes 1 argument, which is the FRRConfigs subclass.  This
-    class has .prepare() called on it immediately so any template errors are
-    apparent before jumping into tests.
-
-    The decorated function has 2 arguments, the first is an instance of the
-    Config class (which the function may modify), the second is the topology
-    fixture that is used (and handled by pytest).  The function should return
-    either "None" or a config instance.
-    """
-
-    cfgclass = cfgclass.prepare()
-
-    def getwrap(fn):
-        if getattr(fn, "__doc__", None) is None:
-            fn.__doc__ = """configuration fixture"""
-
-        params = list(inspect.signature(fn).parameters.keys())
-        fnmod = sys.modules[fn.__module__]
-        net = getattr(fnmod, params[1]).net
-
-        # we don't really wrap fnwrap... we wrap fn, but with the first arg
-        # filled in.  The partial() is just to get the signature right.
-        fnwrap = functools.partial(fn, None)
-
-        @functools.wraps(fnwrap)
-        def wrap(**kwargs):
-            topo_arg = params[1]
-            config = cfgclass(kwargs[topo_arg])
-            config = fn(config, **kwargs) or config
-            config.generate()
-            return config
-
-        wrap.__module__ = fn.__module__
-        wrap.__doc__ = fn.__doc__
-
-        fixture = mkfixture(scope="module")(wrap)
-        fixture.net = net
-        fixture.cfgclass = cfgclass
-        return fixture
-
-    return getwrap
-
-
-def instance_fixture():
-    def wrap(fn):
-        if getattr(fn, "__doc__", None) is None:
-            fn.__doc__ = """test environment fixture"""
-
-        params = list(inspect.signature(fn).parameters.keys())
-        fnmod = sys.modules[fn.__module__]
-        cfgs = getattr(fnmod, params[0])
-        net = cfgs.net
-
-        fn.testenv = True
-        fn.net = net
-        fn.configs = cfgs
-
-        return mkfixture(scope="module")(fn)
-
-    return wrap
-
-
 class AutoFixture:
     @classmethod
     def __init_subclass__(cls, /, topo=None, configs=None, **kwargs):
@@ -174,7 +106,7 @@ class AutoFixture:
 
         def auto_config(request):
             topo_inst = request.getfixturevalue(topo_name)
-            config = configs(topo_inst)
+            config = configs(topo_inst, request.session.frr)
             config.generate()
             return config
 
@@ -191,10 +123,17 @@ class AutoFixture:
 
         ifix_name = f"{cls.__name__.lower()}_instance"
 
+        # pylint: disable=abstract-class-instantiated
         @staticmethod
         def auto_instance(request):
             cfg_inst = request.getfixturevalue(cfix_name)
-            return FRRNetworkInstance(cfg_inst.topology, cfg_inst).prepare()
+            net_inst = TopotatoNetwork(cfg_inst.topology)
+
+            for rtrname in cfg_inst.topology.routers.keys():
+                net_inst.router_factories[rtrname] = lambda name: FRRRouterNS(
+                    net_inst, name, cfg_inst
+                )
+            return net_inst.prepare()
 
         auto_instance.__name__ = ifix_name
         auto_instance.__module__ = cls.__module__
