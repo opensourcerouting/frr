@@ -302,6 +302,7 @@ def json_cmp(d1: Dict[str, Any], d2: Dict[str, Any]) -> Union[str, None]:
     return None if not result.has_errors() else str(result)
 
 
+# pylint: disable=too-many-locals
 def text_rich_cmp(configs, rtr, out, expect, outtitle):
     lines = []
     for line in deindent(expect).split("\n"):
