@@ -112,7 +112,7 @@ class BGPLocalAs(
                 {
                     "valid": True,
                     "aspath": {"string": "Local"},
-                    "nexthops": [{"ip": str(r1.iface_to('s1').ip4[0].ip), "hostname": "r1"}],
+                    "nexthops": [{"ip": str(r1.iface_to('s2').ip4[0].ip), "hostname": "r1"}],
                 }
             ]
         }
