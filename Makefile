@@ -6,6 +6,7 @@ vr 				:= $(v) reload
 vs 				:= $(v) ssh
 vsc 			:= $(vs) -c
 t 				:= ./run_userns.sh --frr-builddir=$(FRR_BUILD_PATH) --log-cli-level=DEBUG -v -v -x
+st 				:= python -m pytest
 cwd 			:= cd /home/vagrant/dev/topotato
 FRR_BUILD_PATH	:= /home/vagrant/frr
 
@@ -49,6 +50,14 @@ ifndef FRR_BUILD_PATH
 else
 	$(t) $(filter-out $@,$(MAKECMDGOALS))
 endif
+endif
+
+
+selftest:
+ifeq ($(ENVIRONMENT),vagrant)
+	$(vsc) '$(cwd) && $(st) $(filter-out $@,$(MAKECMDGOALS))'
+else
+	$(st) $(filter-out $@,$(MAKECMDGOALS))
 endif
 
 %:
