@@ -4401,7 +4401,7 @@ char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
 	}
 
 	snprintfrr(
-		buf, len, "%s%s%s%s%s%s%s%s%s%s",
+		buf, len, "%s%s%s%s%s%s%s%s%s%s%s",
 		CHECK_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION) ? "Recursion "
 							      : "",
 		CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) ? "Self " : "",
@@ -4414,6 +4414,8 @@ char *zclient_dump_route_flags(uint32_t flags, char *buf, size_t len)
 		CHECK_FLAG(flags, ZEBRA_FLAG_TRAPPED) ? "Trapped " : "",
 		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOADED) ? "Offloaded " : "",
 		CHECK_FLAG(flags, ZEBRA_FLAG_OFFLOAD_FAILED) ? "Offload Failed "
+							     : "",
+		CHECK_FLAG(flags, ZEBRA_FLAG_REDISTRIBUTED) ? "Redistributed "
 							     : "");
 	return buf;
 }

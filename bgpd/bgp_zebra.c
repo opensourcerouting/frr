@@ -589,10 +589,15 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 							api.instance);
 		}
 
+		bool selected = true;
+
+		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_REDISTRIBUTED))
+			selected = false;
+
 		/* Now perform the add/update. */
 		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
 				     nhtype, bhtype, api.distance, api.metric,
-				     api.type, api.instance, api.tag);
+				     api.type, api.instance, api.tag, selected);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);
@@ -1808,6 +1813,9 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
 		api.tableid = info->attr->rmap_table_id;
 	}
+
+	if (CHECK_FLAG(info->net->flags, BGP_NODE_REDISTRIBUTED))
+		SET_FLAG(api.flags, ZEBRA_FLAG_REDISTRIBUTED);
 
 	if (bgp_debug_zebra(p))
 		zlog_debug("Tx route delete VRF %u %pFX", bgp->vrf_id,

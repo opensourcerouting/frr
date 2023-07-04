@@ -316,6 +316,7 @@ struct bgp_path_info {
 #define BGP_PATH_ACCEPT_OWN (1 << 16)
 #define BGP_PATH_MPLSVPN_LABEL_NH (1 << 17)
 #define BGP_PATH_MPLSVPN_NH_LABEL_BIND (1 << 18)
+#define BGP_PATH_REDISTRIBUTED	       (1 << 19)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -744,7 +745,7 @@ extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 				 enum nexthop_types_t nhtype, uint8_t distance,
 				 enum blackhole_type bhtype, uint32_t metric,
 				 uint8_t type, unsigned short instance,
-				 route_tag_t tag);
+				 route_tag_t tag, bool selected);
 extern void bgp_redistribute_delete(struct bgp *, struct prefix *, uint8_t,
 				    unsigned short);
 extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, unsigned short);

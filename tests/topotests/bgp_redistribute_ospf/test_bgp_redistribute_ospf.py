@@ -25,7 +25,7 @@ pytestmark = [pytest.mark.ospfd, pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 4):
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -42,6 +42,13 @@ def build_topo(tgen):
 
     switch = tgen.add_switch("s4")
     switch.add_link(tgen.gears["r1"])
+
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
+
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r4"])
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)

@@ -547,6 +547,14 @@ struct zapi_route {
  */
 #define ZEBRA_FLAG_OUTOFSYNC          0x400
 
+/*
+ * Mark this route as redistributed, non SELECTED, and
+ * it shouldn't be installed in the FIB back again when
+ * receiving from the other protocol. To avoid routing
+ * loops.
+ */
+#define ZEBRA_FLAG_REDISTRIBUTED 0x800
+
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
 

@@ -1325,8 +1325,12 @@ static void rib_process(struct route_node *rn)
 		}
 		if (best != re)
 			UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-		else
-			redistribute_update(rn, re, NULL);
+		else {
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_REDISTRIBUTED)) {
+				SET_FLAG(re->flags, ZEBRA_FLAG_REDISTRIBUTED);
+				redistribute_update(rn, re, NULL);
+			}
+		}
 	} /* RNODE_FOREACH_RE */
 
 	/* If no FIB override route, use the selected route also for FIB */

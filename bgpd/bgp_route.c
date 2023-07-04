@@ -3479,10 +3479,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			bgp_zebra_announce(dest, p, new_select, bgp, afi, safi);
 		} else {
 			/* Withdraw the route from the kernel. */
-			if (old_select && old_select->type == ZEBRA_ROUTE_BGP
-			    && (old_select->sub_type == BGP_ROUTE_NORMAL
-				|| old_select->sub_type == BGP_ROUTE_AGGREGATE
-				|| old_select->sub_type == BGP_ROUTE_IMPORTED))
+			if (old_select && old_select->type == ZEBRA_ROUTE_BGP &&
+			    (old_select->sub_type == BGP_ROUTE_NORMAL ||
+			     old_select->sub_type == BGP_ROUTE_AGGREGATE ||
+			     old_select->sub_type == BGP_ROUTE_IMPORTED))
 
 				bgp_zebra_withdraw(p, old_select, bgp, safi);
 		}
@@ -8790,7 +8790,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			  enum nexthop_types_t nhtype, uint8_t distance,
 			  enum blackhole_type bhtype, uint32_t metric,
 			  uint8_t type, unsigned short instance,
-			  route_tag_t tag)
+			  route_tag_t tag, bool selected)
 {
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
@@ -8966,6 +8966,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 		bgp_path_info_add(bn, new);
 		bgp_dest_unlock_node(bn);
 		SET_FLAG(bn->flags, BGP_NODE_FIB_INSTALLED);
+		if (!selected)
+			SET_FLAG(bn->flags, BGP_NODE_REDISTRIBUTED);
 		bgp_process(bgp, bn, afi, SAFI_UNICAST);
 
 		if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
