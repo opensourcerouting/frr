@@ -167,6 +167,9 @@ static struct cluster_list *cluster_intern(struct cluster_list *cluster)
 
 static void cluster_unintern(struct cluster_list **cluster)
 {
+	if (!*cluster)
+		return;
+
 	if ((*cluster)->refcnt)
 		(*cluster)->refcnt--;
 
@@ -786,6 +789,18 @@ unsigned int attrhash_key_make(const void *p)
 	return key;
 }
 
+struct attr_extra *bgp_attr_extra_alloc(void)
+{
+	struct attr_extra *new;
+
+	new = XCALLOC(MTYPE_ATTR, sizeof(struct attr_extra));
+	new->ipv6_ecommunity = NULL;
+	new->cluster1 = NULL;
+	new->transit = NULL;
+
+	return new;
+}
+
 bool attrhash_cmp(const void *p1, const void *p2)
 {
 	const struct attr *attr1 = p1;
@@ -865,6 +880,11 @@ static void attrhash_init(void)
  */
 static void attr_vfree(void *attr)
 {
+	struct attr *a = attr;
+
+	if (a->extra)
+		XFREE(MTYPE_ATTR, a->extra);
+
 	XFREE(MTYPE_ATTR, attr);
 }
 
@@ -1244,16 +1264,23 @@ void bgp_attr_unintern(struct attr **pattr)
 	struct attr *attr = *pattr;
 	struct attr *ret;
 	struct attr tmp;
+	struct attr_extra tmp_extra;
 
 	/* Decrement attribute reference. */
 	attr->refcnt--;
 
 	tmp = *attr;
+	if (attr->extra) {
+		tmp_extra = *attr->extra;
+		tmp.extra = &tmp_extra;
+	}
 
 	/* If reference becomes zero then free attribute object. */
 	if (attr->refcnt == 0) {
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
+		if (attr->extra)
+			XFREE(MTYPE_ATTR, attr->extra);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
 	}

@@ -4354,6 +4354,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 	new_attr = *attr;
+	if (attr->extra)
+		*new_attr.extra = *attr->extra;
 	/*
 	 * If bgp_update is called with soft_reconfig set then
 	 * attr is interned. In this case, do not overwrite the
