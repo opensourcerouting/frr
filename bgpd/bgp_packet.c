@@ -1927,6 +1927,20 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 	}
 
+	/* If the Withdrawn Routes Length or Total Attribute Length
+	 * is too large (i.e., if Withdrawn Routes Length + Total Attribute
+	 * Length + 23 exceeds the message Length), then the Error Subcode MUST
+	 * be set to Malformed Attribute List.
+	 */
+	if (STREAM_READABLE(s) + withdraw_len + attribute_len > size) {
+		flog_warn(EC_BGP_UPDATE_PACKET_LONG,
+			  "%s [Error] Packet Error (update packet length overflow)",
+			  peer->host);
+		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+				BGP_NOTIFY_UPDATE_MAL_ATTR);
+		return BGP_Stop;
+	}
+
 	/* Certain attribute parsing errors should not be considered bad enough
 	 * to reset the session for, most particularly any partial/optional
 	 * attributes that have 'tunneled' over speakers that don't understand
