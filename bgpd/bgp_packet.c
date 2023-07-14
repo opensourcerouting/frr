@@ -1871,7 +1871,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	   Length is too large (i.e., if Unfeasible Routes Length + Total
 	   Attribute Length + 23 exceeds the message Length), then the Error
 	   Subcode is set to Malformed Attribute List.  */
-	if (stream_pnt(s) + 2 > end) {
+	if (STREAM_READABLE(s) + 2 > size) {
 		flog_err(EC_BGP_UPDATE_RCV,
 			 "%s [Error] Update packet error (packet length is short for unfeasible length)",
 			 peer->host);
@@ -1884,7 +1884,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	withdraw_len = stream_getw(s);
 
 	/* Unfeasible Route Length check. */
-	if (stream_pnt(s) + withdraw_len > end) {
+	if (STREAM_READABLE(s) + withdraw_len > size) {
 		flog_err(EC_BGP_UPDATE_RCV,
 			 "%s [Error] Update packet error (packet unfeasible length overflow %d)",
 			 peer->host, withdraw_len);
@@ -1903,7 +1903,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* Attribute total length check. */
-	if (stream_pnt(s) + 2 > end) {
+	if (STREAM_READABLE(s) + 2 > size) {
 		flog_warn(
 			EC_BGP_UPDATE_PACKET_SHORT,
 			"%s [Error] Packet Error (update packet is short for attribute length)",
@@ -1917,7 +1917,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	attribute_len = stream_getw(s);
 
 	/* Attribute length check. */
-	if (stream_pnt(s) + attribute_len > end) {
+	if (STREAM_READABLE(s) + attribute_len > size) {
 		flog_warn(
 			EC_BGP_UPDATE_PACKET_LONG,
 			"%s [Error] Packet Error (update packet attribute length overflow %d)",
