@@ -177,6 +177,8 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 
 		switch (nexthop->family) {
 		case AF_INET:
+			zlog_debug("XXX   nexthop %pI4 ifindex %u", &nexthop->ip.ipv4,
+				   nexthop->ifindex);
 			/* FIXME: can it be ? */
 			if (nexthop->ip.ipv4.s_addr != INADDR_ANY) {
 				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -263,6 +265,8 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 		return;
 	}
 
+	zlog_debug("XXX install route prefix %pFX", prefix);
+
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = isis->vrf_id;
 	api.type = PROTO_TYPE;
@@ -278,6 +282,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 
 	/* Add backup nexthops first. */
 	if (route_info->backup) {
+		zlog_debug("XXX  adding rt bck nexthops");
 		count = isis_zebra_add_nexthops(
 			isis, route_info->backup->nexthops, api.backup_nexthops,
 			ISIS_NEXTHOP_BACKUP, false, 0);
@@ -288,6 +293,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 	}
 
 	/* Add primary nexthops. */
+	zlog_debug("XXX  adding rt primary nexthops");
 	count = isis_zebra_add_nexthops(isis, route_info->nexthops,
 					api.nexthops, ISIS_NEXTHOP_MAIN, false,
 					count);
@@ -307,6 +313,8 @@ void isis_zebra_route_del_route(struct isis *isis,
 
 	if (zclient->sock < 0)
 		return;
+
+	zlog_debug("XXX uninstall route prefix %pFX", prefix);
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = isis->vrf_id;
@@ -365,6 +373,7 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	} else {
 		/* Add backup nexthops first. */
 		if (psid->nexthops_backup) {
+			zlog_debug("XXX  adding psid bck nexthops");
 			count = isis_zebra_add_nexthops(
 				area->isis, psid->nexthops_backup,
 				zl.backup_nexthops, ISIS_NEXTHOP_BACKUP, true,
@@ -376,6 +385,7 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 		}
 
 		/* Add primary nexthops. */
+		zlog_debug("XXX  adding psid primary nexthops");
 		count = isis_zebra_add_nexthops(area->isis, psid->nexthops,
 						zl.nexthops, ISIS_NEXTHOP_MAIN,
 						true, count);
@@ -454,6 +464,7 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 	if (sra->type == ISIS_SR_LAN_BACKUP) {
 		int count;
 
+		zlog_debug("XXX  adding asid bck nexthops");
 		count = isis_zebra_add_nexthops(isis, sra->backup_nexthops,
 						zl.backup_nexthops,
 						ISIS_NEXTHOP_BACKUP, true, 0);
