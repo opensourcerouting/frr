@@ -112,9 +112,6 @@ int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
 /* Codecs */
 
 struct frrscript_codec frrscript_codecs_lib[] = {
-	{.typename = "integer",
-	 .encoder = (encoder_func)lua_pushintegerp,
-	 .decoder = lua_tointegerp},
 	{.typename = "string",
 	 .encoder = (encoder_func)lua_pushstring_wrapper,
 	 .decoder = lua_tostringp},

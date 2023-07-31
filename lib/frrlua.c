@@ -278,24 +278,15 @@ void *lua_totimet(lua_State *L, int idx)
 	return t;
 }
 
-void lua_pushintegerp(lua_State *L, const long long *num)
-{
-	lua_pushinteger(L, *num);
-}
-
-void lua_decode_integerp(lua_State *L, int idx, long long *num)
-{
-	int isnum;
-	*num = lua_tonumberx(L, idx, &isnum);
-	lua_pop(L, 1);
-	assert(isnum);
-}
-
 void *lua_tointegerp(lua_State *L, int idx)
 {
 	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
+	int isnum;
 
-	lua_decode_integerp(L, idx, num);
+	*num = lua_tonumberx(L, idx, &isnum);
+	lua_pop(L, 1);
+	assert(isnum);
+
 	return num;
 }
 

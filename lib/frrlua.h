@@ -134,13 +134,6 @@ void lua_pushnexthop_group(lua_State *L, const struct nexthop_group *ng);
 void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop);
 
 /*
- * Converts an int to a Lua value and pushes it on the stack.
- */
-void lua_pushintegerp(lua_State *L, const long long *num);
-
-void lua_decode_integerp(lua_State *L, int idx, long long *num);
-
-/*
  * Converts the Lua value at idx to an int.
  *
  * Returns:

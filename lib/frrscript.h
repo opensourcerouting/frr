@@ -192,7 +192,6 @@ void frrscript_fini(void);
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 int : lua_pushinteger,                                          \
-long long * : lua_pushintegerp,                                 \
 struct prefix * : lua_pushprefix,                               \
 struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
@@ -213,7 +212,6 @@ struct zebra_dplane_ctx * : lua_pushzebra_dplane_ctx            \
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 int : lua_decode_integer_noop,                                  \
-long long * : lua_decode_integerp,                              \
 struct prefix * : lua_decode_prefix,                            \
 struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \
