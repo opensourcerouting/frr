@@ -1,0 +1,130 @@
+---
+title: Getting Started
+description: Write your first tests
+---
+
+## Install `topotato`
+`topotato` requires Python >= 3.8
+
+Run the following command in your command line:
+
+``` bash
+sysctl -w kernel.unprivileged_userns_clone=1
+mkdir /etc/frr
+
+# In case you don't want to follow the <<apt install steps>> install these manually:
+# unshare - run program with some namespaces unshared from parent
+# nsenter - run program with namespaces of other processes
+# tini - https://github.com/krallin/tini
+# dumpcap - Dump network traffic
+# ip - show / manipulate routing, network devices, interfaces and tunnels
+
+apt-get satisfy \
+    'graphviz' 'tshark (>=4.0)' 'wireshark-common (>=4.0)' 'tini' \
+    'python3 (>=3.8)' \
+    'python3-pytest (>=6.1)' 'python3-pytest-xdist' \
+    'python3-typing-extensions' 'python3-docutils' 'python3-pyinotify' \
+    'python3-scapy (>=2.4.5)' 'python3-exabgp (>=4.2)' \
+    'python3-jinja2 (>=3.1)' 'python3-lxml' 'python3-markupsafe' \
+    
+```
+
+## Create your first test {#simpletest}
+
+1. Create a new file called `test_sample.py`, containing a function, and a
+test:
+
+``` python
+# content of test_sample.py
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+"""
+Simple demo test for topotato.
+"""
+
+from topotato.v1 import *
+
+@topology_fixture()
+def topology(topo):
+    """
+    [ r1 ]---[ noprot ]
+    [    ]
+    [    ]---[ rip ]
+    [    ]
+    [    ]---[ ripng ]
+    [    ]
+    [    ]---[ ospfv2 ]
+    [    ]
+    [    ]---[ ospfv3 ]
+    [    ]
+    [    ]---[ isisv4 ]
+    [    ]
+    [    ]---[ isisv6 ]
+    """
+    topo.router("r1").iface_to("ripng").ip6.append("fc00:0:0:1::1/64")
+
+
+class Configs(FRRConfigs):
+    routers = ["r1"]
+
+    zebra = """
+    #% extends "boilerplate.conf"
+    #% block main
+    #%   for iface in router.ifaces
+    interface {{ iface.ifname }}
+     description {{ iface.other.endpoint.name }}
+     no link-detect
+    !
+    #%   endfor
+    !
+    ip forwarding
+    ipv6 forwarding
+    !
+    #% endblock
+    """
+
+    ripd = """
+    #% extends "boilerplate.conf"
+    #% block main
+    debug rip events
+    debug rip zebra
+    !
+    router rip
+     version 2
+     network {{ router.iface_to('rip').ip4[0].network }}
+    #% endblock
+    """
+
+    ripngd = """
+    #% extends "boilerplate.conf"
+    #% block main
+    debug ripng events
+    debug ripng zebra
+    !
+    router ripng
+     network {{ router.iface_to('ripng').ip6[0].network }}
+    #% endblock
+    """
+
+
+class AllStartupTest(TestBase, AutoFixture, topo=topology, configs=Configs):
+    """
+    docstring here
+    """
+
+    @topotatofunc
+    def test_running(self, topo, r1):
+        """
+        just check that all daemons are running
+        """
+        for daemon in Configs.daemons:
+            if not hasattr(Configs, daemon):
+                continue
+            yield from AssertVtysh.make(r1, daemon, command="show version")
+```
+2. Run the following command in your command line:
+
+```bash
+./run_userns.sh --frr-builddir=$PATH_TO_FRR_BUILD --log-cli-level=DEBUG -v -v -x sameple_test.py 
+```

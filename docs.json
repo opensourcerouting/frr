@@ -2,7 +2,73 @@
     "name": "Topotato",
     "theme": "#36B9B9",
     "sidebar": [
-      ["Home", "/"],
-      ["Another Page", "/another-page"]
+      ["About", "/"],
+      ["Topotato 1.0 is here!", "/v1"],
+      ["Todos & Known Issues", "/todos"],
+      [
+        "Getting started",
+        [
+          ["Getting started", "/getting-started/getting-started"]
+        ]
+      ],
+      [
+        "Test Anatomy",
+        [
+          ["Overview", "/anatomy/overview"],
+          ["Usage", "/anatomy/usage"],
+          ["Topology", "/anatomy/"],
+          ["FRR configuration", "/anatomy/"],
+          ["Writing tests", "/anatomy/"],
+          ["Debug a test", "/anatomy/"]
+        ]
+      ],
+      [
+        "Assertions",
+        [
+          ["Overview", "/assertions/overview"],
+          ["Usage", "/assertions/usage"],
+          ["AssertKernelRoutes", "/assertions/"],
+          ["AssertKernelRoutesV4", "/assertions/"],
+          ["AssertKernelRoutesV6", "/assertions/"],
+          ["AssertVtysh", "/assertions/"],
+          ["ReconfigureFRR", "/assertions/"],
+          ["AssertPacket", "/assertions/"],
+          ["AssertLog", "/assertions/"],
+          ["Delay", "/assertions/"],
+        ]
+      ],
+      [
+        "Modifiers",
+        [
+          ["Overview", "/modifiers/overview"],
+          ["Usage", "/modifiers/usage"],
+          ["DaemonRestart", "/modifiers/"],
+          ["ModifyLinkStatus", "/modifiers/"],
+          ["MulticastReceiver", "/modifiers/"],
+          ["ScapySend", "/modifiers/"],
+          ["ExaBGP", "/modifiers/"]
+        ]
+      ],
+      [
+        "How-tos",
+        [
+          ["TODO", "/assertions/"]
+        ]
+      ],
+      [
+        "CLI commands",
+        [
+          ["test", "/cli-commands/test"],
+          ["bash", "/cli-commands/bash"],
+          ["vm-start", "/cli-commands/devices"]
+        ]
+      ],
+      [
+        "Environments and CI",
+        [
+          ["Overview", "/ci/overview"],
+          ["Platforms", "/ci/platforms"]
+        ]
+      ]
     ]
   }
