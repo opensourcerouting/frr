@@ -25,6 +25,6 @@ The creation of Topotato was motivated by addressing the limitations of the exis
 In addition to the primary objectives, Topotato also aims to achieve the following secondary goals, which are influenced by the aforementioned aims:
 
 - Encapsulate tests within a single file to eliminate the need to navigate through multiple files.
-- Replace hardcoded IP addresses with semantic expressions to improve readability. For instance, while "192.168.13.57" is an opaque IPv4 address, the expression "r1.iface_to('r2').ip4[0]" could represent the same address while being more comprehensible and easier to maintain.
+- Replace hardcoded IP addresses with semantic expressions to improve readability. For instance, while `192.168.13.57` is an opaque IPv4 address, the expression `r1.iface_to('r2').ip4[0]` could represent the same address while being more comprehensible and easier to maintain.
 - Enable the test suite to run without necessitating "root" access to the system or the installation of FRR. This approach ensures ease of execution and guarantees that the test suite cannot disrupt the developer's system due to kernel-level protection. Additionally, it mitigates issues stemming from broken or mismatched installations.
-- Provide support for FreeBSD as an operating system.
+- Support FreeBSD.

@@ -8,7 +8,7 @@
       [
         "Getting started",
         [
-          ["Getting started", "/getting-started/getting-started"]
+          ["Getting started", "/getting-started"]
         ]
       ],
       [
@@ -16,10 +16,10 @@
         [
           ["Overview", "/anatomy/overview"],
           ["Usage", "/anatomy/usage"],
-          ["Topology", "/anatomy/"],
-          ["FRR configuration", "/anatomy/"],
-          ["Writing tests", "/anatomy/"],
-          ["Debug a test", "/anatomy/"]
+          ["Topology", "/anatomy/topology"],
+          ["FRR configuration", "/anatomy/frr-config"],
+          ["Writing tests", "/anatomy/writing-tests"],
+          ["Debug a test", "/anatomy/debug-test"]
         ]
       ],
       [
@@ -27,14 +27,14 @@
         [
           ["Overview", "/assertions/overview"],
           ["Usage", "/assertions/usage"],
-          ["AssertKernelRoutes", "/assertions/"],
-          ["AssertKernelRoutesV4", "/assertions/"],
-          ["AssertKernelRoutesV6", "/assertions/"],
-          ["AssertVtysh", "/assertions/"],
-          ["ReconfigureFRR", "/assertions/"],
-          ["AssertPacket", "/assertions/"],
-          ["AssertLog", "/assertions/"],
-          ["Delay", "/assertions/"],
+          ["AssertKernelRoutes", "/assertions/assert-kernel-routes"],
+          ["AssertKernelRoutesV4", "/assertions/assert-kernel-routes-v4"],
+          ["AssertKernelRoutesV6", "/assertions/assert-kernel-routes-v6"],
+          ["AssertVtysh", "/assertions/assert-vtysh"],
+          ["ReconfigureFRR", "/assertions/reconfigure-frr"],
+          ["AssertPacket", "/assertions/assert-package"],
+          ["AssertLog", "/assertions/assert-log"],
+          ["Delay", "/assertions/delay"]
         ]
       ],
       [
@@ -42,17 +42,17 @@
         [
           ["Overview", "/modifiers/overview"],
           ["Usage", "/modifiers/usage"],
-          ["DaemonRestart", "/modifiers/"],
-          ["ModifyLinkStatus", "/modifiers/"],
-          ["MulticastReceiver", "/modifiers/"],
-          ["ScapySend", "/modifiers/"],
-          ["ExaBGP", "/modifiers/"]
+          ["DaemonRestart", "/modifiers/daemon-restart"],
+          ["ModifyLinkStatus", "/modifiers/modify-link-status"],
+          ["MulticastReceiver", "/modifiers/multicast-receiver"],
+          ["ScapySend", "/modifiers/scapy-send"],
+          ["ExaBGP", "/modifiers/exabgp"]
         ]
       ],
       [
         "How-tos",
         [
-          ["TODO", "/assertions/"]
+          ["TODO", "/howtos/"]
         ]
       ],
       [
@@ -60,14 +60,14 @@
         [
           ["test", "/cli-commands/test"],
           ["bash", "/cli-commands/bash"],
-          ["vm-start", "/cli-commands/devices"]
+          ["vm-start", "/cli-commands/vm-start"]
         ]
       ],
       [
         "Environments and CI",
         [
-          ["Overview", "/ci/overview"],
-          ["Platforms", "/ci/platforms"]
+          ["Overview", "/env-ci/overview"],
+          ["Platforms", "/env-ci/platforms"]
         ]
       ]
     ]
