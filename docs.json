@@ -5,12 +5,7 @@
       ["About", "/"],
       ["Topotato 1.0 is here!", "/v1"],
       ["Todos & Known Issues", "/todos"],
-      [
-        "Getting started",
-        [
-          ["Getting started", "/getting-started"]
-        ]
-      ],
+      ["Getting started", "/getting-started"],
       [
         "Test Anatomy",
         [
