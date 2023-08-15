@@ -39,7 +39,7 @@ apt-get satisfy \
 
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
+# Copyright (C) 2018-2023  YOUR NAME HERE for NetDEF, Inc.
 """
 Simple demo test for topotato.
 """
@@ -128,5 +128,8 @@ class AllStartupTest(TestBase, AutoFixture, topo=topology, configs=Configs):
 2. Run the following command in your command line:
 
 ```bash
-./run_userns.sh --frr-builddir=$PATH_TO_FRR_BUILD --log-cli-level=DEBUG -v -v -x sameple_test.py 
+./run_userns.sh --frr-builddir=$PATH_TO_FRR_BUILD \
+                --log-cli-level=DEBUG \
+                -v -v -x \ 
+                sameple_test.py 
 ```
