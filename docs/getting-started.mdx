@@ -1,9 +1,10 @@
 ---
 title: Getting Started
-description: Write your first tests
+description: Write your first test
 ---
 
 ## Install `topotato`
+
 `topotato` requires Python >= 3.8
 
 Run the following command in your command line:
@@ -29,13 +30,13 @@ apt-get satisfy \
     
 ```
 
-## Create your first test {#simpletest}
+## Create your first test
 
-1. Create a new file called `test_sample.py`, containing a function, and a
-test:
+1. Create a new file called `test_sample.py`, containing a function, and a test:
 
 ``` python
 # content of test_sample.py
+
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2018-2022  David Lamparter for NetDEF, Inc.
@@ -123,6 +124,7 @@ class AllStartupTest(TestBase, AutoFixture, topo=topology, configs=Configs):
                 continue
             yield from AssertVtysh.make(r1, daemon, command="show version")
 ```
+
 2. Run the following command in your command line:
 
 ```bash
