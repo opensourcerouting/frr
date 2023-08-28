@@ -1,0 +1,276 @@
+
+# Topology Definition
+
+A test topology within topotato is described using an ASCII diagram placed inside a function adorned with a decorator:
+
+```python
+@topology_fixture()
+def topology(topo):
+   """
+   [ r1 ]---[ r2 ]
+   """
+   # Optional modifier code affecting topo.* can be added here
+```
+
+### Anatomy of topology fixture
+
+- Refer to the [`ascii-diagrams`](#ascii-diagrams) section, for ASCII.
+- `topology` function name is **not** required, so it can be renamed to anything.
+- Parameter `topo`is **required** to modify the topology. Refer to [`topoology modifier`](#topology-modifier).
+- The topology is defined inside the [multiline docstring](https://peps.python.org/pep-0257/#multi-line-docstrings)
+
+> While it's possible to define multiple topologies in a single file,
+> for complex setups, it's recommended to split the tests into separate files.
+
+### ASCII Diagrams
+
+#### Syntax for Network Diagram
+
+The ASCII network diagram is created using a specific syntax:
+
+1. Routers: Routers are represented using square brackets `[ router ]`.
+
+2. LANs/Switches/Bridges: LANs, switches, or bridges are represented using curly braces `{ lan }`.
+
+3. Multi-Line Representation: Routers and LANs can continue on another line with an empty pair of curly braces `{}` or square brackets `[]`. The size of the empty pair must match the original representation.
+
+4. Links: Links between routers, LANs, or interfaces are drawn using horizontal lines `----` or vertical lines `|`.
+
+5. Interface Names: Interface names can optionally be added at the end of links using parentheses, e.g., `( eth0 )`.
+
+#### Example
+
+Given the following ASCII network diagram:
+
+```
+[ router1 ]( eth0 ) ---- { lan1 }
+[ router2 ]
+```
+
+```
+    [ r1 ]---[ noprot ]
+    [    ]
+    [    ]---[ rip ]
+    [    ]
+    [    ]---[ isisv6 ]
+```
+
+```
+    [    ]--{ stub1 }
+    [ r1 ]
+    [    ]--{ stub2 }
+       |
+    { lan1 }
+       |
+    [ r2 ]
+       |
+    { lan2 }
+       |
+    [ r3 ]
+       |
+    { lan3 }
+       |
+    [ rtsta ]--{ lansta }
+```
+
+### Numbering Behavior
+
+To streamline the process, topotato assigns IPv4 and IPv6 addresses based on an ordinal number assigned to each router in the topology.
+
+Each router gets an ordinal by sorting all routers based on their names. The sorting order follows these special rules:
+
+- A router named `dut` comes first.
+- Systems named `r999` and `rt999` follow, and then `h999` (for hosts).
+- Routers with names like `r2` come before `r10` through integer conversion.
+
+LANs (`{ name }` in ASCII diagrams) are similarly assigned ordinals, but they possess their own numbering space, preventing conflicts with routers.
+
+You can overwrite the ordinal within the topology fixture like this:
+
+```python
+@topology_fixture()
+def topo1(topo):
+   """
+   [ r1 ]---[ r2 ]
+   """
+   topo.routers["r1"].num = 10
+```
+
+If an ordinal assigned this way was automatically assigned previously, it's pushed to the end. Other routers remain unaffected.
+
+These ordinals, including custom ones, dictate address assignments after the topology fixture is executed. The `--run-topology` command line option can display these assignments.
+
+Note that direct links between two routers differ in numbering from links going through LANs. Point-to-point links get link-local IPv6 addresses, while LANs obtain IPv6 ULAs by default. Both receive IPv4 addresses using distinct ranges.
+
+The numbering scheme uses the following placeholders:
+- `xx`: System's ordinal
+- `nn`: LAN's ordinal
+- `1nn`: LAN's ordinal + 100
+- `yy`: "Other end's" ordinal (another router or a LAN)
+- `PP`: Counter for parallel links, starting from zero
+- `GG`: Global counter for point-to-point links
+- `TT`: `fe` for point-to-point links, `bc` (Broadcast) for LANs
+
+- Loopback: `fd00::xx/128`, `10.255.0.xx/32`
+- MAC addresses: `fe:xx:PP:TT:yy:PP`
+- All interfaces: IPv6 link-local address based on the above MAC address
+- Point-to-point links: No IPv6 GUA (link-local only), `10.GG.XX.YY/32`
+- LANs: `fdbc:nn::/64` (plus MAC-based addresses), `10.1nn.0.xx/16`
+
+### Topology Modifier
+
+<Info>If the topology modifier is not specified **numbering, interfaces, IPv4, IPv6 will be automatically created**</Info>
+
+When creating a topology, you are given the state of the `Network` which allows access to
+- Routers
+- Lan 
+
+<Property name="router(name, created=False)" type="function">
+Any `name` passed will return the specific `Router` which exist in the topology
+
+```python
+@topology_fixture()
+def topology(topo):
+   """
+   [ r1 ]---[r2]
+   """
+   topo.router("r1") # here we have Router r1
+```
+
+</Property>
+
+<hr />
+
+<Property name="lan(name, created=False)" type="function">
+Similar to router function we get get the `LAN` by passing the name.
+
+```python
+@topology_fixture()
+def topology(topo):
+   """
+   [ r1 ]---{ lan1 }---[ r2 ]
+   """
+   topo.lan("lan1") # here we have LAN lan1
+```
+
+</Property>
+
+<hr />
+
+
+<Property name="Router(name)" type="class">
+    represent a router on the topology
+
+    can also be used for clients/hosts
+The router give several attributes which can be modified in place:
+Those are part of `IPPrefixIfaceList` class
+- `lo_ip4`
+- `lo_ip6`
+
+Those are part of `NOMLinked` class: 
+- `num`
+- `ifaces`
+- `name`
+- `ifaces_to`
+- `iface_to`
+- `iface_peer`
+- `flip`
+
+```python
+@topology_fixture()
+def topology(topo):
+    """
+    [ r1 ]
+      |
+    { s1 }
+      |
+    [ r2 ]
+
+    """
+    topo.router("r1").lo_ip4.append("172.16.255.254/32")
+    topo.router("r1").iface_to("s1").ip4.append("192.168.255.1/24")
+
+```
+</Property>
+
+<hr />
+
+<Property name="LAN(name)" type="class">
+    a LAN in this topology that 1..n routers may connect to
+
+    direct p2p links between routers are *not* going through this
+
+    stub networks can be represented with a LAN connected to a Router and
+    nothing else
+
+The LAN give several attributes which can be modified in place:
+
+Those are part of `IPPrefixIfaceList` class:
+
+- `ip4`
+- `ip6`
+
+Those are part of `NOMLinked` class: 
+
+- `num`
+- `ifaces`
+- `name`
+- `ifaces_to`
+- `iface_to`
+- `iface_peer`
+- `flip`
+
+
+```python
+@topology_fixture()
+def topology(topo):
+    """
+    [ r1 ]
+      |
+    { s1 }
+      |
+    [ r2 ]
+
+    """
+    topo.lan("s1").ip4.append("172.16.255.254/32")
+
+```
+
+</Property>
+
+<hr />
+
+<Property name="NOMLinked()" type="class">
+
+`NOMLinked` contains all the utility functions for finding other elements on the network
+
+- `num` is a property to manually add a number
+- `ifaces_to(other)` get all the interfaces of this node that go to "other", where "other" can be "r2".
+- `iface_to(other)` get the *one* interfaces of this node that goes to "other"
+-  `iface_peer(other, via)`
+    -  `other` - get another node's interface connected to us, optionally via LAN
+    -  `via`- LAN must be specified if it's not a direct p2p link
+- `flip` get the one of (a, b) that's not us
+
+</Property>
+
+<hr />
+
+<Property name="IPPrefixIfaceList()" type="class">
+
+`IPPrefixIfaceList` is a list that only contains IPNetwork/IPInterface items.
+An IPNetwork/IPInterface is a list of addresses which is part of the [standard library](https://docs.python.org/3/library/ipaddress.html)
+
+- `append` using this function, we can add new  IPNetwork/IPInterface.
+
+```python
+
+ip4.append("172.16.255.254/32")
+ip6.append("2001:db8::1")
+lo_ip4.append("172.16.255.254/32")
+lo_ip6.append("2001:db8::1")
+
+```
+</Property>
+
+<hr />
