@@ -42,12 +42,12 @@ The ASCII network diagram is created using a specific syntax:
 
 Given the following ASCII network diagram:
 
-```
+```python
 [ router1 ]( eth0 ) ---- { lan1 }
 [ router2 ]
 ```
 
-```
+```python
     [ r1 ]---[ noprot ]
     [    ]
     [    ]---[ rip ]
@@ -55,7 +55,7 @@ Given the following ASCII network diagram:
     [    ]---[ isisv6 ]
 ```
 
-```
+```python
     [    ]--{ stub1 }
     [ r1 ]
     [    ]--{ stub2 }
@@ -271,3 +271,19 @@ lo_ip6.append("2001:db8::1")
 </Property>
 
 <hr />
+
+
+export const Property = (props) => (
+  <div>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ flexGrow: 1 }}>
+        <code className="text-docs-theme" style={{ fontSize: 16 }}>{props.name}</code>
+        {!!props.default && <span style={{ paddingLeft: 8 }}>Default: <code>{props.default}</code></span>}
+      </div>
+      <div>
+        <span className="font-mono">{props.type}</span>
+      </div>
+    </div>
+    <div>{props.children}</div>
+  </div>
+);
