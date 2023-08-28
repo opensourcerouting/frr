@@ -1,7 +1,7 @@
----
-title: Anatomy of a Test
-description: Tests in the topotato framework are structured into different sections that collectively define the test's behavior, topology, and configurations. This document provides an overview of these sections and their components.
----
+# Anatomy of a Test
+
+Tests in the topotato framework are structured into different sections that collectively define the test's behavior, topology, and configurations. This document provides an overview of these sections and their components.
+
 
 ### Header
 
@@ -50,7 +50,9 @@ def topo1(topo):
    # Optional modifier code operating on topo.* here
 ```
 
-The ASCII diagram visually represents the topology. The function's name `topo1` identifies the topology. Defining multiple topologies in one file is possible, but if complexity grows, **it might be better to split the tests into separate files.**
+The ASCII diagram visually represents the topology. The function's name `topo1` identifies the topology. Defining multiple topologies in one file is possible.
+
+<Info>But if complexity grows, it might be better to split the tests into separate files.</Info>
 
 ### FRR Configurations
 
