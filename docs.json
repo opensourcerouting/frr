@@ -10,7 +10,6 @@
         "Test Anatomy",
         [
           ["Overview", "/anatomy/overview"],
-          ["Usage", "/anatomy/usage"],
           ["Topology", "/anatomy/topology"],
           ["FRR configuration", "/anatomy/frr-config"],
           ["Writing tests", "/anatomy/writing-tests"],
