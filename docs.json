@@ -3,7 +3,7 @@
     "theme": "#36B9B9",
     "sidebar": [
       ["About", "/"],
-      ["Topotato 1.0 is here!", "/v1"],
+      ["Topotato 1.0 is here!", "/"],
       ["Todos & Known Issues", "/todos"],
       ["Getting started", "/getting-started"],
       [
