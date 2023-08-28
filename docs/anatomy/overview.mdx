@@ -3,7 +3,7 @@ title: Anatomy of a Test
 description: Tests in the topotato framework are structured into different sections that collectively define the test's behavior, topology, and configurations. This document provides an overview of these sections and their components.
 ---
 
-# Header
+### Header
 
 Every test begins with a header that sets the initial context for the test script. The header typically includes the license information, copyright details, and a brief description of the test's purpose. The following Python code demonstrates a sample header:
 
@@ -24,7 +24,7 @@ A few points to note about the header:
 - A concise docstring describing the test's objective should be included.
 - The `topotato` package is imported using a wildcard import (`*`), which is acceptable in this context.
 
-## Compatibility Markers
+#### Compatibility Markers
 
 The test script may include compatibility markers to handle changes in the topotato framework. These markers help manage compatibility issues when the framework evolves over time. For instance:
 
@@ -37,7 +37,7 @@ __topotests_rev__ = 'a770da1b1c6290f53cc69218a30360accd6a0068'
 
 These markers provide information about the topotato version, the test file, and the revision, aiding in managing compatibility and version control.
 
-# Topology Definition
+### Topology Definition
 
 In topotato, a test topology is defined using ASCII diagrams enclosed within a function marked with the `topology_fixture` decorator. Here's an example of defining a topology named `topo1`:
 
@@ -52,7 +52,7 @@ def topo1(topo):
 
 The ASCII diagram visually represents the topology. The function's name `topo1` identifies the topology. Defining multiple topologies in one file is possible, but if complexity grows, **it might be better to split the tests into separate files.**
 
-# FRR Configurations
+### FRR Configurations
 
 Topotato generates FRR configurations using [jinja2](https://palletsprojects.com/p/jinja/) templates embedded within the test script. Configuration templates define various aspects of router behavior. Here's an example of defining FRR configurations:
 
