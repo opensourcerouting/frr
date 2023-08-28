@@ -1,0 +1,97 @@
+---
+title: Anatomy of a Test
+description: Tests in the topotato framework are structured into different sections that collectively define the test's behavior, topology, and configurations. This document provides an overview of these sections and their components.
+---
+
+# Header
+
+Every test begins with a header that sets the initial context for the test script. The header typically includes the license information, copyright details, and a brief description of the test's purpose. The following Python code demonstrates a sample header:
+
+```python
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2070  Some Body
+"""
+Check that the top of the potato has been baked properly.
+"""
+
+from topotato import *
+```
+
+A few points to note about the header:
+
+- The `topotato` package uses SPDX license identifiers. It's recommended to use the `GPL-2.0-or-later` license unless you have a compelling reason to choose otherwise.
+- A concise docstring describing the test's objective should be included.
+- The `topotato` package is imported using a wildcard import (`*`), which is acceptable in this context.
+
+## Compatibility Markers
+
+The test script may include compatibility markers to handle changes in the topotato framework. These markers help manage compatibility issues when the framework evolves over time. For instance:
+
+```python
+# Compatibility markers for topotato framework changes
+__topotato_version__ = 1
+__topotests_file__ = 'potato/test_top.py'
+__topotests_rev__ = 'a770da1b1c6290f53cc69218a30360accd6a0068'
+```
+
+These markers provide information about the topotato version, the test file, and the revision, aiding in managing compatibility and version control.
+
+# Topology Definition
+
+In topotato, a test topology is defined using ASCII diagrams enclosed within a function marked with the `topology_fixture` decorator. Here's an example of defining a topology named `topo1`:
+
+```python
+@topology_fixture()
+def topo1(topo):
+   """
+   [ r1 ]---[ r2 ]
+   """
+   # Optional modifier code operating on topo.* here
+```
+
+The ASCII diagram visually represents the topology. The function's name `topo1` identifies the topology. Defining multiple topologies in one file is possible, but if complexity grows, **it might be better to split the tests into separate files.**
+
+# FRR Configurations
+
+Topotato generates FRR configurations using [jinja2](https://palletsprojects.com/p/jinja/) templates embedded within the test script. Configuration templates define various aspects of router behavior. Here's an example of defining FRR configurations:
+
+<Warning>Jinja2 template used has been customized a little bit.</Warning>
+
+```python
+class Configs(FRRConfigs):
+   routers = ["r1"]  # By default, all systems listed in the topology run FRR
+
+   zebra = """ 
+   #% extends "boilerplate.conf"
+   #% block main
+   #%   for iface in router.ifaces
+   interface {{ iface.ifname }}
+    description {{ iface.other.endpoint.name }}
+   !
+   #%   endfor
+   !
+   #% endblock
+   """
+
+   # Configuration templates for other daemons like staticd, ospfd, etc.
+```
+
+These configurations can reference dynamic variables, making them more maintainable and easier to understand.
+
+Each *daemon* can be configured for each routers by using their respective name and configuration. 
+
+### Test Classes
+
+All topotato tests are organized within classes that inherit from the `TestBase` class. The class definition binds together the test content, topology, and configurations. Here's an example:
+
+```python
+class TestSomething(TestBase, AutoFixture, topo=topo1, configs=Configs):
+    """
+    This docstring will be included in the HTML report, make it useful.
+    """
+```
+
+To execute tests, an instance of this class is created, and its test methods are executed in sequence. The test methods can carry data between each other using the `self` object.
+<Warning>However, due to pytest's design, the `__init__` constructor cannot be used.</Warning>
+This structured approach to test organization in topotato simplifies the creation, execution, and debugging of tests while promoting consistency and maintainability.
