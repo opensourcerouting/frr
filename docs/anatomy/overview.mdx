@@ -37,6 +37,8 @@ __topotests_rev__ = 'a770da1b1c6290f53cc69218a30360accd6a0068'
 
 These markers provide information about the topotato version, the test file, and the revision, aiding in managing compatibility and version control.
 
+</hr>
+
 ### Topology Definition
 
 In topotato, a test topology is defined using ASCII diagrams enclosed within a function marked with the `topology_fixture` decorator. Here's an example of defining a topology named `topo1`:
@@ -54,11 +56,13 @@ The ASCII diagram visually represents the topology. The function's name `topo1` 
 
 <Info>But if complexity grows, it might be better to split the tests into separate files.</Info>
 
+</hr>
+
 ### FRR Configurations
 
-Topotato generates FRR configurations using [jinja2](https://palletsprojects.com/p/jinja/) templates embedded within the test script. Configuration templates define various aspects of router behavior. Here's an example of defining FRR configurations:
+Topotato generates FRR configurations using [Jinja2](https://palletsprojects.com/p/jinja/) templates embedded within the test script. Configuration templates define various aspects of router behavior. Here's an example of defining FRR configurations:
 
-<Warning>Jinja2 template used has been customized a little bit.</Warning>
+<Warning>This Jinja2 template used has been customzied. See [`frr configuration section`](/anatomy/frr-config)</Warning>
 
 ```python
 class Configs(FRRConfigs):
@@ -83,7 +87,9 @@ These configurations can reference dynamic variables, making them more maintaina
 
 Each *daemon* can be configured for each routers by using their respective name and configuration. 
 
-### Test Classes
+</hr>
+
+### Test Class(es)
 
 All topotato tests are organized within classes that inherit from the `TestBase` class. The class definition binds together the test content, topology, and configurations. Here's an example:
 
