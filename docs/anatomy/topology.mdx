@@ -14,9 +14,9 @@ def topology(topo):
 
 ### Anatomy of topology fixture
 
-- Refer to the [`ascii-diagrams`](#ascii-diagrams) section, for ASCII.
+- Refer to the [`ascii-diagrams`](/anatomy/topology#ascii-diagrams) section, for ASCII.
 - `topology` function name is **not** required, so it can be renamed to anything.
-- Parameter `topo`is **required** to modify the topology. Refer to [`topoology modifier`](#topology-modifier).
+- Parameter `topo`is **required** to modify the topology. Refer to [`topoology modifier`](/anatomy/topology#topology-modifier).
 - The topology is defined inside the [multiline docstring](https://peps.python.org/pep-0257/#multi-line-docstrings)
 
 > While it's possible to define multiple topologies in a single file,
@@ -196,12 +196,9 @@ def topology(topo):
 <hr />
 
 <Property name="LAN(name)" type="class">
-    a LAN in this topology that 1..n routers may connect to
+A LAN in a topology that 1..n routers may connect to
 
-    direct p2p links between routers are *not* going through this
-
-    stub networks can be represented with a LAN connected to a Router and
-    nothing else
+It is a direct p2p links between routers are *not* going through this stub networks can be represented with a LAN connected to a Router and nothing else
 
 The LAN give several attributes which can be modified in place:
 
@@ -242,7 +239,7 @@ def topology(topo):
 
 <Property name="NOMLinked()" type="class">
 
-`NOMLinked` contains all the utility functions for finding other elements on the network
+`NOMLinked` class contains utility functions for finding other elements on the network.
 
 - `num` is a property to manually add a number
 - `ifaces_to(other)` get all the interfaces of this node that go to "other", where "other" can be "r2".
@@ -258,7 +255,7 @@ def topology(topo):
 
 <Property name="IPPrefixIfaceList()" type="class">
 
-`IPPrefixIfaceList` is a list that only contains IPNetwork/IPInterface items.
+The `IPPrefixIfaceList`  class is used to manage IP prefixes and interfaces in the topology.
 An IPNetwork/IPInterface is a list of addresses which is part of the [standard library](https://docs.python.org/3/library/ipaddress.html)
 
 - `append` using this function, we can add new  IPNetwork/IPInterface.
