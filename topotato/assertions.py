@@ -31,6 +31,7 @@ except ImportError:
     from typing_extensions import Literal  # type: ignore
 
 from scapy.packet import Packet  # type: ignore
+from scapy.all import IP, ICMP  # type: ignore
 import pytest
 
 from .utils import json_cmp, text_rich_cmp, deindent
@@ -38,6 +39,7 @@ from .base import TopotatoItem, TopotatoFunction, skiptrace
 from .livescapy import TimedScapy
 from .frr.livelog import LogMessage
 from .timeline import TimingParams
+from .toponom import Router
 from .exceptions import (
     TopotatoCLICompareFail,
     TopotatoCLIUnsuccessfulFail,
@@ -405,6 +407,55 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
                     "did not receive a matching packet for:\n%s"
                     % inspect.getsource(self._pkt)
                 )
+
+
+class AssertPing(AssertPacket):
+    _rtr: Router
+    _iface: str
+    _iface: str
+    _other_rtr: Router
+
+    @classmethod
+    def from_parent(cls, parent, name, rtr, iface, other_rtr):
+        self = super().from_parent(
+            parent, name="%s:%s/scapy[%s/ping/%s]" % (name, rtr.name, iface, other_rtr)
+        )
+
+        self._rtr = rtr
+        self._iface = iface
+        self._other_rtr = other_rtr
+        
+        rtr_ip = self._rtr.iface_to(self._iface).ip4[0].ip
+        other_rtr_ip = self._other_rtr.iface_to(self._iface).ip4[0].ip
+
+        
+        def expect_pkt(ip: IP, icmp: ICMP):
+            return ip.src == rtr_ip and ip.dst == other_rtr_ip
+                
+        self._expect_pkt = expect_pkt
+
+    def __call__(self):
+        if scapy_exc:
+            pytest.skip(scapy_exc)
+
+        router = self.instance.routers[self._rtr.name]
+        
+        rtr_ip = self._rtr.iface_to(self._iface).ip4[0].ip
+        other_rtr_ip = self._other_rtr.iface_to(self._iface).ip4[0].ip
+    
+        with router:
+            sock = NetnsL2Socket(iface=self._iface, promisc=False)
+            sock.send(
+                IP(
+                    src=rtr_ip,
+                    dst=other_rtr_ip,
+                )
+                / ICMP(seq=1234)
+            )
+
+        sock.close()
+        
+        super().__call__()
 
 
 class AssertLog(TopotatoAssertion, TimedMixin):
