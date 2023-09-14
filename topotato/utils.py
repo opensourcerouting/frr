@@ -121,6 +121,32 @@ class JSONCompareDirective(dict):
     """
 
 
+
+
+class JSONCompareRegex(JSONCompareDirective):
+    """
+    Compare this value with a regular expression.
+    
+    :Example:
+    
+        JsonCompareRegex(r"\s+")
+        JsonCompareRegex(r"\d+")
+        JsonCompareRegex("[A-Z]")
+        JsonCompareRegex(r"^%?FRRouting/")
+
+    """
+    regex: re.Pattern
+
+    def __init__(self, regex: str):
+        super().__init__()
+        
+        self.regex = re.compile(regex)
+
+    def match(self, string):
+            return self.regex.match(string)
+        
+
+
 class JSONCompareIgnoreContent(JSONCompareDirective):
     """
     Ignore list/dict content in JSON compare.
@@ -333,6 +359,15 @@ def json_cmp(d1, d2):
                 raise JSONCompareDirectiveWrongSide(nd1[key])
 
             if isinstance(nd2[key], JSONCompareDirective):
+                if isinstance(nd2[key], JSONCompareRegex):
+                    if not nd2[key].match(str(nd1[key])):
+                        result.add_error(
+                            '{}["{}"] dict value is different (\n{} vs regex {})'.format(
+                                parent, key, nd1[key], repr(nd2[key].regex.pattern)
+                            )
+                        )
+                    continue
+
                 if isinstance(nd2[key], JSONCompareIgnoreContent):
                     continue
 
