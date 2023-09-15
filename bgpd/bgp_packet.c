@@ -2164,6 +2164,12 @@ static int bgp_update_receive(struct peer_connection *connection,
 			continue;
 		}
 
+		/* If we have a packet that is malformed (e.g.: ORIGIN attribute
+		 * length is 2, and not 1), we should skip parsing NLRIs at all.
+		 */
+		if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
+			continue;
+
 		/* EoR handled later */
 		if (nlris[i].length == 0)
 			continue;
