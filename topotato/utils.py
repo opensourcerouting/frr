@@ -360,7 +360,12 @@ def json_cmp(d1, d2):
 
             if isinstance(nd2[key], JSONCompareDirective):
                 if isinstance(nd2[key], JSONCompareRegex):
-                    if not nd2[key].match(str(nd1[key])):
+                    if not isinstance(nd1[key], str):
+                        result.add_error(
+                            'JSONCompareRegex expects a value of type `str`, received a value of type `{}` ({}) at ["{}"] '.format(
+                                type(nd1[key]).__name__, nd1[key], key)
+                            )
+                    elif not nd2[key].match(nd1[key]):
                         result.add_error(
                             '{}["{}"] dict value is different (\n{} vs regex {})'.format(
                                 parent, key, nd1[key], repr(nd2[key].regex.pattern)
