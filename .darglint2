@@ -1,0 +1,4 @@
+[darglint2]
+message_template={path}:{line} -> (in {obj}) {msg}
+docstring_style=sphinx
+strictness=short

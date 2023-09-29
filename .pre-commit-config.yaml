@@ -28,3 +28,18 @@ repos:
         require_serial: true
         pass_filenames: false
         files: ^topotato/.*\.py$
+
+-   repo: https://github.com/jsh9/pydoclint # for classes
+    rev: 0.3.2
+    hooks:
+      - id: pydoclint
+        require_serial: true
+        args:
+          - --style=sphinx
+        files: ^topotato/.*\.py$
+
+-   repo: https://github.com/akaihola/darglint2 # for functions has it has no class validation for now
+    rev: v1.8.2
+    hooks:
+    - id: darglint2
+      files: ^topotato/.*\.py$
