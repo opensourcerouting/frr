@@ -42,4 +42,6 @@ repos:
     rev: v1.8.2
     hooks:
     - id: darglint2
+      args:
+        - -v2
       files: ^topotato/.*\.py$
