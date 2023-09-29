@@ -25,6 +25,8 @@ from typing import (
     Union,
 )
 
+from topotato.scapyext.netnssock import NetnsL2Socket
+
 try:
     from typing import Literal
 except ImportError:
@@ -412,45 +414,34 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
 class AssertPing(AssertPacket):
     _rtr: Router
     _iface: str
-    _iface: str
-    _other_rtr: Router
+    _other_ip: str
 
     @classmethod
-    def from_parent(cls, parent, name, rtr, iface, other_rtr):
+    def from_parent(cls, parent, name, rtr, iface, rtr_ip, maxwait=0):
+        def expect_pkt(ip: IP, icmp: ICMP):
+            return True
+                        
         self = super().from_parent(
-            parent, name="%s:%s/scapy[%s/ping/%s]" % (name, rtr.name, iface, other_rtr)
+            parent,
+            name="%s:%s/scapy[%s/ping/%s]" % (name, rtr.name, iface, rtr_ip),
+            link=iface,
+            pkt=expect_pkt,
+            maxwait=maxwait,
         )
 
         self._rtr = rtr
         self._iface = iface
-        self._other_rtr = other_rtr
+        self._other_rtr = rtr_ip
         
-        rtr_ip = self._rtr.iface_to(self._iface).ip4[0].ip
-        other_rtr_ip = self._other_rtr.iface_to(self._iface).ip4[0].ip
-
+        return self
         
-        def expect_pkt(ip: IP, icmp: ICMP):
-            return ip.src == rtr_ip and ip.dst == other_rtr_ip
-                
-        self._expect_pkt = expect_pkt
-
     def __call__(self):
-        if scapy_exc:
-            pytest.skip(scapy_exc)
-
         router = self.instance.routers[self._rtr.name]
-        
-        rtr_ip = self._rtr.iface_to(self._iface).ip4[0].ip
-        other_rtr_ip = self._other_rtr.iface_to(self._iface).ip4[0].ip
-    
+
         with router:
             sock = NetnsL2Socket(iface=self._iface, promisc=False)
             sock.send(
-                IP(
-                    src=rtr_ip,
-                    dst=other_rtr_ip,
-                )
-                / ICMP(seq=1234)
+                IP(dst=self._other_rtr) / ICMP(type="echo-reply", seq=1234)
             )
 
         sock.close()
