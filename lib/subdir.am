@@ -498,7 +498,7 @@ lib_yangkheg_SOURCES = \
 	lib/printf/glue.c \
 	# end
 
-lib_yakshave_LDADD = lib/libfrr.la
+lib_yakshave_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 lib_yakshave_SOURCES = \
 	lib/yakshave.c \
 	# end
