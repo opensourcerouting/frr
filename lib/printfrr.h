@@ -177,10 +177,10 @@ static inline ssize_t printfrr_ext_len(struct printfrr_eargs *ea)
 
 	if (ea->precision >= 0)
 		rv = ea->precision;
-	else if (ea->width >= 0) {
+/*	else if (ea->width >= 0) {
 		rv = ea->width;
 		ea->width = -1;
-	} else
+	} */ else
 		rv = -1;
 
 	return rv;
