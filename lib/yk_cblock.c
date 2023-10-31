@@ -178,6 +178,23 @@ void yk_crender_arg_set(struct yk_crender_ctx *ctx, const char *name,
 	}
 }
 
+void yk_crender_arg_cblock(struct yk_crender_ctx *ctx, const char *name,
+			   struct yk_cblock *cblock)
+{
+	struct yk_carg *carg, *prev;
+
+	carg = XCALLOC(MTYPE_YK_CARG, sizeof(*carg) + 1);
+	carg->name = name;
+	carg->cb_value = cblock;
+
+	prev = yk_cargs_add(ctx->cargs, carg);
+	if (prev) {
+		yk_cargs_del(ctx->cargs, prev);
+		XFREE(MTYPE_YK_CARG, prev);
+		yk_cargs_add(ctx->cargs, carg);
+	}
+}
+
 const struct yk_carg *yk_crender_arg_gettkn(struct yk_crender_ctx *ctx,
 					    const struct yangkheg_token *tkn)
 {
@@ -298,6 +315,7 @@ static void yk_cblock_render_common(struct yk_crender_ctx *ctx,
 	bool needline = true;
 	bool line_at_token = false;
 	struct yk_citem *it;
+	size_t cond_at_start = yk_condstack_count(ctx->condstack);
 
 	frr_each (yk_citems, cblock->items, it) {
 		if (it->type == YK_CIT_TEXT) {
@@ -339,7 +357,7 @@ static void yk_cblock_render_common(struct yk_crender_ctx *ctx,
 			needline = true;
 	}
 
-	if (yk_condstack_count(ctx->condstack)) {
+	if (yk_condstack_count(ctx->condstack) != cond_at_start) {
 		fprintf(stderr, "conditional unterminated\n");
 	}
 }
@@ -358,8 +376,11 @@ void yk_cblock_render_template(struct yk_crender_ctx *ctx,
 
 	fprintfrr(ctx->out, "\n/* begin template %pSQq\n", tpl->name);
 	frr_each (yk_cargs, ctx->cargs, carg) {
-		fprintfrr(ctx->out, " * @%-20pSE = %pSQq\n", carg->name,
-			  carg->value);
+		if (carg->cb_value)
+			fprintfrr(ctx->out, " * @%-20pSE = (block)\n", carg->name);
+		else
+			fprintfrr(ctx->out, " * @%-20pSE = %pSQq\n", carg->name,
+				  carg->value);
 	}
 	fprintfrr(ctx->out, " */\n");
 

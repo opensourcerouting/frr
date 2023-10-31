@@ -120,6 +120,7 @@ struct yk_carg {
 	struct yk_cargs_item item;
 
 	const char *name;
+	struct yk_cblock *cb_value;
 	char value[0];
 };
 
@@ -168,6 +169,8 @@ struct yk_crender_ctx {
 	struct yk_cargs_head cargs[1];
 	struct yk_condstack_head condstack[1];
 	bool suppress;
+
+	struct yk_yangtype *typ;
 };
 
 struct ykat_ctx {
@@ -202,6 +205,8 @@ extern char *yk_cblock_typename(struct yk_cblock *cblock);
 extern void yk_crender_init(struct yk_crender_ctx *ctx, FILE *out);
 extern void yk_crender_arg_set(struct yk_crender_ctx *ctx, const char *name,
 			       const char *value);
+extern void yk_crender_arg_cblock(struct yk_crender_ctx *ctx, const char *name,
+				  struct yk_cblock *cblock);
 extern const struct yk_carg *yk_crender_arg_gettkn(struct yk_crender_ctx *ctx,
 						   const struct yangkheg_token *tkn);
 extern void yk_crender_fini(struct yk_crender_ctx *ctx);

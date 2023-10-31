@@ -881,6 +881,7 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 	const struct lysc_node *parent;
 	struct yk_nodeinfo *nodeinfo = node->priv;
 	const char *parentbname, *inheritbname;
+	const char *ctxtype;
 
 	const struct lysc_node_leaf *leaf;
 	const struct lysc_type *typ;
@@ -902,6 +903,8 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 	yk_crender_init(&subctx, ctx->out);
 
 	yk_crender_arg_set(&subctx, "", node->name);
+	if (nodeinfo->lval)
+		yk_crender_arg_cblock(&subctx, "lval", nodeinfo->lval);
 
 	if (node->parent)
 		parentbname = ykgen_ext_val(node->parent, "brief-name");
@@ -911,12 +914,22 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 
 	for (parent = node->parent; parent; parent = parent->parent) {
 		inheritbname = ykgen_ext_val(parent, "brief-name");
-		if (inheritbname && ykgen_ext_val(parent, "context-type"))
+		ctxtype = ykgen_ext_val(parent, "context-type");
+		if (inheritbname && ctxtype)
 			break;
 	}
-	if (!parent)
+	if (!parent) {
 		inheritbname = "root";
+		ctxtype = NULL;
+	}
 	yk_crender_arg_set(&subctx, "ctx_parent", inheritbname);
+
+	if (ctxtype) {
+		struct yk_nodeinfo *parentinfo = parent->priv;
+		yk_crender_arg_set(&subctx, "this_ctxname",
+				   yk_cblock_typename(parentinfo->nodeval));
+		yk_crender_arg_set(&subctx, "this_ctxtype", ctxtype);
+	}
 
 	char namebuf[256];
 
@@ -945,6 +958,7 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 	if (!yktyp) {
 		fprintf(stderr, "unknown type to implement\n");
 	} else {
+		subctx.typ = yktyp;
 		yk_cblock_render_template(&subctx, tpl);
 	}
 	yk_crender_fini(&subctx);

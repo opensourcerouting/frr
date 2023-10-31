@@ -81,7 +81,9 @@ extern int ykat_locprint(FILE *fd, const YKAT_LTYPE *loc);
 start:
 	carg '@' {
 		if (!ctx->ctx->suppress) {
-			if ($1)
+			if ($1 && $1->cb_value)
+				yk_cblock_render(ctx->ctx, $1->cb_value);
+			else if ($1)
 				fprintf(ctx->ctx->out, "%s", $1->value);
 			else
 				fprintf(ctx->ctx->out, "{@???@}");
@@ -91,7 +93,9 @@ start:
 |
 	"str" '(' carg ')' {
 		if (!ctx->ctx->suppress) {
-			if ($3)
+			if ($3 && $3->cb_value) {
+				fprintfrr(stderr, "FIXME: cannot stringify cblock\n");
+			} else if ($3)
 				fprintfrr(ctx->ctx->out, "%pSQq", $3->value);
 			else
 				fprintfrr(ctx->ctx->out, "\"{@???@}\"");
@@ -101,12 +105,16 @@ start:
 |	"ifeq" '(' carg ',' carg ')' {
 		bool val = false;
 
-		if ($3 && $5)
+		if ($3 && $5) {
+			if ($3->cb_value || $5->cb_value) {
+				fprintfrr(stderr, "FIXME: cannot compare cblocks\n");
+			}
 			val = !strcmp($3->value, $5->value);
+		}
 		yk_crender_cond_push(ctx->ctx, $1, val);
 	}
 |	"if" '(' carg ')' {
-		yk_crender_cond_push(ctx->ctx, $1, $3 && strlen($3->value));
+		yk_crender_cond_push(ctx->ctx, $1, $3 && (strlen($3->value) || $3->cb_value));
 	}
 |	"else" '(' ')' {
 		yk_crender_cond_else(ctx->ctx, $1, true);
