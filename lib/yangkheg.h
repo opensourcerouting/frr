@@ -183,9 +183,21 @@ struct ykat_loc {
 	struct yangkheg_token *first, *last;
 };
 
+PREDECL_HASH(yk_templates);
+
+struct yk_template {
+	struct yk_templates_item item;
+
+	const char *name;
+	struct yangkheg_token *loc_name;
+	struct yk_cblock *cblock;
+};
+
 extern struct yk_cblock *yk_parse_cblock(struct yangkheg_lexer *lex);
 extern void yk_cblock_render(struct yk_crender_ctx *ctx,
 			     struct yk_cblock *cblock);
+extern void yk_cblock_render_template(struct yk_crender_ctx *ctx,
+				      struct yk_template *tpl);
 extern char *yk_cblock_typename(struct yk_cblock *cblock);
 extern void yk_crender_init(struct yk_crender_ctx *ctx, FILE *out);
 extern void yk_crender_arg_set(struct yk_crender_ctx *ctx, const char *name,

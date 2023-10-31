@@ -749,16 +749,6 @@ static enum handler_res handle_emit(struct yangkheg_state *state,
 	return H_OK;
 }
 
-PREDECL_HASH(yk_templates);
-
-struct yk_template {
-	struct yk_templates_item item;
-
-	const char *name;
-	struct yangkheg_token *loc_name;
-	struct yk_cblock *cblock;
-};
-
 static int yk_template_cmp(const struct yk_template *a,
 			   const struct yk_template *b)
 {
@@ -880,7 +870,7 @@ static void ykat_implement_container(struct yk_crender_ctx *ctx,
 			   node->module->prefix, node->name);
 	yk_crender_arg_set(&subctx, "nodename", namebuf);
 
-	yk_cblock_render(&subctx, tpl->cblock);
+	yk_cblock_render_template(&subctx, tpl);
 	yk_crender_fini(&subctx);
 }
 
@@ -955,7 +945,7 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 	if (!yktyp) {
 		fprintf(stderr, "unknown type to implement\n");
 	} else {
-		yk_cblock_render(&subctx, tpl->cblock);
+		yk_cblock_render_template(&subctx, tpl);
 	}
 	yk_crender_fini(&subctx);
 }
@@ -1018,7 +1008,7 @@ void ykat_template_call(struct ykat_ctx *at_ctx, const char *name)
 		return;
 	}
 
-	yk_cblock_render(at_ctx->ctx, tpl->cblock);
+	yk_cblock_render_template(at_ctx->ctx, tpl);
 }
 
 static enum handler_res handle_lval(struct yangkheg_state *state,

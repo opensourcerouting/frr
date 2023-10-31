@@ -292,13 +292,13 @@ static void emit_line(FILE *out, struct yangkheg_token *tkn)
 	}
 }
 
-void yk_cblock_render(struct yk_crender_ctx *ctx, struct yk_cblock *cblock)
+static void yk_cblock_render_common(struct yk_crender_ctx *ctx,
+				    struct yk_cblock *cblock)
 {
 	bool needline = true;
 	bool line_at_token = false;
 	struct yk_citem *it;
 
-	fprintf(ctx->out, "\n/* begin cblock { */\n");
 	frr_each (yk_citems, cblock->items, it) {
 		if (it->type == YK_CIT_TEXT) {
 			struct yangkheg_token *first;
@@ -338,11 +338,33 @@ void yk_cblock_render(struct yk_crender_ctx *ctx, struct yk_cblock *cblock)
 		else
 			needline = true;
 	}
-	fprintf(ctx->out, "\n/* } end cblock */\n");
 
 	if (yk_condstack_count(ctx->condstack)) {
 		fprintf(stderr, "conditional unterminated\n");
 	}
+}
+
+void yk_cblock_render(struct yk_crender_ctx *ctx, struct yk_cblock *cblock)
+{
+	fprintf(ctx->out, "\n/* begin inline cblock { */\n");
+	yk_cblock_render_common(ctx, cblock);
+	fprintf(ctx->out, "\n/* } end cblock */\n");
+}
+
+void yk_cblock_render_template(struct yk_crender_ctx *ctx,
+			       struct yk_template *tpl)
+{
+	struct yk_carg *carg;
+
+	fprintfrr(ctx->out, "\n/* begin template %pSQq\n", tpl->name);
+	frr_each (yk_cargs, ctx->cargs, carg) {
+		fprintfrr(ctx->out, " * @%-20pSE = %pSQq\n", carg->name,
+			  carg->value);
+	}
+	fprintfrr(ctx->out, " */\n");
+
+	yk_cblock_render_common(ctx, tpl->cblock);
+	fprintfrr(ctx->out, "\n/* } end template %pSQq */\n", tpl->name);
 }
 
 char *yk_cblock_typename(struct yk_cblock *cblock)
