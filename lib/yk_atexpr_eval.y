@@ -123,6 +123,10 @@ start:
 		if (!ctx->ctx->suppress)
 			ykat_implement(ctx, $3);
 	}
+|
+	"template" '(' strexpr ')' {
+		ykat_template_call(ctx, $3);
+	}
 ;
 
 carg:

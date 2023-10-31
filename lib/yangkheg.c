@@ -999,6 +999,28 @@ void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath)
 	ly_set_free(set, NULL);
 }
 
+void ykat_template_call(struct ykat_ctx *at_ctx, const char *name)
+{
+	struct yk_template *tpl, ref;
+
+	ref.name = name;
+	tpl = yk_templates_find(yk_templates, &ref);
+
+	if (!tpl) {
+		struct yangkheg_token *pos;
+
+		pos = yk_ctokens_first(at_ctx->item->tokens);
+		pos = yk_ctokens_next(at_ctx->item->tokens, pos) ?: pos;
+		pos = yk_ctokens_next(at_ctx->item->tokens, pos) ?: pos;
+
+		yk_token_diag(DIAG_ERR, pos,
+			      "invoked template %pSQq not found", name);
+		return;
+	}
+
+	yk_cblock_render(at_ctx->ctx, tpl->cblock);
+}
+
 static enum handler_res handle_lval(struct yangkheg_state *state,
 				    struct yangkheg_lexer *lex,
 				    const struct yangkheg_token *tokens[],

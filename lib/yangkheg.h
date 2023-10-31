@@ -206,6 +206,7 @@ extern void yk_crender_cond_pop(struct yk_crender_ctx *ctx,
 extern void ykat_debug_show_type(struct yk_crender_ctx *ctx,
 				 struct yk_citem *item, const char *xpath);
 extern void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath);
+extern void ykat_template_call(struct ykat_ctx *at_ctx, const char *name);
 
 extern int ykat_parse(struct ykat_ctx *ctx);
 extern void ykat_mktab(void);
