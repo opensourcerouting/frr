@@ -189,6 +189,7 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 <c_code>.			return yytext[0];
 
 <INITIAL>"implements"		return YK_IMPLEMENTS;
+<INITIAL>"import"		return YK_IMPORT;
 <INITIAL>"emit"			return YK_EMIT;
 <INITIAL>"trace!"		return YK_TRACE;
 <INITIAL>"template"		return YK_TEMPLATE;

@@ -20,6 +20,7 @@ enum yangkheg_tokens {
 	YK_PATH,
 
 	YK_IMPLEMENTS,
+	YK_IMPORT,
 	YK_EMIT,
 	YK_TRACE,
 	YK_TEMPLATE,

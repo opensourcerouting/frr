@@ -51,6 +51,7 @@ static const char * const tkn_names[] = {
 	item(YK_TRACE),
 	item(YK_PATH),
 	item(YK_IMPLEMENTS),
+	item(YK_IMPORT),
 	item(YK_EMIT),
 	item(YK_TEMPLATE),
 

@@ -196,6 +196,7 @@ enum handler_res {
 };
 
 struct yangkheg_state;
+struct yangkheg_file_state;
 
 #define MAXARGS 8
 
@@ -226,14 +227,19 @@ struct yangkheg_stack {
 
 struct yangkheg_state {
 	struct yangkheg_state *parent;
-
-	struct ly_ctx *ly_ctx;
-	struct lys_module *lys_module;
-	struct yang_prefix_head pfxs[1];
+	struct yangkheg_file_state *fs;
 
 	struct yangkheg_token *open_at;
 	struct yangkheg_stack *stack, *stacktop;
 	bool in_statement;
+};
+
+struct yangkheg_file_state {
+	struct yangkheg_file_state *parent;
+
+	struct ly_ctx *ly_ctx;
+	struct lys_module *lys_module;
+	struct yang_prefix_head pfxs[1];
 };
 
 static void error_skip(struct yangkheg_lexer *lex)
@@ -268,10 +274,12 @@ static void error_skip(struct yangkheg_lexer *lex)
 DEFINE_MTYPE_STATIC(YANGKHEG, YK_STACK, "stack");
 DEFINE_MTYPE_STATIC(YANGKHEG, YK_STATE, "state");
 
-static void yangkheg_process(struct yangkheg_state *state,
+static void yangkheg_process(struct yangkheg_file_state *file_state,
 			     struct yangkheg_lexer *lex,
 			     const struct yangkheg_handler *htab)
 {
+	struct yangkheg_state file_root_state[1] = {};
+	struct yangkheg_state *state = file_root_state;
 	struct yangkheg_state *oldstate;
 	struct yangkheg_stack *stack, *stacknext;
 	struct yangkheg_token *token = NULL;
@@ -280,9 +288,11 @@ static void yangkheg_process(struct yangkheg_state *state,
 	struct yk_cblock *cblocks[MAXARGS];
 	size_t i;
 
+	yang_prefix_init(file_state->pfxs);
+	file_root_state->fs = file_state;
+
 	state->in_statement = false;
 	state->stack = state->stacktop = NULL;
-	yang_prefix_init(state->pfxs);
 
 	while ((token = yangkheg_next(lex))) {
 		enum handler_res res = H_OK;
@@ -446,6 +456,7 @@ done_up:
 
 handler_prototype(handle_path);
 handler_prototype(handle_implements);
+handler_prototype(handle_import);
 handler_prototype(handle_emit);
 handler_prototype(handle_trace);
 handler_prototype(handle_template);
@@ -464,6 +475,7 @@ handler_prototype(handle_json_output);
 static const struct yangkheg_handler h_root[] = {
 	{ { YK_PATH, },		0,		handle_path },
 	{ { YK_IMPLEMENTS, },	H_STANDALONE,	handle_implements },
+	{ { YK_IMPORT, },	H_STANDALONE,	handle_import },
 	{ { YK_EMIT, STRING, YKCC_OPEN },
 				0,		handle_emit },
 	{ { YK_TEMPLATE, STRING, YKCC_OPEN },
@@ -503,7 +515,7 @@ static struct yang_prefix *yang_prefix_find_name(struct yangkheg_state *state,
 	while (state->parent)
 		state = state->parent;
 
-	return yang_prefix_find(state->pfxs, &ref);
+	return yang_prefix_find(state->fs->pfxs, &ref);
 }
 
 static enum handler_res handle_path(struct yangkheg_state *state,
@@ -645,7 +657,7 @@ void ykat_debug_show_type(struct yk_crender_ctx *ctx, struct yk_citem *item,
 	const struct lysc_node *node = stk ? stk->lysc_node : NULL;
 	LY_ERR err;
 
-	err = lys_find_xpath(state->ly_ctx, node, xpath,
+	err = lys_find_xpath(state->fs->ly_ctx, node, xpath,
 			     0, &set);
 	if (err != LY_SUCCESS) {
 		fprintf(stderr, "xpath error\n");
@@ -957,7 +969,7 @@ void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath)
 	const struct lysc_node *node = stk ? stk->lysc_node : NULL;
 	LY_ERR err;
 
-	err = lys_find_xpath(state->ly_ctx, node, xpath, 0, &set);
+	err = lys_find_xpath(state->fs->ly_ctx, node, xpath, 0, &set);
 	if (err != LY_SUCCESS) {
 		fprintf(stderr, "xpath error\n");
 		return;
@@ -1071,7 +1083,7 @@ static enum handler_res handle_implements(struct yangkheg_state *state,
 		return H_ERROR;
 	}
 
-	if (state->lys_module) {
+	if (state->fs->lys_module) {
 		yk_token_diag(DIAG_ERR, tokens[0],
 			      "duplicate 'implements' statement");
 		return H_ERROR;
@@ -1083,14 +1095,15 @@ static enum handler_res handle_implements(struct yangkheg_state *state,
 		exit(1);
 	}
 
-	err = lys_parse_fd(state->ly_ctx, fd, LYS_IN_YANG, &state->lys_module);
+	err = lys_parse_fd(state->fs->ly_ctx, fd, LYS_IN_YANG,
+			   &state->fs->lys_module);
 	if (err) {
 		fprintf(stderr, "YANG load failed\n");
 		return 1;
 	}
 	close(fd);
 
-	const struct lys_module *m = state->lys_module;
+	const struct lys_module *m = state->fs->lys_module;
 	struct lysp_import *imp;
 	struct yang_prefix *yp;
 
@@ -1099,7 +1112,7 @@ static enum handler_res handle_implements(struct yangkheg_state *state,
 	yp->name = m->name;
 	yp->module = m;
 
-	yang_prefix_add(state->pfxs, yp);
+	yang_prefix_add(state->fs->pfxs, yp);
 
 	LY_ARRAY_FOR(m->parsed->imports, struct lysp_import, imp) {
 		yp = calloc(sizeof(*yp), 1);
@@ -1107,12 +1120,50 @@ static enum handler_res handle_implements(struct yangkheg_state *state,
 		yp->name = imp->name;
 		yp->module = imp->module;
 
-		yang_prefix_add(state->pfxs, yp);
+		yang_prefix_add(state->fs->pfxs, yp);
 	}
 
 	yk_token_diag(DIAG_TRACE, tokens[0], "implementing %pSQq rev %pSE %d",
 		      m->name, m->revision, m->implemented);
 
+	return H_OK;
+}
+
+static enum handler_res handle_import(struct yangkheg_state *state,
+				      struct yangkheg_lexer *lex,
+				      const struct yangkheg_token *tokens[],
+				      struct yk_cblock *cblocks[],
+				      size_t tokenc)
+{
+	struct yangkheg_file file[1];
+	struct yangkheg_lexer *imp_lex;
+	struct yangkheg_file_state imp_file_state = {
+		.parent = state->fs,
+		.ly_ctx = state->fs->ly_ctx,
+	};
+
+	file->filename = yangkheg_pull_str(lex, STRING);
+	file->fd = fopen(file->filename, "r");
+	if (!file->fd) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "failed to open %pSQq: %m", file->filename);
+		return H_ERROR;
+	}
+	//yangkheg_pull(lex, ';');
+
+	if (state->parent) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "'import' statement must be used at top level");
+		return H_ERROR;
+	}
+
+	yk_token_diag(DIAG_TRACE, tokens[0], "starting %pSQq", file->filename);
+
+	imp_lex = yangkheg_begin(file);
+	yangkheg_process(&imp_file_state, imp_lex, h_root);
+	yangkheg_end(imp_lex);
+
+	yk_token_diag(DIAG_TRACE, tokens[0], "finished %pSQq", file->filename);
 	return H_OK;
 }
 
@@ -1409,7 +1460,7 @@ bool f_no_line_numbers;
 int main(int argc, char **argv)
 {
 	struct yangkheg_lexer *lex;
-	struct yangkheg_state state = { };
+	struct yangkheg_file_state file_state = { };
 	LY_ERR err;
 
 	struct yangkheg_file file[1];
@@ -1468,14 +1519,14 @@ int main(int argc, char **argv)
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	uint options = LY_CTX_NO_YANGLIBRARY | LY_CTX_DISABLE_SEARCHDIR_CWD;
-	err = ly_ctx_new(yang_models_path, options, &state.ly_ctx);
+	err = ly_ctx_new(yang_models_path, options, &file_state.ly_ctx);
 	if (err) {
 		fprintf(stderr, "YANG initialization failed\n");
 		return 1;
 	}
 
 	lex = yangkheg_begin(file);
-	yangkheg_process(&state, lex, h_root);
+	yangkheg_process(&file_state, lex, h_root);
 	yangkheg_end(lex);
 
 	return 0;
