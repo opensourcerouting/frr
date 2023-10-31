@@ -1471,9 +1471,29 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 }
 
 static struct yk_yangtype builtin_types[] = {
+#define type_int_uint(len)                                                     \
+	{                                                                      \
+		.name = "uint" #len,                                           \
+		.basetype = LY_TYPE_UINT ## len,                               \
+	},                                                                     \
+	{                                                                      \
+		.name = "int" #len,                                            \
+		.basetype = LY_TYPE_INT ## len,                                \
+	}                                                                      \
+	/* end */
+
+	type_int_uint(8),
+	type_int_uint(16),
+	type_int_uint(32),
+	type_int_uint(64),
+
 	{
-		.name = "uint32",
-		.basetype = LY_TYPE_UINT32,
+		.name = "boolean",
+		.basetype = LY_TYPE_BOOL,
+	},
+	{
+		.name = "string",
+		.basetype = LY_TYPE_STRING,
 	},
 };
 
