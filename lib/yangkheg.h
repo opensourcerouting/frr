@@ -162,6 +162,8 @@ struct yk_cblock {
 	struct yangkheg_token *close_token;
 };
 
+struct yk_cmap;
+
 struct yk_crender_ctx {
 	FILE *out;
 
@@ -173,6 +175,7 @@ struct yk_crender_ctx {
 	bool suppress;
 
 	struct yk_yangtype *typ;
+	struct yk_cmap *cmap;
 };
 
 struct ykat_ctx {
@@ -226,6 +229,7 @@ extern void ykat_debug_show_type(struct yk_crender_ctx *ctx,
 				 struct yk_citem *item, const char *xpath);
 extern void ykat_implement(struct ykat_ctx *at_ctx, const char *xpath);
 extern void ykat_template_call(struct ykat_ctx *at_ctx, const char *name);
+extern void ykat_json_output(struct ykat_ctx *at_ctx);
 
 extern int ykat_parse(struct ykat_ctx *ctx);
 extern void ykat_mktab(void);

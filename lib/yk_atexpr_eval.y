@@ -135,6 +135,10 @@ start:
 	"template" '(' strexpr ')' {
 		ykat_template_call(ctx, $3);
 	}
+|
+	"json_output" '(' ')' {
+		ykat_json_output(ctx);
+	}
 ;
 
 carg:

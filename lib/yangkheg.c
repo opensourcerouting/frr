@@ -965,6 +965,11 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 		fprintf(stderr, "unknown type to implement\n");
 	} else {
 		subctx.typ = yktyp;
+		subctx.cmap = yktyp->dflt;
+
+		if (subctx.cmap)
+			yk_crender_arg_set(&subctx, "leaftype", subctx.cmap->name);
+
 		yk_cblock_render_template(&subctx, tpl);
 	}
 	yk_crender_fini(&subctx);
@@ -1029,6 +1034,21 @@ void ykat_template_call(struct ykat_ctx *at_ctx, const char *name)
 	}
 
 	yk_cblock_render_template(at_ctx->ctx, tpl);
+}
+
+void ykat_json_output(struct ykat_ctx *at_ctx)
+{
+	struct yk_cmap *cmap = at_ctx->ctx->cmap;
+
+	if (cmap)
+		yk_cblock_render(at_ctx->ctx, cmap->json_output);
+	else {
+		struct yangkheg_token *pos;
+		pos = yk_ctokens_first(at_ctx->item->tokens);
+
+		yk_token_diag(DIAG_ERR, pos,
+			      "no C type mapping available");
+	}
 }
 
 static enum handler_res handle_lval(struct yangkheg_state *state,
