@@ -817,6 +817,13 @@ static const char *ykgen_ext_val(const struct lysc_node *node,
 	return NULL;
 }
 
+static void ykat_render_setup_list(struct yk_crender_ctx *subctx,
+				   const struct lysc_node_list *node_list)
+{
+	yk_crender_arg_set(subctx, "is_container", "");
+	yk_crender_arg_set(subctx, "is_list", "true");
+}
+
 static void ykat_implement_container(struct yk_crender_ctx *ctx,
 				     const struct lysc_node *node )
 {
@@ -843,13 +850,32 @@ static void ykat_implement_container(struct yk_crender_ctx *ctx,
 	yk_crender_init(&subctx, ctx->out);
 
 	bname = ykgen_ext_val(node, "brief-name");
+	if (!bname) {
+		fprintf(stderr, "no brief-name for container with type\n");
+		return;
+	}
 	yk_crender_arg_set(&subctx, "", bname);
 
 	if (node->parent)
 		parentbname = ykgen_ext_val(node->parent, "brief-name");
 	else
 		parentbname = "root";
+	if (!parentbname) {
+		fprintf(stderr, "no brief-name for container parent\n");
+		return;
+	}
 	yk_crender_arg_set(&subctx, "parent", parentbname);
+
+	switch (node->nodetype) {
+	case LYS_CONTAINER:
+		yk_crender_arg_set(&subctx, "is_container", "true");
+		yk_crender_arg_set(&subctx, "is_list", "");
+		break;
+	case LYS_LIST:
+		ykat_render_setup_list(&subctx,
+			container_of(node, struct lysc_node_list, node));
+		break;
+	}
 
 	for (parent = node->parent; parent; parent = parent->parent) {
 		inheritbname = ykgen_ext_val(parent, "brief-name");
@@ -922,6 +948,10 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 		parentbname = ykgen_ext_val(node->parent, "brief-name");
 	else
 		parentbname = "root";
+	if (!parentbname) {
+		fprintf(stderr, "parent missing brief-name\n");
+		return;
+	}
 	yk_crender_arg_set(&subctx, "parent", parentbname);
 
 	for (parent = node->parent; parent; parent = parent->parent) {
