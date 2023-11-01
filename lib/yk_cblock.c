@@ -222,9 +222,10 @@ void yk_crender_cond_push(struct yk_crender_ctx *ctx,
 	cond->open_at = yk_token_get(tkn);
 	cond->value = value;
 	cond->any_arc_taken = value;
+	cond->suppressed = ctx->suppress;
 
 	yk_condstack_add_head(ctx->condstack, cond);
-	ctx->suppress = !cond->value;
+	ctx->suppress = !cond->value || ctx->suppress;
 }
 
 void yk_crender_cond_else(struct yk_crender_ctx *ctx,
@@ -241,7 +242,7 @@ void yk_crender_cond_else(struct yk_crender_ctx *ctx,
 	cond->value = !cond->any_arc_taken && value;
 	cond->any_arc_taken |= value;
 
-	ctx->suppress = !cond->value;
+	ctx->suppress = !cond->value || cond->suppressed;
 }
 
 void yk_crender_cond_pop(struct yk_crender_ctx *ctx,
@@ -259,7 +260,7 @@ void yk_crender_cond_pop(struct yk_crender_ctx *ctx,
 	XFREE(MTYPE_YK_CCOND, cond);
 
 	cond = yk_condstack_first(ctx->condstack);
-	if (cond && !cond->value)
+	if (cond && (!cond->value || cond->suppressed))
 		ctx->suppress = true;
 	else
 		ctx->suppress = false;

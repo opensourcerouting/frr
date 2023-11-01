@@ -132,6 +132,7 @@ struct yk_cond {
 	struct yk_condstack_item item;
 	struct yangkheg_token *open_at;
 
+	bool suppressed;
 	bool value;
 	bool any_arc_taken;
 };
