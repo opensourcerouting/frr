@@ -1,5 +1,7 @@
 #include "typesafe.h"
 
+#include "json.h"
+
 PREDECL_DLIST(yk_request_path);
 
 struct yk_request_patharg {
@@ -26,6 +28,8 @@ struct yk_request {
 
 	struct yk_request_path_head path[1];
 	struct yk_request_pathcomp *pathpos;
+
+	struct json_object *json;
 };
 
 
@@ -56,6 +60,10 @@ PREDECL_RBTREE_UNIQ(items);
 struct item {
 	struct items_item itm;
 	uint32_t id;
+
+	uint32_t opt1;
+	uint32_t opt2;
+	uint32_t opt3;
 };
 
 static inline int items_cmp(const struct item *a,

@@ -44,11 +44,12 @@ static void yk_dispatch(struct yk_request *req)
 	struct ykchild_root *rchild;
 	struct yk_request_pathcomp *prevpos;
 
+	req->json = NULL;
 	req->pathpos = yk_request_path_first(req->path);
 
 	if (!req->pathpos) {
 		zlog_debug("local dispatch at root");
-	return;
+		return;
 	}
 
 	ref.name = req->pathpos->name;
@@ -64,6 +65,11 @@ static void yk_dispatch(struct yk_request *req)
 	req->pathpos = yk_request_path_next(req->path, prevpos);
 
 	rchild->dispatch(&root_ctx, req);
+	if (req->op == YK_OP_GET) {
+		struct json_object *json = json_object_new_object();
+		json_object_object_add(json, child->name, req->json);
+		req->json = json;
+	}
 
 	req->pathpos = prevpos;
 }
@@ -80,8 +86,8 @@ void yk_register_root(struct ykchild_root *child)
 
 struct items_head items[1] = { INIT_RBTREE_UNIQ(items[0]), };
 
-static struct item item23 = { .id = 23, };
-static struct item item42 = { .id = 42, };
+static struct item item23 = { .id = 23, .opt1 = 23, .opt2 = 2323, };
+static struct item item42 = { .id = 42, .opt1 = 42, .opt2 = 4242, };
 
 int main(int argc, char **argv)
 {
@@ -102,5 +108,11 @@ int main(int argc, char **argv)
 	yk_request_path_add_tail(req.path, &pc);
 
 	yk_dispatch(&req);
+
+	const char *text = json_object_to_json_string_ext(req.json,
+		JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+	printf("%s\n", text);
+	json_object_free(req.json);
+
 	return 0;
 }
