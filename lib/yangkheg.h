@@ -175,6 +175,7 @@ struct yk_crender_ctx {
 	struct yk_condstack_head condstack[1];
 	bool suppress;
 
+	const struct lysc_node *node;
 	struct yk_yangtype *typ;
 	struct yk_cmap *cmap;
 };

@@ -835,6 +835,7 @@ static void ykat_implement_container(struct yk_crender_ctx *ctx,
 	}
 
 	struct yk_crender_ctx subctx = {
+		.node = node,
 		.state = ctx->state,
 		.stk = ctx->stk,
 	};
@@ -900,8 +901,13 @@ static void ykat_implement_leaf(struct yk_crender_ctx *ctx,
 		fprintf(stderr, "cannot find \"leaf\" template\n");
 		return;
 	}
+	if (!nodeinfo) {
+		fprintf(stderr, "leaf missing node details\n");
+		return;
+	}
 
 	struct yk_crender_ctx subctx = {
+		.node = node,
 		.state = ctx->state,
 		.stk = ctx->stk,
 	};
