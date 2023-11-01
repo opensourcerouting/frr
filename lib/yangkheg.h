@@ -31,6 +31,8 @@ enum yangkheg_tokens {
 	YK_CREATE,
 	YK_MODIFY,
 	YK_DESTROY,
+	YK_FIRST,
+	YK_NEXT,
 
 	YK_TYPE,
 	YK_CTYPE,
@@ -274,6 +276,8 @@ struct yk_nodeinfo {
 	const struct lysc_node *node;
 	struct yk_cblock *nodeval;
 	struct yk_cblock *lval;
+
+	struct yk_cblock *first, *next;
 };
 
 extern bool f_no_line_numbers;

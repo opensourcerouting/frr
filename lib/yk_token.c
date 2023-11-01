@@ -62,6 +62,8 @@ static const char * const tkn_names[] = {
 	item(YK_CREATE),
 	item(YK_MODIFY),
 	item(YK_DESTROY),
+	item(YK_FIRST),
+	item(YK_NEXT),
 
 	item(YK_TYPE),
 	item(YK_CTYPE),

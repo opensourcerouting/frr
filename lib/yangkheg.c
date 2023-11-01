@@ -463,6 +463,7 @@ handler_prototype(handle_template);
 
 handler_prototype(handle_nodeval);
 handler_prototype(handle_lval);
+handler_prototype(handle_first_next);
 
 handler_prototype(handle_type);
 handler_prototype(handle_dflt);
@@ -492,6 +493,11 @@ static const struct yangkheg_handler h_root[] = {
 				0,		NULL },
 	{ { YK_DESTROY, YKCC_OPEN },
 				0,		NULL },
+
+	{ { YK_FIRST, YKCC_OPEN },
+				0,		handle_first_next },
+	{ { YK_NEXT, YKCC_OPEN },
+				0,		handle_first_next },
 
 	{ { YK_TYPE, YK_PATH, YK_CTYPE, YKCC_OPEN },
 				0,		handle_type },
@@ -1052,6 +1058,44 @@ static enum handler_res handle_lval(struct yangkheg_state *state,
 	nodeinfo->lval = cblocks[1];
 	return H_OK;
 }
+
+static enum handler_res handle_first_next(struct yangkheg_state *state,
+					  struct yangkheg_lexer *lex,
+					  const struct yangkheg_token *tokens[],
+					  struct yk_cblock *cblocks[],
+					  size_t tokenc)
+{
+	struct yangkheg_stack *stk = state->stack;
+	struct yk_nodeinfo *nodeinfo;
+	struct yk_cblock **which;
+
+	if (!stk) {
+		yk_token_diag(DIAG_ERR, tokens[0],
+			      "no path to bind here");
+		return H_ERROR;
+	}
+
+	nodeinfo = stk->lysc_node->priv;
+	assert(nodeinfo);
+
+	switch (tokens[0]->token) {
+	case YK_FIRST:
+		which = &nodeinfo->first;
+		break;
+	case YK_NEXT:
+		which = &nodeinfo->next;
+		break;
+	}
+
+	if (*which) {
+		yk_token_diag(DIAG_ERR, tokens[0], "duplicate handler");
+		return H_OK;
+	}
+
+	*which = cblocks[1];
+	return H_OK;
+}
+
 
 static enum handler_res handle_trace(struct yangkheg_state *state,
 				     struct yangkheg_lexer *lex,

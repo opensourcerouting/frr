@@ -201,6 +201,8 @@ OPERATOR	[!%&/\[\]()=?:^|\*.,;><~'\\+-]
 <INITIAL>"create"		return YK_CREATE;
 <INITIAL>"modify"		return YK_MODIFY;
 <INITIAL>"destroy"		return YK_DESTROY;
+<INITIAL>"first"		return YK_FIRST;
+<INITIAL>"next"			return YK_NEXT;
 
 <INITIAL>"type"			return YK_TYPE;
 <INITIAL>"ctype"		return YK_CTYPE;
