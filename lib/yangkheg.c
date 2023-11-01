@@ -1261,7 +1261,7 @@ static enum handler_res handle_import(struct yangkheg_state *state,
 				      struct yk_cblock *cblocks[],
 				      size_t tokenc)
 {
-	struct yangkheg_file file[1];
+	struct yangkheg_file *file = XCALLOC(MTYPE_TMP, sizeof(*file));
 	struct yangkheg_lexer *imp_lex;
 	struct yangkheg_file_state imp_file_state = {
 		.parent = state->fs,

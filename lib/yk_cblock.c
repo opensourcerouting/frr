@@ -295,7 +295,10 @@ static void emit_line(FILE *out, struct yangkheg_token *tkn)
 	if (f_no_line_numbers)
 		return;
 
-	fprintf(out, "#line %d \"%s\"\n", tkn->line_s, tkn->file->filename);
+	fprintf(out, "\n#line %d \"%s\"\n", tkn->line_s, tkn->file->filename);
+
+	if (!tkn->file->fd)
+		return;
 
 	fgetpos(tkn->file->fd, &savepos);
 	fseek(tkn->file->fd, startpos, SEEK_SET);
@@ -365,9 +368,9 @@ static void yk_cblock_render_common(struct yk_crender_ctx *ctx,
 
 void yk_cblock_render(struct yk_crender_ctx *ctx, struct yk_cblock *cblock)
 {
-	fprintf(ctx->out, "\n/* begin inline cblock { */\n");
+	//fprintf(ctx->out, "\n/* begin inline cblock { */\n");
 	yk_cblock_render_common(ctx, cblock);
-	fprintf(ctx->out, "\n/* } end cblock */\n");
+	//fprintf(ctx->out, "\n/* } end cblock */\n");
 }
 
 void yk_cblock_render_template(struct yk_crender_ctx *ctx,
