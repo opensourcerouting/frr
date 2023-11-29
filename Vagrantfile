@@ -6,7 +6,7 @@ Vagrant.configure("2") do |config|
   config.vm.define :freebsd do |freebsd|
     freebsd.vm.box = "freebsd/FreeBSD-14.0-RELEASE"
     freebsd.vm.provision "shell", path: "./vm/freebsd/install.sh"
-    # freebsd.vm.provision "shell", path: "./vm/freebsd/topotato-install.sh"
+    freebsd.vm.provision "shell", path: "./vm/freebsd/topotato-install.sh"
   end
 
   config.vm.define :ubuntu do |ubuntu|
