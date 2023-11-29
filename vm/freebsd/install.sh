@@ -1,7 +1,7 @@
 #!/usr/local/bin/bash
 
-pkg install git autoconf automake libtool gmake json-c pkgconf \
-    bison py39-pytest c-ares py39-sphinx texinfo libunwind libyang2
+pkg install -y git autoconf automake libtool gmake json-c pkgconf \
+    bison py39-pytest c-ares py39-sphinx texinfo libunwind libyang2 protobuf-c
 
 pw groupadd frr -g 101
 pw groupadd frrvty -g 102
