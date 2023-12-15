@@ -9256,10 +9256,11 @@ DEFUN (no_ospf_redistribute_source,
 
 DEFUN (ospf_redistribute_instance_source,
        ospf_redistribute_instance_source_cmd,
-       "redistribute <ospf|table> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
+       "redistribute <ospf|table|table-direct> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - Direct\n"
        "Instance ID/Table ID\n"
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
@@ -9332,11 +9333,12 @@ DEFUN (ospf_redistribute_instance_source,
 
 DEFUN (no_ospf_redistribute_instance_source,
        no_ospf_redistribute_instance_source_cmd,
-       "no redistribute <ospf|table> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
+       "no redistribute <ospf|table|table-direct> (1-65535) [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        NO_STR
        REDIST_STR
        "Open Shortest Path First\n"
        "Non-main Kernel Routing Table\n"
+       "Non-main Kernel Routing Table - Direct\n"
        "Instance ID/Table Id\n"
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
@@ -9352,10 +9354,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 	struct ospf_redist *red;
 	int source;
 
-	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
-		source = ZEBRA_ROUTE_OSPF;
-	else
-		source = ZEBRA_ROUTE_TABLE;
+	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
