@@ -518,10 +518,47 @@ class NetworkInstance(topobase.NetworkInstance):
             self._lcov.wait()
             self._lcov = None
         return self._covdatafile
+    
+    def _check_memory_leaks(self):
+        
+        class DaemonMemoryLeak(Exception):
+            ...
+        
+        def has_memory_leak(valgrind_output):
+            lines = valgrind_output.split('\n')            
+            bytes = 0
+            for line in lines:
+                if 'definitely lost' in line:
+                    # Extract bytes for definitely lost memory
+                    parts = line.split(':')
+                    bytes = int(parts[-1].split()[0].replace(',', ''))
+                elif 'indirectly lost' in line:
+                    # Extract bytes for indirectly lost memory
+                    parts = line.split(':')
+                    bytes = int(parts[-1].split()[0].replace(',', ''))
+                elif 'possibly lost' in line:
+                    # Extract bytes for possibly lost memory
+                    parts = line.split(':')
+                    bytes = int(parts[-1].split()[0].replace(',', ''))
+            
+            return bytes > 0
+        
+        for rns in self.routers.values():
+            def check_valgrind(daemons):
+                for daemon in daemons:
+                    valgrind = rns.tempfile(daemon + ".valgrind.log")
+                    with open(valgrind, "r") as f:
+                        valgrind_output = f.read()
+                        if (has_memory_leak(valgrind_output)):
+                            raise DaemonMemoryLeak(f"Valgrind found memory leaks on {rns.name} on {daemon}: \n" + valgrind_output)
+
+            rns.end_prep()
+            check_valgrind(rns.logfiles.keys())
 
     def stop(self):
         for rns in self.routers.values():
             rns.end_prep()
+            self._check_memory_leaks()
         for rns in self.routers.values():
             rns.end()
         self.switch_ns.end()

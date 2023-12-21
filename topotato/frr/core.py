@@ -526,7 +526,6 @@ class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
     rundir: Optional[str]
     rtrcfg: Dict[str, str]
     livelogs: Dict[str, LiveLog]
-
     def __init__(
         self, instance: TopotatoNetwork, name: str, configs: _FRRConfigProtocol
     ):
@@ -614,6 +613,32 @@ class FRRRouterNS(TopotatoNetwork.RouterNS, CallableNS):
 
         execpath = os.path.join(frrpath, binmap[daemon])
         cmdline = []
+        
+        # Add valgrind 
+        
+        this_dir = os.path.dirname(
+                        os.path.abspath(os.path.realpath(__file__))
+                    )
+        
+        supp_file = os.path.abspath(
+            os.path.join(this_dir, "../../tools/valgrind.supp")
+        )
+        
+        cmdline.extend(
+            [
+                "valgrind",
+                # "--leak-check=full",
+                # "--show-leak-kinds=all",
+                "--track-origins=yes",
+                "--trace-children=yes",
+                "--num-callers=50",
+                "--gen-suppressions=all",
+                "--expensive-definedness-checks=yes",
+                "--error-exitcode=1",
+                "--suppressions=%s" % supp_file,
+                "--log-file=%s" % self.tempfile(daemon + ".valgrind.log"),
+            ]
+        )
 
         cmdline.extend(
             [
