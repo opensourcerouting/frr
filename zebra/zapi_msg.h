@@ -68,7 +68,7 @@ extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
 				    const struct prefix *p,
 				    const struct prefix *src_p,
 				    const struct route_entry *re,
-				    bool is_table_direct);
+				    vrf_id_t *to_vrf);
 
 extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,
 				  struct prefix *p, vrf_id_t vrf_id);
