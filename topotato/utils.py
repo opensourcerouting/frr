@@ -18,7 +18,7 @@ import fcntl
 import json
 import difflib
 
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from .defer import subprocess
 from .exceptions import TopotatoCLICompareFail
@@ -81,16 +81,22 @@ def get_textdiff(text1: str, text2: str, title1="", title2="", **opts) -> str:
     return diff
 
 
-class json_cmp_result:
+class JSONCompareResult:
     "json_cmp result class for better assertion messages"
 
     def __init__(self):
         self.errors = []
 
-    def add_error(self, error):
+    def add_error(self, error, d1=None, d2=None):
         "Append error message to the result"
+
+        json_diff = ""
+        if d1 is not None and d2 is not None:
+            json_diff = _json_diff(d1, d2)
+
         for line in error.splitlines():
             self.errors.append(line)
+        self.errors.append(json_diff)
 
     def has_errors(self):
         "Returns True if there were errors, otherwise False."
@@ -151,6 +157,12 @@ class JSONCompareListKeyedDict(JSONCompareDirective):
         self.keying = keying
 
 
+class JSONCompareKeyShouldNotExist(JSONCompareDirective):
+    """
+    Expect key item should not exist.
+    """
+
+
 class JSONCompareDirectiveWrongSide(TypeError):
     """
     A JSONCompareDirective was seen on the "data" side of a compare.
@@ -186,194 +198,111 @@ def _json_diff(d1, d2):
     )
 
 
-# pylint: disable=too-many-locals,too-many-branches
-def _json_list_cmp(list1, list2, parent, result):
-    "Handles list type entries."
-    if isinstance(list1, JSONCompareIgnoreContent) or isinstance(
-        list2, JSONCompareIgnoreContent
-    ):
-        return
+def _json_compare(d1: Any, d2: Any, result: JSONCompareResult, path: str = ""):
+    """
+    Recursive helper function for JSON comparison. Modifies the result object in-place
+    to append errors.
 
-    # Check second list2 type
-    if not isinstance(list1, type([])) or not isinstance(list2, type([])):
-        result.add_error(
-            "{} has different type than expected ".format(parent)
-            + "(have {}, expected {}):\n{}".format(
-                type(list1), type(list2), _json_diff(list1, list2)
-            )
+    :param d1: value from json1
+    :param d2: value from json2
+    :param result: JSONCompareResult object to append errors
+    :param path: current path in the JSON object being compared (used for error messages)
+    """
+    if isinstance(d2, JSONCompareDirective):
+        raise JSONCompareDirectiveWrongSide(
+            "JSONCompareDirective seen on the 'actual data' side of a compare."
         )
-        return
 
-    flags = [{}, {}]
-    # don't modify input list with l.pop(0) below...
-    list1 = list1[:]
-    list2 = list2[:]
-
-    for i, l in [(0, list1), (1, list2)]:
-        while l and isinstance(l[0], JSONCompareDirective):
-            item = l.pop(0)
-            flags[i][type(item)] = item
-
-    # flags should only be in list2 for the time being
-    assert not flags[0]
-
-    # Check list size
-    if len(list2) > len(list1):
-        # and JSONCompareIgnoreExtraListitems not in flags[0]:
-        result.add_error(
-            "{} too few items ".format(parent)
-            + "(have {}, expected {}:\n {})".format(
-                len(list1), len(list2), _json_diff(list1, list2)
-            )
-        )
-        return
-
-    # List all unmatched items errors
-    if JSONCompareListKeyedDict in flags[1]:
-        keys = flags[1][JSONCompareListKeyedDict].keying
-        for expected in list2:
-            assert isinstance(expected, dict)
-
-            keymatch = []
-            for value in list1:
-                if not isinstance(value, dict):
-                    continue
-                for key in keys:
-                    if key not in expected:
-                        continue
-                    if (
-                        json_cmp({"_": value.get(key)}, {"_": expected[key]})
-                        is not None
-                    ):
-                        break
-                else:
-                    keymatch.append(value)
-
-            keylabel = ",".join(["%s=%r" % (key, expected.get(key)) for key in keys])
-            if not keymatch:
-                result.add_error("no item found for %s" % (keylabel))
-            elif len(keymatch) > 1:
-                result.add_error("multiple items found for %s" % (keylabel))
-            else:
-                res = json_cmp(keymatch[0], expected)
-                if res is not None:
-                    result.add_error(
-                        "{} value for key {} is different (\n  {})".format(
-                            parent, keylabel, str(res).replace("\n", "\n  ")
-                        )
-                    )
+    if isinstance(d1, dict) and isinstance(d2, dict):
+        _compare_dict(d1, d2, result, path)
+    elif isinstance(d1, list) and isinstance(d2, list):
+        _compare_list(d1, d2, result, path)
     else:
-        # unmatched = []
-        for expected in list2:
-            best_err = None
-            for value in list1:
-                res = json_cmp({"json": value}, {"json": expected})
-                if res is None:
-                    break
-                if best_err is None or len(str(res)) < len(str(best_err)):
-                    best_err = res
-            else:
+        _compare_values(d1, d2, result, path)
+
+
+def _compare_dict(d1: dict, d2: dict, result: JSONCompareResult, path: str):
+    for k, v2 in d2.items():
+        p = f"{path}.{k}" if path else k
+        if k not in d1:
+            if isinstance(v2, JSONCompareKeyShouldNotExist):
+                continue
+            result.add_error(f"Key {p} not found in the actual data", d1, d2)
+        else:
+            v1 = d1[k]
+            if isinstance(v2, JSONCompareDirective):
+                continue
+            _json_compare(v1, v2, result, p)
+
+
+def _compare_list(d1: list, d2: list, result: JSONCompareResult, path: str):
+    if len(d1) < len(d2) and not any(
+        isinstance(x, JSONCompareIgnoreExtraListitems) for x in d2
+    ):
+        result.add_error(
+            f"Actual data has fewer elements than expected:\n ({len(d1)} < {len(d2)}) at {path}",
+            d1,
+            d2,
+        )
+    for i, v2 in enumerate(d2):
+        if i >= len(d1):
+            if not isinstance(v2, JSONCompareIgnoreExtraListitems):
                 result.add_error(
-                    "{} list value is different (\n  {})".format(
-                        parent, str(best_err).replace("\n", "\n  ")
-                    )
+                    f"Actual data has fewer elements than expected:\n ({len(d1)} < {len(d2)}) at {path}",
+                    d1,
+                    d2,
                 )
-
-        # If there are unmatched items, error out.
-        # if unmatched:
-        #    result.add_error(
-        #        '{} list value is different (\n{})'.format(
-        #            parent, _json_diff(list1, list2)))
-
-
-def json_cmp(d1, d2):
-    """
-    JSON compare function. Receives two parameters:
-    * `d1`: json value
-    * `d2`: json subset which we expect
-
-    Returns `None` when all keys that `d1` has matches `d2`,
-    otherwise a string containing what failed.
-
-    Note: key absence can be tested by adding a key with value `None`.
-    """
-    squeue = [(d1, d2, "json")]
-    result = json_cmp_result()
-
-    while squeue:
-        nd1, nd2, parent = squeue.pop(0)
-
-        # Handle JSON beginning with lists.
-        if isinstance(nd1, type([])) or isinstance(nd2, type([])):
-            _json_list_cmp(nd1, nd2, parent, result)
-            return result if result.has_errors() else None
-
-        # Expect all required fields to exist.
-        s1, s2 = set(nd1), set(nd2)
-        s2_req = {key for key in nd2 if nd2[key] is not None}
-        diff = s2_req - s1
-        if diff != set({}):
-            result.add_error(
-                "expected key(s) {} in {} (have {}):\n{}".format(
-                    str(list(diff)), parent, str(list(s1)), _json_diff(nd1, nd2)
-                )
+            break
+        v1 = d1[i]
+        p = f"{path}[{i}]"
+        if isinstance(v2, JSONCompareDirective):
+            if isinstance(v2, JSONCompareIgnoreExtraListitems):
+                break
+            if isinstance(v2, JSONCompareListKeyedDict):
+                _compare_keyed_dict(v1, v2, result, p)
+                continue
+            raise JSONCompareUnexpectedDirective(
+                f"Unexpected JSONCompareDirective in list at {path}"
             )
-
-        for key in s2.intersection(s1):
-            # Test for non existence of key in d2
-            if nd2[key] is None:
-                result.add_error(
-                    '"{}" should not exist in {} (have {}):\n{}'.format(
-                        key, parent, str(s1), _json_diff(nd1[key], nd2[key])
-                    )
-                )
-                continue
-
-            if isinstance(nd1[key], JSONCompareDirective):
-                raise JSONCompareDirectiveWrongSide(nd1[key])
-
-            if isinstance(nd2[key], JSONCompareDirective):
-                if isinstance(nd2[key], JSONCompareIgnoreContent):
-                    continue
-
-                raise JSONCompareUnexpectedDirective(nd2[key])
-
-            # If nd1 key is a dict, we have to recurse in it later.
-            if isinstance(nd2[key], type({})):
-                if not isinstance(nd1[key], type({})):
-                    result.add_error(
-                        '{}["{}"] has different type than expected '.format(parent, key)
-                        + "(have {}, expected {}):\n{}".format(
-                            type(nd1[key]),
-                            type(nd2[key]),
-                            _json_diff(nd1[key], nd2[key]),
-                        )
-                    )
-                    continue
-                nparent = '{}["{}"]'.format(parent, key)
-                squeue.append((nd1[key], nd2[key], nparent))
-                continue
-
-            # Check list items
-            if isinstance(nd2[key], type([])):
-                _json_list_cmp(nd1[key], nd2[key], parent, result)
-                continue
-
-            # Compare JSON values
-            if nd1[key] != nd2[key]:
-                result.add_error(
-                    '{}["{}"] dict value is different (\n{})'.format(
-                        parent, key, _json_diff(nd1[key], nd2[key])
-                    )
-                )
-                continue
-
-    if result.has_errors():
-        return result
-
-    return None
+        _json_compare(v1, v2, result, p)
 
 
+def _compare_keyed_dict(
+    d1: dict, d2: JSONCompareListKeyedDict, result: JSONCompareResult, path: str
+):
+    keying = d2.keying
+    keyed_d1 = {tuple(str(d1_item[k]) for k in keying): d1_item for d1_item in d1}
+    keyed_d2 = {
+        tuple(str(d2_item[k]) for k in keying): d2_item
+        for d2_item in d2
+        if all(k in d2_item for k in keying)
+    }
+    _json_compare(keyed_d1, keyed_d2, result, path)
+
+
+def _compare_values(d1: Any, d2: Any, result: JSONCompareResult, path: str):
+    if d1 != d2:
+        result.add_error(
+            f"Actual data mismatch at {path}.\nExpected: {d2}, Actual: {d1}", d1, d2
+        )
+
+
+def json_cmp(d1: Dict[str, Any], d2: Dict[str, Any]) -> Union[str, None]:
+    """
+    Compares two JSON objects, d1 and d2. Returns None if d1 matches all keys in d2,
+    otherwise returns a string containing the errors.
+
+    :param d1: json object
+    :param d2: json subset which we expect
+    :return: None if all keys that d1 has matches d2, otherwise a string containing the errors
+    """
+
+    result = JSONCompareResult()
+    _json_compare(d1, d2, result)
+    return None if not result.has_errors() else str(result)
+
+
+# pylint: disable=too-many-locals
 def text_rich_cmp(configs, rtr, out, expect, outtitle):
     lines = []
     for line in deindent(expect).split("\n"):
