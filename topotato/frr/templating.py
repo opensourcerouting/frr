@@ -33,6 +33,9 @@ _templates = {
         hostname {{ router.name }}
         service advanced-vty
         !
+        debug bgp neighbor-events
+        debug bgp zebra
+        !
         #% block main
         #% endblock
         !
