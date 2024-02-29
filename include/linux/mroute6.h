@@ -2,11 +2,9 @@
 #ifndef _UAPI__LINUX_MROUTE6_H
 #define _UAPI__LINUX_MROUTE6_H
 
-#ifdef __LINUX__
 #include <linux/const.h>
 #include <linux/types.h>
 #include <linux/sockios.h>
-#endif
 #include <netinet/in.h>		/* For struct sockaddr_in6. */
 
 /*

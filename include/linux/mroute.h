@@ -2,10 +2,8 @@
 #ifndef _UAPI__LINUX_MROUTE_H
 #define _UAPI__LINUX_MROUTE_H
 
-#ifdef __LINUX__
 #include <linux/sockios.h>
 #include <linux/types.h>
-#endif
 #include <netinet/in.h>		/* For struct in_addr. */
 
 /* Based on the MROUTING 3.5 defines primarily to keep
