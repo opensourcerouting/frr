@@ -19,7 +19,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
     perl pkgconf python3 python3-dev readline readline-dev sqlite-libs pcre2-dev
     squashfs-tools sudo tar texinfo xorriso xz-libs py-pip rtrlib rtrlib-dev
     py3-sphinx elfutils elfutils-dev protobuf-c-compiler protobuf-c-dev
-    lua5.3-dev lua5.3 gzip"
+    lua5.3-dev lua5.3 gzip protobuf protobuf-dev grpc grpc-dev grpc-cpp libgrpc"
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
@@ -48,7 +48,8 @@ build() {
 		--enable-user=$_user \
 		--enable-group=$_user \
 		--enable-pcre2posix \
-		--enable-scripting
+		--enable-scripting \
+		--enable-grpc
 	make -j $(nproc)
 }
 
