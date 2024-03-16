@@ -3916,6 +3916,99 @@ void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 }
 
+static int zserv_if_addr_cmp(const struct zserv_if_addr *a,
+			     const struct zserv_if_addr *b)
+{
+	if (a->ifp != b->ifp)
+		return numcmp(a->ifp->ifindex, b->ifp->ifindex);
+	return prefix_cmp(a->ifc->address, b->ifc->address);
+}
+
+static uint32_t zserv_if_addr_hash(const struct zserv_if_addr *a)
+{
+	uint32_t hash;
+
+	hash = prefix_hash_key(a->ifc->address);
+	hash = jhash_1word(a->ifp->ifindex, hash);
+	return hash;
+}
+
+DECLARE_HASH(zserv_if_addrs, struct zserv_if_addr, item, zserv_if_addr_cmp,
+	     zserv_if_addr_hash);
+
+void if_addr_zapi_init(struct zserv *client)
+{
+	zserv_if_addrs_init(client->if_addrs);
+}
+
+static void if_addr_zapi_remove(struct zserv *client, struct connected *ifc)
+{
+	CPP_NOTICE("STUB - IMPLEMENT ME");
+}
+
+void if_addr_zapi(struct zserv *client, struct interface *ifp, struct prefix *p,
+		  bool create)
+{
+	struct zebra_if *if_data = ifp->info;
+	struct connected *ifc;
+	struct zserv_if_addr *zia;
+
+	ifc = connected_check(ifp, p);
+	if (!create) {
+		if (!ifc)
+			return;
+		if_addr_zapi_remove(client, ifc);
+		return;
+	}
+
+	if (!ifc) {
+		ifc = connected_new();
+		ifc->ifp = ifp;
+		ifc->address = prefix_new();
+		prefix_copy(ifc->address, p);
+
+		if_connected_add_tail(ifp->connected, ifc);
+	}
+
+	zia = XCALLOC(MTYPE_ZAPI_IFADDR, sizeof(*zia));
+	zia->ifp = ifp;
+	zia->ifc = ifc;
+
+	if (zserv_if_addrs_add(client->if_addrs, zia)) {
+		zlog_warn("duplicate request for address %pFX on %s from daemon",
+			  p, ifp->name);
+		XFREE(MTYPE_ZAPI_IFADDR, zia);
+		return;
+	}
+
+	ifc->zapi_count++;
+
+	/* In case of this route need to install kernel. */
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
+	    && CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)
+	    && !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
+		enum zebra_dplane_result dplane_res;
+
+		/* Some system need to up the interface to set IP address. */
+		if (!if_is_up(ifp)) {
+			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
+			if_refresh(ifp);
+		}
+
+		dplane_res = dplane_intf_addr_set(ifp, ifc);
+		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
+			zlog_err("failed to configure %pFX on %s for daemon request",
+				 p, ifp->name);
+			return;
+		}
+
+		SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+		/* The address will be advertised to zebra clients when the
+		 * notification from the kernel has been received.
+		 */
+	}
+}
+
 /* Allocate and initialize interface vector. */
 void zebra_if_init(void)
 {
