@@ -41,7 +41,7 @@ DEFINE_MTYPE_STATIC(ACCESSD, RTADV_IF, "IPv6 RA interface");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_LLADDR, "IPv6 prefix-DAD link-local");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_PACKET, "IPv6 RA packet");
 
-static void rtadv_vrf_recv(struct thread *t);
+static void rtadv_vrf_recv(struct event *ev);
 
 static const struct in6_addr all_nodes = {
 	.s6_addr = {
@@ -159,7 +159,7 @@ static struct rtadv_vrf *rtadv_vrf_getref(struct accessd_vrf *acvrf)
 	ravrf = XCALLOC(MTYPE_RTADV_VRF, sizeof(*ravrf));
 	ravrf->refcnt = 1;
 	ravrf->sock = sock;
-	thread_add_read(master, rtadv_vrf_recv, acvrf, ravrf->sock,
+	event_add_read(master, rtadv_vrf_recv, acvrf, ravrf->sock,
 			&ravrf->t_read);
 
 	acvrf->rtadv_vrf = ravrf;
@@ -543,9 +543,9 @@ static void rtadv_rx_process(struct accessd_iface *acif,
 	}
 }
 
-static void rtadv_vrf_recv(struct thread *t)
+static void rtadv_vrf_recv(struct event *ev)
 {
-	struct accessd_vrf *acvrf = THREAD_ARG(t);
+	struct accessd_vrf *acvrf = EVENT_ARG(ev);
 	struct rtadv_vrf *ravrf = acvrf->rtadv_vrf;
 	union {
 		char buf[CMSG_SPACE(sizeof(struct in6_pktinfo)) +
@@ -562,7 +562,7 @@ static void rtadv_vrf_recv(struct thread *t)
 	ssize_t nread;
 	size_t pktlen;
 
-	thread_add_read(master, rtadv_vrf_recv, acvrf, ravrf->sock,
+	event_add_read(master, rtadv_vrf_recv, acvrf, ravrf->sock,
 			&ravrf->t_read);
 
 	iov->iov_base = rxbuf;
