@@ -106,6 +106,9 @@ static struct rtadv_vrf *rtadv_vrf_getref(struct accessd_vrf *acvrf)
 	frr_with_privs (&accessd_privs) {
 		sock = vrf_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6,
 				  acvrf->vrf->vrf_id, acvrf->vrf->name);
+		ret = setsockopt_ipv6_multicast_hops(sock, 255);
+		if (ret < 0)
+			zlog_warn("failed to set hopcount: %m");
 	}
 
 	if (sock < 0) {
@@ -425,6 +428,7 @@ static void rtadv_send_ip6(struct accessd_iface *acif,
 	if (src)
 		pktinfo->ipi6_addr = *src;
 
+	zlog_info("%s: RA send src=%pI6 len=%zd", acif->ifp->name, src, iov->iov_len);
 	ret = sendmsg(acvrf->rtadv_vrf->sock, mh, 0);
 	if (ret < 0)
 		zlog_err("%s: RA send failed: %m", acif->ifp->name);
@@ -438,6 +442,7 @@ static void rtadv_ra_send(struct accessd_iface *acif,
 	struct rtadv_iface *raif = acif->rtadv;
 	struct rtadv_prefix *ra_prefix;
 	struct zbuf *zb = zbuf_alloc(1280);
+	struct in6_addr realsrc;
 	const struct in6_addr *src = NULL;
 
 	assert(raif);
@@ -453,10 +458,24 @@ static void rtadv_ra_send(struct accessd_iface *acif,
 
 		frr_each (rtadv_ll_prefixes, ll_addr->prefixes, ra_prefix)
 			rtadv_option_prefix(acif, ra_prefix, zb);
-	} else
+	} else {
+		struct connected *connected;
+
+		memset(&realsrc, 0xff, sizeof(realsrc));
+
 		frr_each (rtadv_prefixes, raif->prefixes, ra_prefix)
 			if (!ra_prefix->ll_addr)
 				rtadv_option_prefix(acif, ra_prefix, zb);
+
+		frr_each (if_connected, acif->ifp->connected, connected) {
+			if (connected->address->family != AF_INET6)
+				continue;
+			if (IPV6_ADDR_CMP(&connected->address->u.prefix6, &realsrc) < 0)
+				realsrc = connected->address->u.prefix6;
+		}
+
+		src = &realsrc;
+	}
 
 	if (!ethdst)
 		rtadv_send_ip6(acif, src, dst, zb);
