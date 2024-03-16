@@ -62,7 +62,7 @@ static int accessd_if_addr_del(ZAPI_CALLBACK_ARGS)
 static int if_addr_do(uint16_t cmd, struct interface *ifp,
 		      union prefixconstptr pu)
 {
-	struct stream *s = accessd_zclient->obuf;
+	struct stream *s = zclient->obuf;
 	
 	stream_reset(s);
 	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
@@ -73,7 +73,7 @@ static int if_addr_do(uint16_t cmd, struct interface *ifp,
 	stream_put(s, &pu.p->u.prefix, prefix_blen(pu.p));
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	return zclient_send_message(accessd_zclient);
+	return zclient_send_message(zclient);
 }
 
 int if_addr_install(struct interface *ifp, union prefixconstptr pu)
@@ -101,8 +101,8 @@ void accessd_zebra_init(void)
 {
 	struct zclient_options opt = { };
 
-	accessd_zclient = zclient_new(master, &opt, accessd_handlers,
+	zclient = zclient_new(master, &opt, accessd_handlers,
 			      array_size(accessd_handlers));
-	zclient_init(accessd_zclient, ZEBRA_ROUTE_ACCESSD, 0, &accessd_privs);
-	accessd_zclient->zebra_connected = accessd_zebra_connected;
+	zclient_init(zclient, ZEBRA_ROUTE_ACCESSD, 0, &accessd_privs);
+	zclient->zebra_connected = accessd_zebra_connected;
 }
