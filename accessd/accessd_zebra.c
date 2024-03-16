@@ -27,12 +27,10 @@
 #include "network.h"
 #include "prefix.h"
 #include "stream.h"
-#include "thread.h"
+#include "frrevent.h"
 #include "zclient.h"
 
 struct zclient *zclient = NULL;
-
-extern struct thread_master *master;
 
 extern struct zebra_privs_t accessd_privs;
 

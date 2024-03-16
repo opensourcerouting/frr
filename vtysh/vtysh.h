@@ -152,6 +152,6 @@ struct vtysh_client {
 	uint32_t lost_msgs;
 };
 
-extern struct vtysh_client vtysh_client[22];
+extern struct vtysh_client vtysh_client[23];
 
 #endif /* VTYSH_H */

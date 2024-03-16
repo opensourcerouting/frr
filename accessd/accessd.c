@@ -19,13 +19,12 @@
 #include "lib/zebra.h"
 
 #include "lib/filter.h"
-#include "lib/getopt.h"
 #include "lib/libfrr.h"
 #include "lib/log.h"
 #include "lib/memory.h"
 #include "lib/privs.h"
 #include "lib/routemap.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vrf.h"
 
 #include "lib/version.h"
@@ -54,7 +53,7 @@ struct zebra_privs_t accessd_privs = {
 
 static struct option longopts[] = {{0}};
 
-struct thread_master *master;
+struct event_loop *master;
 
 static void sighup(void)
 {

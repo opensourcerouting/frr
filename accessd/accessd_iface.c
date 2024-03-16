@@ -28,7 +28,7 @@
 #include "lib/network.h"
 #include "lib/prefix.h"
 #include "lib/sockopt.h"
-#include "lib/thread.h"
+#include "lib/frrevent.h"
 #include "lib/vrf.h"
 
 DEFINE_MTYPE_STATIC(ACCESSD, ACCESSD_IF, "accessd interface information");
@@ -50,28 +50,6 @@ static int accessd_if_del_hook(struct interface *ifp)
 	return 0;
 }
 
-/* ZAPI callbacks */
-
-static int accessd_ifp_create(struct interface *ifp)
-{
-	return 0;
-}
-
-static int accessd_ifp_destroy(struct interface *ifp)
-{
-	return 0;
-}
-
-static int accessd_ifp_up(struct interface *ifp)
-{
-	return 0;
-}
-
-static int accessd_ifp_down(struct interface *ifp)
-{
-	return 0;
-}
-
 static int accessd_if_config_write(struct vty *vty)
 {
 	return 0;
@@ -83,7 +61,4 @@ void accessd_if_init(void)
 	hook_register_prio(if_del, 0, accessd_if_del_hook);
 
 	if_cmd_init(accessd_if_config_write);
-
-	if_zapi_callbacks(accessd_ifp_create, accessd_ifp_up,
-			  accessd_ifp_down, accessd_ifp_destroy);
 }

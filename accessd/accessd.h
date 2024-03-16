@@ -24,9 +24,9 @@
 
 DECLARE_MGROUP(ACCESSD);
 
-struct thread_master;
+struct event_loop;
 
-extern struct thread_master *master;
+extern struct event_loop *master;
 extern struct zebra_privs_t accessd_privs;
 
 extern void accessd_zebra_init(void);
