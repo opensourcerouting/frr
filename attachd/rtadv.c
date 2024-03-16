@@ -468,6 +468,7 @@ static void rtadv_send_ip6(struct attachd_iface *acif,
 	if (src)
 		pktinfo->ipi6_addr = *src;
 
+	//zlog_info("%s: RA send src=%pI6 len=%zd", acif->ifp->name, src, iov->iov_len);
 	ret = sendmsg(acvrf->rtadv_vrf->sock, mh, 0);
 	if (ret < 0)
 		zlog_err("%s: RA send failed: %m", acif->ifp->name);
@@ -566,8 +567,8 @@ static void rtadv_ifp_timer(struct event *ev)
 	event_add_timer_msec(master, rtadv_ifp_timer, acif,
 			      rtadv->cfg.interval_msec, &rtadv->t_periodic);
 
-	zlog_info("rtadv interface timer for %s, next %pTHD",
-		  acif->ifp->name, rtadv->t_periodic);
+	//zlog_info("rtadv interface timer for %s, next %pTHD",
+	//	  acif->ifp->name, rtadv->t_periodic);
 
 	rtadv_ra_send(acif, NULL, &all_nodes, NULL);
 
