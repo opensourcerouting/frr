@@ -21,6 +21,7 @@
 
 #include "lib/frrevent.h"
 #include "nhrpd/zbuf.h"
+#include "accessd_iface.h"
 
 enum dhcp6_client_state {
 	DHCP6_CS_DISABLED = 0,

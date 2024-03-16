@@ -49,19 +49,25 @@ static void dhcp6r_if_setup_rcv(struct dhcp6r_iface *drif);
 
 static int dhcp6r_if_new_hook(struct interface *ifp)
 {
+	struct accessd_iface *acif = ifp->info;
 	struct dhcp6r_iface *drif;
+
+	assert(acif);
 
 	drif = XCALLOC(MTYPE_DHCP6R_IF, sizeof(*drif));
 	drif->ifp = ifp;
 	drif->sock = -1;
 
-	ifp->info = drif;
+	acif->dhcp6r = drif;
 	return 0;
 }
 
 static int dhcp6r_if_del_hook(struct interface *ifp)
 {
-	XFREE(MTYPE_DHCP6R_IF, ifp->info);
+	struct accessd_iface *acif = ifp->info;
+
+	assert(acif);
+	XFREE(MTYPE_DHCP6R_IF, acif->dhcp6r);
 	return 0;
 }
 
@@ -602,7 +608,9 @@ static void dhcp6_ra_self_solicit(struct dhcp6r_iface *drif)
 
 static void dhcp6_ra_self_if_refresh(struct interface *ifp, bool forcewarn)
 {
-	struct dhcp6r_iface *drif = ifp->info;
+	struct accessd_iface *acif = ifp->info;
+	assert(acif);
+	struct dhcp6r_iface *drif = acif->dhcp6r;
 
 	if (!drif->ra_self_enabled) {
 		return;
@@ -619,7 +627,9 @@ static void dhcp6_ra_self_if_refresh(struct interface *ifp, bool forcewarn)
 
 void dhcp6r_if_refresh(struct interface *ifp, bool forcewarn)
 {
-	struct dhcp6r_iface *drif = ifp->info;
+	struct accessd_iface *acif = ifp->info;
+	assert(acif);
+	struct dhcp6r_iface *drif = acif->dhcp6r;
 	struct connected *linklocal = NULL;
 	struct connected *best_global = NULL;
 	struct connected *connected;
@@ -696,7 +706,9 @@ DEFPY (dhcp6r_relay,
        "Enable relaying requests from clients\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct dhcp6r_iface *drif = ifp->info;
+	struct accessd_iface *acif = ifp->info;
+	assert(acif);
+	struct dhcp6r_iface *drif = acif->dhcp6r;
 
 	drif->relay_enabled = !no;
 	dhcp6r_if_refresh(ifp, true);
@@ -715,7 +727,9 @@ DEFPY (dhcp6r_relay_ugroup,
        "Server group name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct dhcp6r_iface *drif = ifp->info;
+	struct accessd_iface *acif = ifp->info;
+	assert(acif);
+	struct dhcp6r_iface *drif = acif->dhcp6r;
 
 	XFREE(MTYPE_TMP, drif->ugroup_name);
 
@@ -736,7 +750,9 @@ DEFPY (dhcp6_ra_self,
        "Request /64 prefix delegation for assignment to interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct dhcp6r_iface *drif = ifp->info;
+	struct accessd_iface *acif = ifp->info;
+	assert(acif);
+	struct dhcp6r_iface *drif = acif->dhcp6r;
 
 	drif->ra_self_duid.type = DUIDT_EN;
 
@@ -779,14 +795,16 @@ DEFPY (dhcp6r_show_iface,
 	return CMD_SUCCESS;
 }
 
-static int dhcp6r_if_config_write(struct vty *vty)
+int dhcp6r_if_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	int ctr = 0;
 
 	FOR_ALL_INTERFACES(vrf, ifp) {
-		struct dhcp6r_iface *drif = ifp->info;
+		struct accessd_iface *acif = ifp->info;
+		assert(acif);
+		struct dhcp6r_iface *drif = acif->dhcp6r;
 
 		vty_frame(vty, "interface %s\n",ifp->name);
 
@@ -807,10 +825,8 @@ static int dhcp6r_if_config_write(struct vty *vty)
 
 void dhcp6r_if_init(void)
 {
-	hook_register_prio(if_add, 0, dhcp6r_if_new_hook);
-	hook_register_prio(if_del, 0, dhcp6r_if_del_hook);
-
-	if_cmd_init(dhcp6r_if_config_write);
+	hook_register_prio(if_add, 100, dhcp6r_if_new_hook);
+	hook_register_prio(if_del, 100, dhcp6r_if_del_hook);
 
 	install_element(VIEW_NODE, &dhcp6r_show_iface_cmd);
 
