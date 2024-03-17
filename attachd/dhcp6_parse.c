@@ -136,6 +136,9 @@ uint8_t dhcp6_parse_msg(struct zbuf *zb, struct dh6p_optspec *opts,
 		err = "truncated header";
 		goto out;
 	}
+	FMT_NSTD_BEGIN;
+	zlog_info("parse_msg: %.*pHX", (int)(zb->end - zb->buf), zb->buf);
+	FMT_NSTD_END;
 	msg_type = *(uint8_t *)zb->head;
 
 	switch (msg_type) {
