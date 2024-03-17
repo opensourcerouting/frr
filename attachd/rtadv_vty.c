@@ -269,6 +269,7 @@ DEFPY (ipv6_nd_prefix_ac,
        "   <router-address|no-router-address>$rta"
        "  |<off-link|on-link>$offlink"
        "  |<no-autoconfig|autoconfig>$auton"
+       "  |<prefer-pd|no-prefer-pd>$prefer_pd"
        "  |<dad-lladdr|no-dad-lladdr>$makell"
        " }]",
        NO_STR
@@ -286,6 +287,8 @@ DEFPY (ipv6_nd_prefix_ac,
        "Use prefix for onlink determination\n"
        "Do not use prefix for autoconfiguration\n"
        "Use prefix for autoconfiguration\n"
+       "Indicate DHCPv6-PD preferred\n"
+       "Do not indicate DHCPv6-PD preferred\n"
        "Create link-local address on router for prefix DAD\n"
        "Do not create link-local address on router for prefix DAD\n")
 {
@@ -334,6 +337,8 @@ DEFPY (ipv6_nd_prefix_ac,
 		ra_prefix->cfg.onlink = !strcmp(offlink, "on-link");
 	if (auton)
 		ra_prefix->cfg.autonomous = !strcmp(auton, "autoconfig");
+	if (prefer_pd)
+		ra_prefix->cfg.prefer_pd = !strcmp(prefer_pd, "prefer-pd");
 	if (makell)
 		ra_prefix->cfg.make_addr = !strcmp(makell, "dad-lladdr");
 
