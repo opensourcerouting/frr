@@ -470,6 +470,8 @@ static void rtadv_ra_send(struct accessd_iface *acif,
 		frr_each (if_connected, acif->ifp->connected, connected) {
 			if (connected->address->family != AF_INET6)
 				continue;
+			if (!IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
+				continue;
 			if (IPV6_ADDR_CMP(&connected->address->u.prefix6, &realsrc) < 0)
 				realsrc = connected->address->u.prefix6;
 		}
