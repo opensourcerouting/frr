@@ -80,6 +80,7 @@ struct dhcp6_upstream {
 
 	struct sockaddr_in6 addr;
 	vrf_id_t vrf;
+	char ifname[IFNAMSIZ];
 
 	/* state */
 

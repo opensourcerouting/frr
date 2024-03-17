@@ -58,8 +58,14 @@ DECLARE_RBTREE_UNIQ(dhcp6_ugroups, struct dhcp6_ugroup, item, dhcp6_ugroup_cmp);
 static int dhcp6_upstream_cmp(const struct dhcp6_upstream *a,
 			      const struct dhcp6_upstream *b)
 {
-	return sockunion_cmp((const union sockunion *)&a->addr,
+	int i;
+
+	i = sockunion_cmp((const union sockunion *)&a->addr,
 			     (const union sockunion *)&b->addr);
+	if (i)
+		return i;
+
+	return strcmp(a->ifname, b->ifname);
 }
 
 DECLARE_RBTREE_UNIQ(dhcp6_upstreams, struct dhcp6_upstream, item,
@@ -190,7 +196,8 @@ static void dhcp6_us_rcv(struct event *ev)
 		return;
 	}
 
-	struct dhcp6r_iface *drif = ifp_out->info;
+	struct accessd_iface *acif = ifp_out->info;
+	struct dhcp6r_iface *drif = acif->dhcp6r;
 	struct sockaddr_in6 sin6 = { .sin6_family = AF_INET6 };
 
 	struct zbuf tmp = *relay_msg->zb;
@@ -410,6 +417,8 @@ void dhcp6_ugroup_relay(const char *upstream_name, struct dhcp6r_iface *drif,
 
 static void dhcp6_ust_start(struct dhcp6_upstream *us)
 {
+	ifindex_t ifi = 0;
+
 	if (us->sock != -1)
 		close(us->sock);
 	event_cancel(&us->t_rcv);
@@ -418,6 +427,14 @@ static void dhcp6_ust_start(struct dhcp6_upstream *us)
 	if (us->sock < 0) {
 		zlog_err("socket(): %m");
 		return;
+	}
+
+	if (us->ifname[0]) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_name(us->ifname, VRF_DEFAULT);
+		if (ifp)
+			ifi = us->addr.sin6_scope_id = ifp->ifindex;
 	}
 
 	set_nonblocking(us->sock);
@@ -431,6 +448,8 @@ static void dhcp6_ust_start(struct dhcp6_upstream *us)
 	int rv;
 
 	sin6.sin6_port = htons(547); //htons(546);
+	if (ifi)
+		sin6.sin6_scope_id = ifi;
 
 	frr_with_privs (&accessd_privs) {
 		setsockopt_ipv6_tclass(us->sock, IPTOS_PREC_INTERNETCONTROL);
@@ -446,13 +465,19 @@ static void dhcp6_ust_start(struct dhcp6_upstream *us)
 		return;
 	}
 
-	rv = connect(us->sock, (struct sockaddr *)&us->addr, sizeof(us->addr));
-	if (rv && errno != EINPROGRESS) {
-		zlog_err("connect(): %m");
+	if (!IN6_IS_ADDR_MULTICAST(&us->addr.sin6_addr)) {
+		zlog_info("connecting to unicast address %pI6", &us->addr.sin6_addr);
+		rv = connect(us->sock, (struct sockaddr *)&us->addr,
+			     sizeof(us->addr));
+		if (rv && errno != EINPROGRESS) {
+			zlog_err("connect(): %m");
 
-		close(us->sock);
-		us->sock = -1;
-		return;
+			close(us->sock);
+			us->sock = -1;
+			return;
+		}
+	} else {
+		zlog_info("not connecting to multicast address %pI6", &us->addr.sin6_addr);
 	}
 
 	us->state = rv ? DHCP6_USST_CONNECTING : DHCP6_USST_OPERATIONAL;
@@ -700,17 +725,29 @@ DEFPY (dhcp6_server_group,
 
 DEFPY (dhcp6_sg_server,
        dhcp6_sg_server_cmd,
-       "[no] server X:X::X:X",
+       "[no] server X:X::X:X [interface IFNAME]",
        NO_STR
        "Add a server\n"
-       "Server address\n")
+       "Server address\n"
+       INTERFACE_STR
+       INTERFACE_STR
+       )
 {
 	VTY_DECLVAR_CONTEXT(dhcp6_ugroup, ug);
 
 	struct dhcp6_ust_member *umemb;
 
+	if (!ifname)
+		ifname = "";
+	else if (!IN6_IS_ADDR_LINKLOCAL(&server) &&
+		 !IN6_IS_ADDR_MULTICAST(&server)) {
+		vty_out(vty, "%% interface option can only be used with link-local or multicast addresses\n");
+		return CMD_WARNING;
+	}
+
 	frr_each(dhcp6_ust_member, ug->members, umemb) {
-		if (IPV6_ADDR_SAME(&server, &umemb->us->addr.sin6_addr))
+		if (IPV6_ADDR_SAME(&server, &umemb->us->addr.sin6_addr) &&
+		    !strcmp(ifname, umemb->us->ifname))
 			break;
 	}
 
@@ -720,6 +757,7 @@ DEFPY (dhcp6_sg_server,
 		ref.addr.sin6_family = AF_INET6;
 		ref.addr.sin6_port = htons(547);
 		ref.addr.sin6_addr = server;
+		strncpy(ref.ifname, ifname, sizeof(ref.ifname));
 
 		us = dhcp6_upstreams_find(upstreams, &ref);
 		if (!us) {
@@ -729,6 +767,7 @@ DEFPY (dhcp6_sg_server,
 			us->addr.sin6_family = AF_INET6;
 			us->addr.sin6_port = htons(547);
 			us->addr.sin6_addr = server;
+			strncpy(us->ifname, ifname, sizeof(us->ifname));
 			dhcp6_ust_groups_init(us->groups);
 
 			dhcp6_upstreams_add(upstreams, us);

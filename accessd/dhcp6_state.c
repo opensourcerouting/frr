@@ -295,6 +295,14 @@ void dhcp6_bnd_update(struct dhcp6_binding *bnd)
 	frr_each (persist_targets, tgts, target)
 		if (target->ops->dhcp6_update)
 			target->ops->dhcp6_update(target, bnd);
+
+	struct dhcp6_pdprefix *pdp;
+
+	frr_each_safe (dhcp6_pds, bnd->pds, pdp) {
+		if (!pdp->in_zebra)
+			dhcp6r_zebra_ipv6_add(bnd, pdp);
+	}
+
 }
 
 void dhcp6_bnd_expire(struct dhcp6_binding *bnd)

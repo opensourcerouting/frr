@@ -1,17 +1,24 @@
 #include <zebra.h>
 
 #include <lmdb.h>
+#include <sys/stat.h>
 
 #include "printfrr.h"
 #include "hook.h"
 #include "libfrr.h"
 #include "command.h"
 #include "lib/version.h"
+#include "vrf.h"
 
-static struct thread_master *master;
+#include "persist.h"
+#include "dhcp6_state.h"
+
+static struct event_loop *master;
 MDB_env *dbenv;
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%iLME" (int)
+#endif
 
 printfrr_ext_autoreg_i("LME", printfrr_lmdb_err);
 static ssize_t printfrr_lmdb_err(struct fbuf *fbuf, struct printfrr_eargs *ea,
@@ -24,6 +31,52 @@ static ssize_t printfrr_lmdb_err(struct fbuf *fbuf, struct printfrr_eargs *ea,
 #ifndef VTYSH_EXTRACT_PL
 #include "lmdb_clippy.c"
 #endif
+
+static struct dhcp6_binding *lmdb_id_first(struct persist_target *tgt)
+{
+	return NULL;
+}
+//	struct dhcp6_binding *(*dhcp6_id_next)(struct persist_target *tgt,
+//					       struct dhcp6_binding *prev);
+
+static struct dhcp6_binding *lmdb_expy_first(struct persist_target *tgt)
+{
+	return NULL;
+}
+
+//static struct dhcp6_binding *dhcp6_expy_next)(struct persist_target *tgt,
+//						 struct dhcp6_binding *prev);
+
+static bool lmdb_fill(struct persist_target *tgt,
+			   struct dhcp6_binding *bnd)
+{
+	bnd->invalid = false;
+	return NULL;
+}
+
+	/* write ops */
+static void lmdb_update(struct persist_target *tgt,
+			     struct dhcp6_binding *bnd)
+{
+}
+
+static void lmdb_expire(struct persist_target *tgt,
+			     struct dhcp6_binding *bnd)
+{
+}
+
+static const struct persist_ops lmdb_ops = {
+	.name = "LMDB",
+	.dhcp6_id_first = lmdb_id_first,
+	.dhcp6_expy_first = lmdb_expy_first,
+	.dhcp6_fill = lmdb_fill,
+	.dhcp6_update = lmdb_update,
+	.dhcp6_expire = lmdb_expire,
+};
+
+static struct persist_target lmdb_tgt = {
+	.ops = &lmdb_ops,
+};
 
 DEFPY (lmdb_setup,
        lmdb_setup_cmd,
@@ -67,10 +120,11 @@ DEFPY (lmdb_setup,
 		return CMD_WARNING;
 	}
 
+	ps_backend_add(vrf_lookup_by_id(VRF_DEFAULT), &lmdb_tgt);
 	return CMD_SUCCESS;
 }
 
-static int accessd_lmdb_init(struct thread_master *tm)
+static int accessd_lmdb_init(struct event_loop *tm)
 {
 	master = tm;
 	zlog_info("LMDB init");
