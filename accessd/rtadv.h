@@ -79,6 +79,7 @@ struct rtadv_prefix_cfg {
 	bool onlink : 1;
 	bool autonomous : 1;
 	bool router_addr : 1;
+	bool prefer_pd : 1;
 
 	bool make_addr : 1;
 };

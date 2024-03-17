@@ -371,6 +371,8 @@ static void rtadv_option_prefix(struct accessd_iface *acif,
 		ndopt_pi->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
 	if (ra_prefix->cfg.router_addr)
 		ndopt_pi->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
+	if (ra_prefix->cfg.prefer_pd)
+		ndopt_pi->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_PREFERPD;
 
 	ndopt_pi->nd_opt_pi_valid_time = htonl(ra_prefix->cfg.valid_sec);
 	ndopt_pi->nd_opt_pi_preferred_time =
