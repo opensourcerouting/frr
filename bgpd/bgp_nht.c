@@ -1026,7 +1026,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	const struct prefix *p_orig = bgp_dest_get_prefix(net);
 	struct in_addr ipv4;
 
-	if (p_orig->family == AF_FLOWSPEC) {
+	if (unlikely(p_orig->family == AF_FLOWSPEC)) {
 		if (!pi->peer)
 			return -1;
 		return bgp_flowspec_get_first_nh(pi->peer->bgp,

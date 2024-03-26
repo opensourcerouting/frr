@@ -192,17 +192,17 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 	const uint8_t *np, *pp;
 
 	/* If n's prefix is longer than p's one return 0. */
-	if (n->prefixlen > p->prefixlen)
+	if (unlikely(n->prefixlen > p->prefixlen))
 		return 0;
 
-	if (n->family == AF_FLOWSPEC) {
+	if (unlikely(n->family == AF_FLOWSPEC)) {
 		/* prefixlen is unused. look at fs prefix len */
-		if (n->u.prefix_flowspec.family !=
-		    p->u.prefix_flowspec.family)
+		if (unlikely(n->u.prefix_flowspec.family !=
+			     p->u.prefix_flowspec.family))
 			return 0;
 
-		if (n->u.prefix_flowspec.prefixlen >
-		    p->u.prefix_flowspec.prefixlen)
+		if (unlikely(n->u.prefix_flowspec.prefixlen >
+			     p->u.prefix_flowspec.prefixlen))
 			return 0;
 
 		/* Set both prefix's head pointer. */
@@ -212,7 +212,7 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 		offset = n->u.prefix_flowspec.prefixlen;
 
 		while (offset--)
-			if (np[offset] != pp[offset])
+			if (unlikely(np[offset] != pp[offset]))
 				return 0;
 		return 1;
 	}
@@ -225,11 +225,11 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 	shift = n->prefixlen % PNBBY;
 
 	if (shift)
-		if (maskbit[shift] & (np[offset] ^ pp[offset]))
+		if (unlikely(maskbit[shift] & (np[offset] ^ pp[offset])))
 			return 0;
 
 	while (offset--)
-		if (np[offset] != pp[offset])
+		if (unlikely(np[offset] != pp[offset]))
 			return 0;
 	return 1;
 
@@ -248,7 +248,7 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 	const uint8_t *np, *pp;
 	struct prefix_evpn *evp;
 
-	if (n->family != AF_EVPN)
+	if (unlikely(n->family != AF_EVPN))
 		return 0;
 
 	evp = (struct prefix_evpn *)n;
@@ -264,18 +264,18 @@ int evpn_type5_prefix_match(const struct prefix *n, const struct prefix *p)
 	np = evp->prefix.prefix_addr.ip.ip.addrbytes;
 
 	/* If n's prefix is longer than p's one return 0. */
-	if (prefixlen > p->prefixlen)
+	if (unlikely(prefixlen > p->prefixlen))
 		return 0;
 
 	offset = prefixlen / PNBBY;
 	shift = prefixlen % PNBBY;
 
 	if (shift)
-		if (maskbit[shift] & (np[offset] ^ pp[offset]))
+		if (unlikely(maskbit[shift] & (np[offset] ^ pp[offset])))
 			return 0;
 
 	while (offset--)
-		if (np[offset] != pp[offset])
+		if (unlikely(np[offset] != pp[offset]))
 			return 0;
 	return 1;
 
@@ -299,11 +299,11 @@ int prefix_match_network_statement(union prefixconstptr unet,
 	shift = n->prefixlen % PNBBY;
 
 	if (shift)
-		if (maskbit[shift] & (np[offset] ^ pp[offset]))
+		if (unlikely(maskbit[shift] & (np[offset] ^ pp[offset])))
 			return 0;
 
 	while (offset--)
-		if (np[offset] != pp[offset])
+		if (unlikely(np[offset] != pp[offset]))
 			return 0;
 	return 1;
 }
@@ -403,10 +403,10 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 	const struct prefix *p1 = up1.p;
 	const struct prefix *p2 = up2.p;
 
-	if ((p1 && !p2) || (!p1 && p2))
+	if (unlikely((p1 && !p2) || (!p1 && p2)))
 		return 0;
 
-	if (!p1 && !p2)
+	if (unlikely(!p1 && !p2))
 		return 1;
 
 	if (p1->family == p2->family && p1->prefixlen == p2->prefixlen) {
@@ -424,7 +424,7 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 		if (p1->family == AF_EVPN)
 			if (evpn_addr_same(&p1->u.prefix_evpn, &p2->u.prefix_evpn))
 				return 1;
-		if (p1->family == AF_FLOWSPEC) {
+		if (unlikely(p1->family == AF_FLOWSPEC)) {
 			if (p1->u.prefix_flowspec.family !=
 			    p2->u.prefix_flowspec.family)
 				return 0;
@@ -465,22 +465,22 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 
 	if (p1->family != p2->family)
 		return numcmp(p1->family, p2->family);
-	if (p1->family == AF_FLOWSPEC) {
+	if (unlikely(p1->family == AF_FLOWSPEC)) {
 		pp1 = (const uint8_t *)p1->u.prefix_flowspec.ptr;
 		pp2 = (const uint8_t *)p2->u.prefix_flowspec.ptr;
 
-		if (p1->u.prefix_flowspec.family !=
-		    p2->u.prefix_flowspec.family)
+		if (unlikely(p1->u.prefix_flowspec.family !=
+			     p2->u.prefix_flowspec.family))
 			return 1;
 
-		if (p1->u.prefix_flowspec.prefixlen !=
-		    p2->u.prefix_flowspec.prefixlen)
+		if (unlikely(p1->u.prefix_flowspec.prefixlen !=
+			     p2->u.prefix_flowspec.prefixlen))
 			return numcmp(p1->u.prefix_flowspec.prefixlen,
 				      p2->u.prefix_flowspec.prefixlen);
 
 		offset = p1->u.prefix_flowspec.prefixlen;
 		while (offset--)
-			if (pp1[offset] != pp2[offset])
+			if (unlikely(pp1[offset] != pp2[offset]))
 				return numcmp(pp1[offset], pp2[offset]);
 		return 0;
 	}
@@ -1323,7 +1323,7 @@ unsigned prefix_hash_key(const void *pp)
 {
 	struct prefix copy;
 
-	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
+	if (unlikely(((struct prefix *)pp)->family == AF_FLOWSPEC)) {
 		uint32_t len;
 		void *temp;
 
