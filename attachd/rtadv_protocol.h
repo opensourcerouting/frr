@@ -43,7 +43,7 @@
 #define ND_OPT_PI_FLAG_RADDR         0x20
 #endif
 #ifndef ND_OPT_PI_FLAG_PREFERPD
-#define ND_OPT_PI_FLAG_PREFERPD      0x10
+#define ND_OPT_PI_FLAG_PREFERPD      0x18
 #endif
 
 #ifndef ND_OPT_ADV_INTERVAL
