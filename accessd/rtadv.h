@@ -24,6 +24,7 @@
 #define _ACCESSD_RTADV_H
 
 #include "lib/prefix.h"
+#include "lib/typesafe.h"
 
 struct event;
 struct accessd_iface;
@@ -45,6 +46,24 @@ enum {
 	RTADV_MTU_AUTO = 1,
 };
 
+PREDECL_RBTREE_UNIQ(rtadv_rdnss);
+
+struct rtadv_rdnss {
+	struct rtadv_rdnss_item itm;
+
+	/* Address of recursive DNS server to advertise */
+	struct in6_addr addr;
+
+	/*
+	 * Lifetime in seconds; all-ones means infinity, zero
+	 * stop using it.
+	 */
+	uint32_t lifetime;
+
+	/* If lifetime not set, use a default of 3*MaxRtrAdvInterval */
+	int lifetime_set;
+};
+
 struct rtadv_iface_cfg {
 	bool enable : 1;
 
@@ -59,6 +78,8 @@ struct rtadv_iface_cfg {
 	uint32_t retrans_ms;
 	uint8_t hoplimit;
 	uint32_t link_mtu;
+
+	struct rtadv_rdnss_head rdnss[1];
 };
 
 extern struct rtadv_iface_cfg rtadv_ifp_defaults;
@@ -111,5 +132,8 @@ extern void rtadv_lladdr_delref(struct accessd_iface *acif,
 				struct rtadv_prefix *ra_prefix);
 
 extern void rtadv_cli_init(void);
+
+struct rtadv_rdnss *rtadv_rdnss_get(struct rtadv_iface *ra_if,
+				    struct in6_addr addr);
 
 #endif /* _ACCESSD_RTADV_H */

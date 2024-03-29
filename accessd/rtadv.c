@@ -40,6 +40,7 @@ DEFINE_MTYPE_STATIC(ACCESSD, RTADV_VRF, "IPv6 RA VRF state");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_IF, "IPv6 RA interface");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_LLADDR, "IPv6 prefix-DAD link-local");
 DEFINE_MTYPE_STATIC(ACCESSD, RTADV_PACKET, "IPv6 RA packet");
+DEFINE_MTYPE_STATIC(ACCESSD, RTADV_RDNSS, "Router Advertisement RDNSS");
 
 static void rtadv_vrf_recv(struct event *ev);
 
@@ -81,6 +82,42 @@ DECLARE_HASH(rtadv_lladdrs, struct rtadv_lladdr, item, rtadv_lladdr_cmp,
 	     rtadv_lladdr_hash);
 
 DECLARE_DLIST(rtadv_ll_prefixes, struct rtadv_prefix, llitem);
+
+static int rtadv_rdnss_cmp(const struct rtadv_rdnss *a,
+			   const struct rtadv_rdnss *b)
+{
+	return IPV6_ADDR_CMP(&a->addr, &b->addr);
+}
+
+DECLARE_RBTREE_UNIQ(rtadv_rdnss, struct rtadv_rdnss, itm, rtadv_rdnss_cmp);
+
+static struct rtadv_rdnss *rtadv_rdnss_new(void)
+{
+	return XCALLOC(MTYPE_RTADV_RDNSS, sizeof(struct rtadv_rdnss));
+}
+
+/*
+static void rtadv_rdnss_free(struct rtadv_rdnss *rdnss)
+{
+	XFREE(MTYPE_RTADV_RDNSS, rdnss);
+}
+*/
+
+struct rtadv_rdnss *rtadv_rdnss_get(struct rtadv_iface *ra_if,
+					   struct in6_addr addr)
+{
+	struct rtadv_rdnss ref = { .addr = addr };
+	struct rtadv_rdnss *res;
+
+	res = rtadv_rdnss_find(ra_if->cfg.rdnss, &ref);
+	if (!res) {
+		res = rtadv_rdnss_new();
+		res->addr = addr;
+		rtadv_rdnss_add(ra_if->cfg.rdnss, res);
+	}
+
+	return res;
+}
 
 static inline struct accessd_vrf *accessd_if_to_vrf(struct accessd_iface *acif)
 {
@@ -238,6 +275,7 @@ struct rtadv_iface *rtadv_ifp_get(struct accessd_iface *acif)
 	acif->rtadv->cfg = rtadv_ifp_defaults;
 	rtadv_prefixes_init(acif->rtadv->prefixes);
 	rtadv_lladdrs_init(acif->rtadv->lladdrs);
+	rtadv_rdnss_init(acif->rtadv->cfg.rdnss);
 	return acif->rtadv;
 }
 
@@ -455,6 +493,40 @@ static void rtadv_ra_send(struct accessd_iface *acif,
 	rtadv_option_lladdr(acif, zb);
 	rtadv_option_mtu(acif, zb);
 
+	/* Recursive DNS servers */
+	struct rtadv_rdnss *rdnss;
+
+	frr_each (rtadv_rdnss, raif->cfg.rdnss, rdnss) {
+		size_t opt_len =
+			sizeof(struct nd_opt_rdnss) + sizeof(struct in6_addr);
+		struct nd_opt_rdnss *ndopt_rdnss;
+		struct in6_addr *addr;
+
+#if 0
+		if (len + opt_len > max_len) {
+			zlog_warn(
+				"%s(%s:%u): Tx RA: RDNSS option would exceed MTU, omitting it",
+				ifp->name, ifp->vrf->name, ifp->ifindex);
+			goto no_more_opts;
+		}
+		struct nd_opt_rdnss *opt = (struct nd_opt_rdnss *)(buf + len);
+#endif
+		ndopt_rdnss = zbuf_push(zb, struct nd_opt_rdnss);
+		assert(ndopt_rdnss);
+
+		ndopt_rdnss->nd_opt_rdnss_type = ND_OPT_RDNSS;
+		ndopt_rdnss->nd_opt_rdnss_len = opt_len / 8;
+		ndopt_rdnss->nd_opt_rdnss_reserved = 0;
+		ndopt_rdnss->nd_opt_rdnss_lifetime = htonl(3600);
+/*			rdnss->lifetime_set
+				? rdnss->lifetime
+				: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval)); */
+
+		addr = zbuf_push(zb, struct in6_addr);
+		*addr = rdnss->addr;
+	}
+
+
 	if (ll_addr) {
 		src = &ll_addr->ll_addr;
 
@@ -524,7 +596,15 @@ static void rtadv_handle_solicit(struct accessd_iface *acif,
 				 const struct in6_addr *pkt_dst,
 				 void *data, size_t pktlen)
 {
+	struct rtadv_iface *rtadv = acif->rtadv;
+	struct rtadv_lladdr *ll_addr;
+
 	zlog_info(log_pkt_src("RS received"));
+
+	rtadv_ra_send(acif, NULL, &pkt_src->sin6_addr, NULL);
+
+	frr_each (rtadv_lladdrs, rtadv->lladdrs, ll_addr)
+		rtadv_ra_send(acif, ll_addr, &pkt_src->sin6_addr, NULL);
 }
 
 static void rtadv_rx_process(struct accessd_iface *acif,

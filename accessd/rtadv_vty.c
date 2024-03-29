@@ -434,6 +434,24 @@ DEFPY (ipv6_nd_suppress_ra,
 	rtadv_ifp_reconfig(ifp);
 	return CMD_SUCCESS;
 }
+DEFPY_YANG (ipv6_nd_rdnss,
+	ipv6_nd_rdnss_cmd,
+	"[no] ipv6 nd rdnss X:X::X:X$addr [<(0-4294967295)|infinite>]$lifetime",
+	NO_STR
+	"Interface IPv6 config commands\n"
+	"Neighbor discovery\n"
+	"Recursive DNS server information\n"
+	"IPv6 address\n"
+	"Valid lifetime in seconds\n"
+	"Infinite valid lifetime\n")
+{
+	VTY_RTADV_CONTEXT(ifp, rtadv_if);
+	struct rtadv_rdnss *rdnss;
+
+	rdnss = rtadv_rdnss_get(rtadv_if, addr);
+	rdnss->lifetime_set = 0;
+	return CMD_SUCCESS;
+}
 
 void rtadv_cli_init(void)
 {
@@ -448,7 +466,7 @@ void rtadv_cli_init(void)
 			&ipv6_nd_adv_interval_config_option_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_prefix_ac_cmd);
 	//install_element(INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
-	//install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	//install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
 }
