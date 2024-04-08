@@ -164,8 +164,9 @@ struct attr {
 	/* Path origin attribute */
 	uint8_t origin;
 
-	/* ES info */
-	uint8_t es_flags;
+	/* MP Nexthop length */
+	uint8_t mp_nexthop_len;
+
 	/* Path is not "locally-active" on the advertising VTEP. This is
 	 * translated into an ARP-ND ECOM.
 	 */
@@ -200,29 +201,23 @@ struct attr {
 	/* NA router flag (R-bit) support in EVPN */
 	uint8_t router_flag;
 
-	/* Distance as applied by Route map */
-	uint8_t distance;
+	/* ifIndex corresponding to mp_nexthop_local. */
+	ifindex_t nh_lla_ifindex;
 
-	/* EVPN DF preference for DF election on local ESs */
-	uint8_t df_alg;
-	uint16_t df_pref;
+	/* Route Reflector Originator attribute */
+	struct in_addr originator_id;
 
-	/* PMSI tunnel type (RFC 6514). */
-	enum pta_type pmsi_tnl_type;
-
-	/* has the route-map changed any attribute?
-	   Used on the peer outbound side. */
-	uint32_t rmap_change_flags;
+	struct in_addr mp_nexthop_global_in;
 
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
 	struct in6_addr mp_nexthop_local;
 
-	/* ifIndex corresponding to mp_nexthop_local. */
-	ifindex_t nh_lla_ifindex;
+	/* Aggregator Router ID attribute */
+	struct in_addr aggregator_addr;
 
-	/* MPLS label */
-	mpls_label_t label;
+	/* Aggregator ASN */
+	as_t aggregator_as;
 
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
@@ -239,22 +234,28 @@ struct attr {
 	/* Unknown transitive attribute. */
 	struct transit *transit;
 
-	struct in_addr mp_nexthop_global_in;
+	/* has the route-map changed any attribute?
+	   Used on the peer outbound side. */
+	uint32_t rmap_change_flags;
 
-	/* Aggregator Router ID attribute */
-	struct in_addr aggregator_addr;
+	/* Distance as applied by Route map */
+	uint8_t distance;
 
-	/* Route Reflector Originator attribute */
-	struct in_addr originator_id;
+	/* EVPN DF preference for DF election on local ESs */
+	uint8_t df_alg;
+	uint16_t df_pref;
+
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
 
 	/* Local weight, not actually an attribute */
 	uint32_t weight;
 
-	/* Aggregator ASN */
-	as_t aggregator_as;
+	/* MPLS label */
+	mpls_label_t label;
 
-	/* MP Nexthop length */
-	uint8_t mp_nexthop_len;
+	/* ES info */
+	uint8_t es_flags;
 
 	/* Static MAC for EVPN */
 	uint8_t sticky;
