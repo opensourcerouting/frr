@@ -251,8 +251,8 @@ static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 }
 
 /*
- * Encode BGP Link Bandwidth ipv6 extended community
- * bandwidth (bw) is in bytes-per-sec
+ * Encode BGP Link Bandwidth IPv6 Extended Community,
+ * bandwidth is in bytes per second.
  */
 static inline void encode_lb_ipv6_extcomm(as_t as, uint64_t bandwidth,
 					  struct ecommunity_val_ipv6 *eval)
@@ -260,8 +260,6 @@ static inline void encode_lb_ipv6_extcomm(as_t as, uint64_t bandwidth,
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS4;
 	eval->val[1] = ECOMMUNITY_IPV6_LINK_BANDWIDTH;
-	eval->val[2] = 0; /* Reserved */
-	eval->val[3] = 0; /* Reserved */
 	eval->val[4] = (bandwidth >> 56) & 0xff;
 	eval->val[5] = (bandwidth >> 48) & 0xff;
 	eval->val[6] = (bandwidth >> 40) & 0xff;

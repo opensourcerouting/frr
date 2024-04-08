@@ -1052,6 +1052,37 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	return len;
 }
 
+static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
+{
+	int len = 0;
+	as_t as;
+	uint64_t bw;
+	char bps_buf[20] = { 0 };
+
+#define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
+#define ONE_MBPS_BYTES (1000 * 1000 / 8)
+#define ONE_KBPS_BYTES (1000 / 8)
+
+	pnt += 2; /* Reserved */
+	pnt = ptr_get_be64(pnt, &bw);
+	(void)ptr_get_be32(pnt, &as);
+
+	if (bw >= ONE_GBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
+			 (float)(bw / ONE_GBPS_BYTES));
+	else if (bw >= ONE_MBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
+			 (float)(bw / ONE_MBPS_BYTES));
+	else if (bw >= ONE_KBPS_BYTES)
+		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
+			 (float)(bw / ONE_KBPS_BYTES));
+	else
+		snprintf(bps_buf, sizeof(bps_buf), "%llu bps", bw * 8);
+
+	len = snprintf(buf, bufsz, "LB:%u:%llu (%s)", as, bw, bps_buf);
+	return len;
+}
+
 bool ecommunity_has_route_target(struct ecommunity *ecom)
 {
 	uint32_t i;
@@ -1152,6 +1183,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					ecommunity_lb_str(
 						encbuf, sizeof(encbuf), pnt,
 						ecom->disable_ieee_floating);
+				} else if (sub_type ==
+						   ECOMMUNITY_IPV6_LINK_BANDWIDTH &&
+					   type == ECOMMUNITY_ENCODE_AS4) {
+					ipv6_ecommunity_lb_str(encbuf,
+							       sizeof(encbuf),
+							       pnt);
 				} else if (sub_type == ECOMMUNITY_NODE_TARGET &&
 					   type == ECOMMUNITY_ENCODE_IP) {
 					ecommunity_node_target_str(
@@ -1912,7 +1949,6 @@ const uint8_t *ipv6_ecommunity_linkbw_present(struct ecommunity *ecom,
 		if (type == ECOMMUNITY_ENCODE_AS4 &&
 		    sub_type == ECOMMUNITY_IPV6_LINK_BANDWIDTH) {
 			pnt = ptr_get_be64(pnt, &bwval);
-			pnt += 8;  /* bandwidth is encoded as val:AS4 */
 			(void)pnt; /* consume value */
 			if (bw)
 				*bw = bwval;

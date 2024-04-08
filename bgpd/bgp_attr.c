@@ -916,10 +916,11 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		attr->flag, attr->distance, attr->med, attr->local_pref,
 		attr->origin, attr->weight, attr->label, sid, attr->aigp_metric);
 	vty_out(vty,
-		"\taspath: %s Community: %s Extended Community: %s Large Community: %s\n",
+		"\taspath: %s Community: %s Extended Community: %s Extended IPv6 Community: %s Large Community: %s\n",
 		aspath_print(attr->aspath),
 		community_str(attr->community, false, false),
 		ecommunity_str(attr->ecommunity),
+		ecommunity_str(attr->ipv6_ecommunity),
 		lcommunity_str(attr->lcommunity, false, false));
 }
 
@@ -2626,7 +2627,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		(bgp_encap_types *)&attr->encap_tunneltype);
 
 	/* Extract link bandwidth, if any. */
-	(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr),
+	(void)ipv6_ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr),
 					&attr->link_bw);
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -4729,6 +4730,36 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 					stream_put(s, pnt, 8);
 				}
 			}
+		}
+	}
+
+	/* Extended IPv6 Communities attribute. */
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)
+	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES))) {
+		struct ecommunity *ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+		bool transparent = CHECK_FLAG(peer->af_flags[afi][safi],
+					      PEER_FLAG_RSERVER_CLIENT) &&
+				   from &&
+				   CHECK_FLAG(from->af_flags[afi][safi],
+					      PEER_FLAG_RSERVER_CLIENT);
+
+		if (peer->sort == BGP_PEER_IBGP ||
+		    peer->sort == BGP_PEER_CONFED || transparent) {
+			if (ecomm->size * IPV6_ECOMMUNITY_SIZE > 255) {
+				stream_putc(s,
+					    BGP_ATTR_FLAG_OPTIONAL
+						    | BGP_ATTR_FLAG_TRANS
+						    | BGP_ATTR_FLAG_EXTLEN);
+				stream_putc(s, BGP_ATTR_IPV6_EXT_COMMUNITIES);
+				stream_putw(s, ecomm->size * IPV6_ECOMMUNITY_SIZE);
+			} else {
+				stream_putc(s,
+					    BGP_ATTR_FLAG_OPTIONAL
+						    | BGP_ATTR_FLAG_TRANS);
+				stream_putc(s, BGP_ATTR_IPV6_EXT_COMMUNITIES);
+				stream_putc(s, ecomm->size * IPV6_ECOMMUNITY_SIZE);
+			}
+			stream_put(s, ecomm->val, ecomm->size * IPV6_ECOMMUNITY_SIZE);
 		}
 	}
 
