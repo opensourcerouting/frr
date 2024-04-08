@@ -1883,6 +1883,79 @@ struct ecommunity *ecommunity_replace_linkbw(as_t as, struct ecommunity *ecom,
 	return new;
 }
 
+/*
+ * return the BGP link bandwidth ipv6 extended community, if present;
+ * the actual bandwidth is returned via param
+ */
+const uint8_t *ipv6_ecommunity_linkbw_present(struct ecommunity *ecom,
+					      uint64_t *bw)
+{
+	const uint8_t *eval;
+	uint32_t i;
+
+	if (bw)
+		*bw = 0;
+
+	if (!ecom || !ecom->size)
+		return NULL;
+
+	for (i = 0; i < ecom->size; i++) {
+		const uint8_t *pnt;
+		uint8_t type, sub_type;
+		uint64_t bwval;
+
+		eval = pnt = (ecom->val + (i * IPV6_ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+		pnt += 2; /* Reserved */
+
+		if (type == ECOMMUNITY_ENCODE_AS4 &&
+		    sub_type == ECOMMUNITY_IPV6_LINK_BANDWIDTH) {
+			pnt = ptr_get_be64(pnt, &bwval);
+			pnt += 8;  /* bandwidth is encoded as val:AS4 */
+			(void)pnt; /* consume value */
+			if (bw)
+				*bw = bwval;
+			return eval;
+		}
+	}
+
+	return NULL;
+}
+
+
+struct ecommunity *ipv6_ecommunity_replace_linkbw(as_t as,
+						  struct ecommunity *ecom,
+						  uint64_t cum_bw)
+{
+	struct ecommunity *new;
+	struct ecommunity_val_ipv6 lb_eval;
+	const uint8_t *eval;
+	uint8_t type;
+	uint64_t cur_bw;
+
+	/* Nothing to replace if link-bandwidth doesn't exist or
+	 * is non-transitive - just return existing extcommunity.
+	 */
+	new = ecom;
+	if (!ecom || !ecom->size)
+		return new;
+
+	eval = ipv6_ecommunity_linkbw_present(ecom, &cur_bw);
+	if (!eval)
+		return new;
+
+	type = *eval;
+	if (type & ECOMMUNITY_FLAG_NON_TRANSITIVE)
+		return new;
+
+	encode_lb_ipv6_extcomm(as, cum_bw, &lb_eval);
+	new = ecommunity_dup(ecom);
+	ecommunity_add_val_ipv6(new, &lb_eval, true, true);
+
+	return new;
+}
+
 bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo)
 {
 	if (ecom && soo) {

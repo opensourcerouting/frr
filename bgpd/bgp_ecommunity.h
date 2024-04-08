@@ -56,6 +56,10 @@
  * 0x0b Flow-spec Redirect to IPv6
  */
 #define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV6   0x0b
+/* https://datatracker.ietf.org/doc/html/draft-li-idr-link-bandwidth-ext-01
+ * Sub-type is not allocated by IANA, but let's get the first available.
+ */
+#define ECOMMUNITY_IPV6_LINK_BANDWIDTH 0x0016
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
@@ -246,6 +250,32 @@ static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 	eval->val[7] = bandwidth & 0xff;
 }
 
+/*
+ * Encode BGP Link Bandwidth ipv6 extended community
+ * bandwidth (bw) is in bytes-per-sec
+ */
+static inline void encode_lb_ipv6_extcomm(as_t as, uint64_t bandwidth,
+					  struct ecommunity_val_ipv6 *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_AS4;
+	eval->val[1] = ECOMMUNITY_IPV6_LINK_BANDWIDTH;
+	eval->val[2] = 0; /* Reserved */
+	eval->val[3] = 0; /* Reserved */
+	eval->val[4] = (bandwidth >> 56) & 0xff;
+	eval->val[5] = (bandwidth >> 48) & 0xff;
+	eval->val[6] = (bandwidth >> 40) & 0xff;
+	eval->val[7] = (bandwidth >> 32) & 0xff;
+	eval->val[8] = (bandwidth >> 24) & 0xff;
+	eval->val[9] = (bandwidth >> 16) & 0xff;
+	eval->val[10] = (bandwidth >> 8) & 0xff;
+	eval->val[11] = bandwidth & 0xff;
+	eval->val[12] = (as >> 24) & 0xff;
+	eval->val[13] = (as >> 16) & 0xff;
+	eval->val[14] = (as >> 8) & 0xff;
+	eval->val[15] = as & 0xff;
+}
+
 static inline void encode_origin_validation_state(enum rpki_states state,
 						  struct ecommunity_val *eval)
 {
@@ -387,10 +417,15 @@ extern void bgp_remove_ecomm_from_aggregate_hash(
 extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
 						uint64_t *bw);
+extern const uint8_t *ipv6_ecommunity_linkbw_present(struct ecommunity *ecom,
+						     uint64_t *bw);
 extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
 						    struct ecommunity *ecom,
 						    uint64_t cum_bw,
 						    bool disable_ieee_floating);
+extern struct ecommunity *ipv6_ecommunity_replace_linkbw(as_t as,
+							 struct ecommunity *ecom,
+							 uint64_t cum_bw);
 
 extern bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo);
 
