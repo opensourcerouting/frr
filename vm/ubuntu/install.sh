@@ -8,7 +8,10 @@ sudo apt-get install \
    python3-pytest python3-scapy python3-exabgp \
    install-info build-essential libsnmp-dev perl linux-modules-extra-`uname -r` \
    libcap-dev python2 libelf-dev libunwind-dev cmake libpcre2-dev \
-   protobuf-c-compiler libprotobuf-c-dev libzmq5 libzmq3-dev -y
+   protobuf-c-compiler libprotobuf-c-dev libzmq5 libzmq3-dev libc6-i386 libc6-dbg -y
+
+# install valgrind after installing the dependencies
+sudo apt install valgrind -y
 
 cd /tmp
 git clone https://github.com/CESNET/libyang.git
