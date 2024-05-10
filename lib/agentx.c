@@ -208,10 +208,10 @@ static int config_write_agentx(struct vty *vty)
 	return 1;
 }
 
-DEFUN (agentx_enable,
-       agentx_enable_cmd,
-       "agentx",
-       "SNMP AgentX protocol settings\n")
+DEFUN_NOSH (agentx_enable,
+	    agentx_enable_cmd,
+	    "agentx",
+	    "SNMP AgentX protocol settings\n")
 {
 	if (!agentx_enabled) {
 		init_snmp(FRR_SMUX_NAME);

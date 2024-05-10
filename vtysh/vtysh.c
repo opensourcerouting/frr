@@ -2867,6 +2867,57 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_quit_pseudowire, vtysh_quit_pseudowire_cmd, "quit",
 	return vtysh_exit_pseudowire(self, vty, argc, argv);
 }
 
+DEFUN(vtysh_agentx,
+      vtysh_agentx_cmd,
+      "agentx",
+      "SNMP AgentX protocol settings\n")
+{
+	struct per_daemon_state {
+		bool ok;
+		bool fail;
+	} daemons[array_size(vtysh_client)] = {};
+	unsigned int i, sum_ok = 0, sum_fail = 0;
+	int ret;
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		if (!CHECK_FLAG(vtysh_client[i].flag, VTYSH_SNMP))
+			continue;
+		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
+			ret = vtysh_client_execute(&vtysh_client[i], "agentx");
+			switch (ret) {
+			case CMD_SUCCESS:
+				daemons[i].ok = true;
+				sum_ok++;
+				break;
+			default:
+				daemons[i].fail = true;
+				sum_fail++;
+				break;
+			}
+		}
+	}
+
+	if (sum_ok) {
+		vty_out(vty, "AgentX enabled on:");
+		for (i = 0; i < array_size(vtysh_client); i++)
+			if (daemons[i].ok)
+				vty_out(vty, " %s", vtysh_client[i].name);
+		vty_out(vty, "\n");
+	}
+	if (sum_fail) {
+		vty_out(vty, "AgentX module not loaded:");
+		for (i = 0; i < array_size(vtysh_client); i++)
+			if (daemons[i].fail)
+				vty_out(vty, " %s", vtysh_client[i].name);
+		vty_out(vty, "\n");
+	}
+
+	/* OK if either some daemons succeeded, or none of the daemons has
+	 * SNMP support (e.g. running "vtysh -d daemon")
+	 */
+	return (sum_ok || !sum_fail) ? CMD_SUCCESS : CMD_WARNING;
+}
+
 static char *do_prepend(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const char *argstr[argc + 1];
@@ -5176,6 +5227,7 @@ void vtysh_init_vty(void)
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
 
+	install_element(CONFIG_NODE, &vtysh_agentx_cmd);
 
 	struct cmd_node *node;
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {

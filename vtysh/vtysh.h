@@ -87,6 +87,9 @@ extern struct event_loop *master;
 #define VTYSH_MGMT_BACKEND                                                     \
 	VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_STATICD | VTYSH_ZEBRA
 #define VTYSH_MGMT_FRONTEND VTYSH_MGMTD
+#define VTYSH_SNMP                                                             \
+	VTYSH_ISISD | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_BGPD |   \
+	VTYSH_ZEBRA
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,
