@@ -116,7 +116,7 @@ def test_vrf_route_leak_donna():
                 "nexthops": [
                     {
                         "fib": True,
-                        "interfaceName": "dummy0",
+                        "interfaceName": "lo",
                         "vrf": "default",
                         "active": True,
                     },
