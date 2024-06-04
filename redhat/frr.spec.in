@@ -312,6 +312,7 @@ routing state through standard SNMP MIBs.
 %package grpc
 Summary: GRPC support for FRR daemons
 Group: System Environment/Daemons
+License: GPLv3+
 Requires: %{name} = %{version}-%{release}
 
 %description grpc
