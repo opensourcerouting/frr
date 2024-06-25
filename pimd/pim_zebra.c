@@ -449,7 +449,11 @@ void pim_zebra_init(void)
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->nexthop_update = pim_nexthop_update;
 
+#if PIM_IPV == 6
+	zclient_init(zclient, ZEBRA_ROUTE_PIM6, 0, &pimd_privs);
+#else
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
+#endif
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_notice("%s: zclient socket initialized", __func__);
 	}
