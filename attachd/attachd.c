@@ -14,6 +14,7 @@
 #include "lib/version.h"
 
 #include "attachd.h"
+#include "attachd_iface.h"
 
 DEFINE_MGROUP(ATTACHD, "attachd");
 DEFINE_MGROUP(NHRPD, "buffer management");
@@ -24,6 +25,7 @@ static void attachd_fini(void);
 static zebra_capabilities_t _caps_p[] = {
 	ZCAP_BIND,
 	ZCAP_NET_RAW,
+	ZCAP_NET_ADMIN,
 };
 
 struct zebra_privs_t attachd_privs = {
@@ -142,6 +144,8 @@ int main(int argc, char **argv, char **envp)
 	dhcp6r_zebra_init();
 	dhcp6r_if_init();
 	dhcp6_upstream_init();
+
+	arp_snoop_init();
 
 	frr_config_fork();
 	frr_run(master);

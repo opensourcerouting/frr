@@ -12,7 +12,7 @@ vtysh_daemons += attachd
 man8 += $(MANBUILD)/frr-attachd.8
 endif
 
-attachd_attachd_LDADD = lib/libfrr.la $(LIBCAP)
+attachd_attachd_LDADD = lib/libfrr.la $(LIBCAP) -lmnl
 attachd_attachd_SOURCES = \
 	attachd/attachd.c \
 	attachd/attachd_iface.c \
@@ -30,6 +30,8 @@ attachd_attachd_SOURCES = \
 	attachd/rtadv.c \
 	attachd/rtadv_vty.c \
 	\
+	attachd/arp.c \
+	\
 	nhrpd/zbuf.c \
 	# end
 
@@ -44,6 +46,7 @@ noinst_HEADERS += \
 	# end
 
 clippy_scan += \
+	attachd/arp.c \
 	attachd/dhcp6_iface.c \
 	attachd/dhcp6_upstream.c \
 	attachd/lmdb.c \
