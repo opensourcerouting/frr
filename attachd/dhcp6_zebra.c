@@ -100,6 +100,51 @@ void dhcp6r_zebra_ipv6_del(struct dhcp6_binding *bnd,
 	dhcp6r_zebra_ipv6_send(bnd, pdp, ZEBRA_ROUTE_DELETE);
 }
 
+static void dhcp6r_zebra_ipv4_send(struct dhcp6r_iface *drif,
+				   struct in_addr client,
+				   struct in6_addr ll, uint8_t cmd)
+{
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
+
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_DHCP6R;
+	api.safi = SAFI_UNICAST;
+	api.prefix.family = AF_INET;
+	api.prefix.prefixlen = 32;
+	api.prefix.u.prefix4 = client;
+
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	api_nh = &api.nexthops[0];
+	api_nh->vrf_id = VRF_DEFAULT;
+	api_nh->gate.ipv6 = ll;
+	api_nh->ifindex = drif->ifp->ifindex;
+	api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+
+	api.nexthop_num = 1;
+
+/*
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	api.metric = rinfo->metric;
+
+	if (rinfo->tag) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
+		api.tag = rinfo->tag;
+	}
+*/
+	zlog_info("sending cmd %d, %pFX, %pI6 to zebra", cmd, &api.prefix,
+		  &api_nh->gate.ipv6);
+	zclient_route_send(cmd, attachd_zclient, &api);
+}
+
+
+void dhcp6r_zebra_ipv4_add(struct dhcp6r_iface *drif, struct in_addr client,
+			   struct in6_addr ll)
+{
+	dhcp6r_zebra_ipv4_send(drif, client, ll, ZEBRA_ROUTE_ADD);
+}
+
 void dhcp6r_zebra_init(void)
 {
 	hook_register(attachd_if_addr_add, dhcp6r_if_addr_add);

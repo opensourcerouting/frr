@@ -27,4 +27,8 @@ extern void dhcp6r_zebra_ipv6_add(struct dhcp6_binding *bnd,
 extern void dhcp6r_zebra_ipv6_del(struct dhcp6_binding *bnd,
 				  struct dhcp6_pdprefix *pdp);
 
+struct dhcp6r_iface;
+extern void dhcp6r_zebra_ipv4_add(struct dhcp6r_iface *drif,
+				  struct in_addr client, struct in6_addr ll);
+
 #endif /* _FRR_DHCP6_ZEBRA_H */

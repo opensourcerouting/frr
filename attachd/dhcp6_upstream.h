@@ -109,6 +109,8 @@ extern void dhcp6_ugroup_relay(const char *upstream, struct dhcp6r_iface *ifp,
 
 extern void dhcp6r_snoop(struct dhcp6r_iface *drif, struct sockaddr_in6 *host,
 			 struct zbuf *zb);
+extern void dhcp6r_snoop4(struct dhcp6r_iface *drif, struct sockaddr_in6 *host,
+			  struct zbuf *zb);
 
 extern void dhcp6_ra_self_rcv(struct dhcp6r_iface *drif, struct zbuf *zb);
 

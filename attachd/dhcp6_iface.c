@@ -384,6 +384,47 @@ void dhcp6r_snoop(struct dhcp6r_iface *drif, struct sockaddr_in6 *host,
 		dhcp6r_snoop_ia_pd(drif, host, &client_id, ia_opt);
 }
 
+void dhcp6r_snoop4(struct dhcp6r_iface *drif, struct sockaddr_in6 *host,
+		   struct zbuf *zb)
+{
+	struct dh6p_option dhcpv4_opt[1];
+	struct dh6p_option buf[128];
+	struct dh6p_optspec opts[] = {
+		[DH6OPT_DHCPV4_MSG] = { .single = dhcpv4_opt, },
+	};
+	const char *perr;
+	struct in_addr your_addr = {};
+
+	if (!dhcp6_parse_msg(zb, opts, array_size(opts), buf, array_size(buf),
+			     &perr, NULL, NULL)) {
+		zlog_warn("%s: %pSU: ipv4 snoop parse failed: %s", drif->ifp->name,
+			  host, perr);
+		return;
+	}
+
+	zlog_info("%s: %pSU: snoop on DHCPv4 reply", drif->ifp->name, host);
+
+	uint8_t bootp_type = zbuf_get8(dhcpv4_opt->zb);
+	if (bootp_type != 2) {
+		zlog_info("%s: %pSU: not a BOOTP reply, ignoring", drif->ifp->name, host);
+		return;
+	}
+
+	zbuf_get8(dhcpv4_opt->zb); /* hw type */
+	zbuf_get8(dhcpv4_opt->zb); /* hw len */
+
+	zbuf_pulln(dhcpv4_opt->zb, 13);
+	zbuf_get(dhcpv4_opt->zb, &your_addr, 4);
+	zbuf_pulln(dhcpv4_opt->zb, 24);
+
+	/* options ... */
+
+	zlog_info("%s: %pSU: BOOTP, your-address %pI4", drif->ifp->name, host, &your_addr);
+
+	if (your_addr.s_addr != INADDR_ANY)
+		dhcp6r_zebra_ipv4_add(drif, your_addr, host->sin6_addr);
+}
+
 static inline bool in6_uc_routable(const struct in6_addr *addr)
 {
 	uint32_t beginning = ntohl(addr->s6_addr32[0]);

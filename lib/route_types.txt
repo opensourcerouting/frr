@@ -89,7 +89,7 @@ ZEBRA_ROUTE_NHG,        zebra,     none,   '-', 0, 0, 0,     "Nexthop Group", no
 ZEBRA_ROUTE_SRTE,       srte,      none,   '-', 0, 0, 0,     "SR-TE",         none
 ZEBRA_ROUTE_TABLE_DIRECT,      table-direct,     zebra,  't', 1, 1, 0,     "Table-Direct",         zebra
 ZEBRA_ROUTE_ATTACHD,    attachd,   attachd,'-', 0, 0, 0,     "attachd",       attachd
-ZEBRA_ROUTE_DHCP6R,     dhcp6r,    attachd,'D', 0, 1, 1,     "DHCPv6",        attachd
+ZEBRA_ROUTE_DHCP6R,     dhcp6r,    attachd,'D', 1, 1, 1,     "DHCPv6",        attachd
 ZEBRA_ROUTE_ALL,        any,       none,   '-', 0, 0, 0,     "-",             none
 
 

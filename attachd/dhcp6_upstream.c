@@ -217,6 +217,8 @@ static void dhcp6_us_rcv(struct event *ev)
 
 	if (inner_type == DH6MSG_REPLY)
 		dhcp6r_snoop(drif, &sin6, relay_msg->zb);
+	if (inner_type == DH6MSG_DHCPV4_RESPONSE)
+		dhcp6r_snoop4(drif, &sin6, relay_msg->zb);
 
 	iov->iov_base = inner.head;
 	iov->iov_len = zbuf_used(&inner);
