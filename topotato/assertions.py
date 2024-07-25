@@ -25,12 +25,15 @@ from typing import (
     Union,
 )
 
+from topotato.scapyext.netnssock import NetnsL2Socket
+
 try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
 from scapy.packet import Packet  # type: ignore
+from scapy.all import IP, ICMP  # type: ignore
 import pytest
 
 from .utils import json_cmp, text_rich_cmp, deindent
@@ -38,6 +41,7 @@ from .base import TopotatoItem, TopotatoFunction, skiptrace
 from .livescapy import TimedScapy
 from .frr.livelog import LogMessage
 from .timeline import TimingParams
+from .toponom import Router
 from .exceptions import (
     TopotatoCLICompareFail,
     TopotatoCLIUnsuccessfulFail,
@@ -389,6 +393,44 @@ class AssertPacket(TopotatoAssertion, TimedMixin):
                     "did not receive a matching packet for:\n%s"
                     % inspect.getsource(self._pkt)
                 )
+
+
+class AssertPing(AssertPacket):
+    _rtr: Router
+    _iface: str
+    _other_ip: str
+
+    @classmethod
+    def from_parent(cls, parent, name, rtr, iface, rtr_ip, maxwait=0):
+        def expect_pkt(ip: IP, icmp: ICMP):
+            return True
+                        
+        self = super().from_parent(
+            parent,
+            name="%s:%s/scapy[%s/ping/%s]" % (name, rtr.name, iface, rtr_ip),
+            link=iface,
+            pkt=expect_pkt,
+            maxwait=maxwait,
+        )
+
+        self._rtr = rtr
+        self._iface = iface
+        self._other_rtr = rtr_ip
+        
+        return self
+        
+    def __call__(self):
+        router = self.instance.routers[self._rtr.name]
+
+        with router:
+            sock = NetnsL2Socket(iface=self._iface, promisc=False)
+            sock.send(
+                IP(dst=self._other_rtr) / ICMP(type="echo-reply", seq=1234)
+            )
+
+        sock.close()
+        
+        super().__call__()
 
 
 class AssertLog(TopotatoAssertion, TimedMixin):
