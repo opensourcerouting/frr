@@ -36,6 +36,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rpki.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_zebra.h"
 #include "northbound_cli.h"
 
 #include "lib/network.h"
@@ -566,19 +567,28 @@ struct rpki_revalidate_prefix {
 static void rpki_revalidate_prefix(struct event *thread)
 {
 	struct rpki_revalidate_prefix *rrp = EVENT_ARG(thread);
-	struct bgp_dest *match, *node;
+	struct bgp *bgp = rrp->bgp;
+	struct bgp_dest *match, *node, *dest;
+	afi_t afi = rrp->afi;
+	safi_t safi = rrp->safi;
+	struct prefix prefix = rrp->prefix;
 
-	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
-					 &rrp->prefix);
+	match = bgp_table_subtree_lookup(bgp->rib[afi][safi], &prefix);
 
 	node = match;
 
 	while (node) {
-		if (bgp_dest_has_bgp_path_info_data(node)) {
-			revalidate_bgp_node(node, rrp->afi, rrp->safi);
-		}
+		if (bgp_dest_has_bgp_path_info_data(node))
+			revalidate_bgp_node(node, afi, safi);
 
 		node = bgp_route_next_until(node, match);
+	}
+
+	dest = bgp_node_lookup(bgp->route[afi][safi], &prefix);
+	if (dest) {
+		bgp_static_add(bgp);
+		bgp_redistribute_redo(bgp);
+		bgp_dest_unlock_node(dest);
 	}
 
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
@@ -722,6 +732,9 @@ static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 			continue;
 		if (vrf && bgp->vrf_id != vrf->vrf_id)
 			continue;
+
+		bgp_static_add(bgp);
+		bgp_redistribute_redo(bgp);
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
 			afi_t afi;
