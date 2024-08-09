@@ -198,6 +198,7 @@ static struct hash *vnc_hash = NULL;
 #endif
 static struct hash *srv6_l3vpn_hash;
 static struct hash *srv6_vpn_hash;
+static struct hash *evpn_overlay_hash;
 
 struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -549,6 +550,81 @@ static bool bgp_attr_aigp_valid(uint8_t *pnt, int length)
 	return true;
 }
 
+static void *evpn_overlay_hash_alloc(void *p)
+{
+	return p;
+}
+
+static void evpn_overlay_free(struct bgp_route_evpn *bre)
+{
+	XFREE(MTYPE_BGP_EVPN_OVERLAY, bre);
+}
+
+static struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
+{
+	struct bgp_route_evpn *find;
+
+	find = hash_get(evpn_overlay_hash, bre, evpn_overlay_hash_alloc);
+	if (find != bre)
+		evpn_overlay_free(bre);
+	find->refcnt++;
+	return find;
+}
+
+static void evpn_overlay_unintern(struct bgp_route_evpn **brep)
+{
+	struct bgp_route_evpn *bre = *brep;
+
+	if (!*brep)
+		return;
+
+	if (bre->refcnt)
+		bre->refcnt--;
+
+	if (bre->refcnt == 0) {
+		hash_release(evpn_overlay_hash, bre);
+		evpn_overlay_free(bre);
+		*brep = NULL;
+	}
+}
+
+static uint32_t evpn_overlay_hash_key_make(const void *p)
+{
+	const struct bgp_route_evpn *bre = p;
+	uint32_t key = 0;
+
+	if (IS_IPADDR_V4(&bre->gw_ip))
+		key = jhash_1word(bre->gw_ip.ipaddr_v4.s_addr, 0);
+	else
+		key = jhash2(bre->gw_ip.ipaddr_v6.s6_addr32,
+			     array_size(bre->gw_ip.ipaddr_v6.s6_addr32), 0);
+
+	key = jhash_1word(bre->type, key);
+	key = jhash(bre->eth_s_id.val, sizeof(bre->eth_s_id.val), 0);
+	return key;
+}
+
+static bool evpn_overlay_hash_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_route_evpn *bre1 = p1;
+	const struct bgp_route_evpn *bre2 = p2;
+
+	return bgp_route_evpn_same(bre1, bre2);
+}
+
+static void evpn_overlay_init(void)
+{
+	evpn_overlay_hash = hash_create(evpn_overlay_hash_key_make,
+					evpn_overlay_hash_cmp,
+					"BGP EVPN Overlay");
+}
+
+static void evpn_overlay_finish(void)
+{
+	hash_clean_and_free(&evpn_overlay_hash,
+			    (void (*)(void *))evpn_overlay_free);
+}
+
 static void *srv6_l3vpn_hash_alloc(void *p)
 {
 	return p;
@@ -788,6 +864,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
 	if (attr->srv6_l3vpn)
 		MIX(srv6_l3vpn_hash_key_make(attr->srv6_l3vpn));
+	if (bgp_attr_get_evpn_overlay(attr))
+		MIX(evpn_overlay_hash_key_make(bgp_attr_get_evpn_overlay(attr)));
 	if (attr->srv6_vpn)
 		MIX(srv6_vpn_hash_key_make(attr->srv6_vpn));
 #ifdef ENABLE_BGP_VNC
@@ -1027,6 +1105,17 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->encap_subtlvs->refcnt++;
 	}
+
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
+
+	if (bre) {
+		if (!bre->refcnt)
+			bgp_attr_set_evpn_overlay(attr,
+						  evpn_overlay_intern(bre));
+		else
+			bre->refcnt++;
+	}
+
 	if (attr->srv6_l3vpn) {
 		if (!attr->srv6_l3vpn->refcnt)
 			attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
@@ -1257,6 +1346,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	srv6_l3vpn_unintern(&attr->srv6_l3vpn);
 	srv6_vpn_unintern(&attr->srv6_vpn);
+
+	evpn_overlay_unintern(&attr->evpn_overlay);
 }
 
 /* Free bgp attribute and aspath. */
@@ -1347,6 +1438,12 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_attr_set_vnc_subtlvs(attr, NULL);
 	}
 #endif
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
+
+	if (bre && !bre->refcnt) {
+		evpn_overlay_free(bre);
+		bgp_attr_set_transit(attr, NULL);
+	}
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and
@@ -5006,6 +5103,7 @@ void bgp_attr_init(void)
 	transit_init();
 	encap_init();
 	srv6_init();
+	evpn_overlay_init();
 }
 
 void bgp_attr_finish(void)
@@ -5019,6 +5117,7 @@ void bgp_attr_finish(void)
 	transit_finish();
 	encap_finish();
 	srv6_finish();
+	evpn_overlay_finish();
 }
 
 /* Make attribute packet. */
