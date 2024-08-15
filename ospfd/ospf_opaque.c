@@ -828,16 +828,8 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 						   ntohl(lsa->data->id.s_addr)),
 					   GET_OPAQUE_ID(ntohl(
 						   lsa->data->id.s_addr)));
-			ospf_lsdb_delete(lsdb, lsa);
-			LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 
-			/*
-			 * Invoke the delete hook directly since it bypasses the normal MAXAGE
-			 * processing.
-			 */
-			ospf_opaque_lsa_delete_hook(lsa);
-			lsa->oi = NULL;
-			ospf_lsa_discard(lsa);
+			ospf_discard_from_db(oi->area->ospf, lsdb, lsa);
 		}
 }
 
