@@ -191,12 +191,15 @@ struct evpn_remote_ip {
  * Wrapper struct for l3 RT's
  */
 struct vrf_route_target {
+	/* Make sure this is the first member of the struct.
+	 * This is because evpn_vrf_route_target_cmp() is casting
+	 * into ecommunity struct, and always fails to compare.
+	 */
+	struct ecommunity *ecom;
 	/* flags based on config to determine how RTs are handled */
 	uint8_t flags;
 #define BGP_VRF_RT_AUTO (1 << 0)
 #define BGP_VRF_RT_WILD (1 << 1)
-
-	struct ecommunity *ecom;
 };
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
