@@ -54,14 +54,23 @@ def test_converge_protocols():
 
 
 def test_route_install_2nh():
+    # Skip test on 32bit platforms (limited memory)
+    if sys.maxsize <= 2**32:
+        pytest.skip("skipped because of limited memory on 32bit platforms")
     route_install_helper(1)
 
 
 def test_route_install_4nh():
+    # Skip test on 32bit platforms (limited memory)
+    if sys.maxsize <= 2**32:
+        pytest.skip("skipped because of limited memory on 32bit platforms")
     route_install_helper(2)
 
 
 def test_route_install_16nh():
+    # Skip test on 32bit platforms (limited memory)
+    if sys.maxsize <= 2**32:
+        pytest.skip("skipped because of limited memory on 32bit platforms")
     route_install_helper(4)
 
 
