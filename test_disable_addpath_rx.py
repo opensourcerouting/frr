@@ -52,7 +52,7 @@ class Configs(FRRConfigs):
     #%   endif
     #%   for iface in router.ifaces
     interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }}
+     ip address {{ iface.ip4[0] }} 
     !
     #%   endfor
     ip forwarding
@@ -61,19 +61,20 @@ class Configs(FRRConfigs):
     """
 
     bgpd = """
-    #% block main
+  #% block main
     #%   if router.name == 'r1'
     router bgp 65001
-     timers bgp 3 10
+     timers 3 10
      no bgp ebgp-requires-policy
      neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} remote-as external
      neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} timers connect 5
      address-family ipv4 unicast
       neighbor {{ routers.r2.iface_to('s1').ip4[0].ip }} disable-addpath-rx
+     exit-address-family
     !
     #%   elif router.name == 'r2'
     router bgp 65002
-     timers bgp 3 10
+     timers 3 10
      no bgp ebgp-requires-policy
      neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} remote-as external
      neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} timers connect 5
@@ -83,28 +84,31 @@ class Configs(FRRConfigs):
      neighbor {{ routers.r4.iface_to('s2').ip4[0].ip }} timers connect 5
      address-family ipv4 unicast
       neighbor {{ routers.r1.iface_to('s1').ip4[0].ip }} addpath-tx-all-paths
+     exit-address-family
     !
     #%   elif router.name == 'r3'
     router bgp 65003
-     timers bgp 3 10
+     timers 3 10
      no bgp ebgp-requires-policy
      neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} remote-as external
      neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} timers connect 5
      address-family ipv4 unicast
       redistribute connected
+     exit-address-family
     !
     #%   elif router.name == 'r4'
     router bgp 65004
-     timers bgp 3 10
+     timers 3 10
      no bgp ebgp-requires-policy
      neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} remote-as external
      neighbor {{ routers.r2.iface_to('s2').ip4[0].ip }} timers connect 5
      address-family ipv4 unicast
       redistribute connected
+     exit-address-family
     !
     #%   endif
-    #% endblock
-    """
+  #% endblock
+  """
 
 
 class BGPDisableAddpathRx(TestBase, AutoFixture, topo=topology, configs=Configs):
@@ -127,7 +131,7 @@ class BGPDisableAddpathRx(TestBase, AutoFixture, topo=topology, configs=Configs)
             r2,
             "bgpd",
             f"show bgp ipv4 unicast neighbor {r1.iface_to('s1').ip4[0].ip} advertised-routes json",
-            maxwait=8.0,
+            maxwait=2.0,
             compare=expected,
         )
 
@@ -148,6 +152,6 @@ class BGPDisableAddpathRx(TestBase, AutoFixture, topo=topology, configs=Configs)
             r1,
             "bgpd",
             f"show bgp neighbor {r2.iface_to('s1').ip4[0].ip} json",
-            maxwait=8.0,
+            maxwait=2.0,
             compare=expected,
         )
