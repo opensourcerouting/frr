@@ -494,6 +494,13 @@ rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx);
  * Inline functions.
  */
 
+static inline void rib_route_install_set(struct route_entry *re)
+{
+	SET_FLAG(re->flags, ROUTE_ENTRY_INSTALLED);
+	UNSET_FLAG(re->flags, ROUTE_ENTRY_ROUTE_REPLACING);
+	UNSET_FLAG(re->flags, ROUTE_ENTRY_QUEUED);
+}
+
 /*
  * rib_table_info
  */

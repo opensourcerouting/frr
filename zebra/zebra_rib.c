@@ -1593,9 +1593,7 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-		UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
-		UNSET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
+		rib_route_install_set(re);
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nhop)) {
 			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -2088,7 +2086,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
-				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+				rib_route_install_set(re);
 			}
 			/*
 			 * On an update operation from the same route type
@@ -2432,7 +2430,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			/* We expect this to be the selected route, so we want
 			 * to tell others about this transition.
 			 */
-			SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			rib_route_install_set(re);
 
 			/* Changed nexthops - update kernel/others */
 			dplane_route_notif_update(rn, re,
@@ -4783,7 +4781,7 @@ void rib_sweep_table(struct route_table *table)
 			 * to a different spot (ie startup )
 			 * this decision needs to be revisited
 			 */
-			SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			rib_route_install_set(re);
 			for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 

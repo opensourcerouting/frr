@@ -506,7 +506,7 @@ static bool zebra_gr_process_route_entry(struct route_node *rn,
 			zlog_debug("%s: Client %s stale route %s is deleted",
 				   __func__, zebra_route_string(proto), buf);
 		}
-		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		rib_route_install_set(re);
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
