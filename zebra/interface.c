@@ -452,7 +452,7 @@ void if_addr_wakeup(struct interface *ifp)
 		p = ifc->address;
 
 		if ((CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)
-		     || ifc->zapi_count)
+		     || connected_reqs_count(ifc->zserv_reqs))
 		    && !CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)) {
 			/* Address check. */
 			if (p->family == AF_INET) {
@@ -679,7 +679,7 @@ static void if_delete_connected(struct interface *ifp)
 					 * (unconditionally). */
 					if (!CHECK_FLAG(ifc->conf,
 							ZEBRA_IFC_CONFIGURED) &&
-					    !ifc->zapi_count) {
+					    !connected_reqs_count(ifc->zserv_reqs)) {
 						if (ifc == ifc_next)
 							ifc_next = if_connected_next(
 								ifp->connected,
@@ -687,6 +687,7 @@ static void if_delete_connected(struct interface *ifp)
 
 						if_connected_del(ifp->connected,
 								 ifc);
+						connected_reqs_fini(ifc->zserv_reqs);
 						connected_free(&ifc);
 					}
 				}
@@ -704,8 +705,9 @@ static void if_delete_connected(struct interface *ifp)
 			UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
 			if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED) &&
-			    !ifc->zapi_count) {
+			    !connected_reqs_count(ifc->zserv_reqs)) {
 				if_connected_del(ifp->connected, ifc);
+				connected_reqs_fini(ifc->zserv_reqs);
 				connected_free(&ifc);
 			}
 		}
@@ -3976,6 +3978,7 @@ void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 	ifc = connected_check_ptp(ifp, prefix, pp);
 	if (!ifc) {
 		ifc = connected_new();
+		connected_reqs_init(ifc->zserv_reqs);
 		ifc->ifp = ifp;
 
 		/* Address. */
@@ -4020,6 +4023,29 @@ void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 	}
 }
 
+static void connected_deconfigure_maybe(struct connected *ifc)
+{
+	struct interface *ifp = ifc->ifp;
+
+	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)
+	    || connected_reqs_count(ifc->zserv_reqs))
+		return;
+
+	/* This is not real address or interface is not active. */
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
+	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
+		if_connected_del(ifp->connected, ifc);
+		connected_reqs_fini(ifc->zserv_reqs);
+		connected_free(&ifc);
+		return;
+	}
+
+	/* This is real route. */
+	dplane_intf_addr_unset(ifp, ifc);
+
+	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+}
+
 void if_ip_address_uninstall(struct interface *ifp, struct prefix *prefix,
 			     struct prefix *pp)
 {
@@ -4029,21 +4055,8 @@ void if_ip_address_uninstall(struct interface *ifp, struct prefix *prefix,
 	assert(ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
-	if (ifc->zapi_count)
-		return;
 
-	/* This is not real address or interface is not active. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		if_connected_del(ifp->connected, ifc);
-		connected_free(&ifc);
-		return;
-	}
-
-	/* This is real route. */
-	dplane_intf_addr_unset(ifp, ifc);
-
-	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	connected_deconfigure_maybe(ifc);
 }
 
 void if_ipv6_address_install(struct interface *ifp, struct prefix *prefix)
@@ -4056,6 +4069,7 @@ void if_ipv6_address_install(struct interface *ifp, struct prefix *prefix)
 	ifc = connected_check(ifp, prefix);
 	if (!ifc) {
 		ifc = connected_new();
+		connected_reqs_init(ifc->zserv_reqs);
 		ifc->ifp = ifp;
 
 		/* Address. */
@@ -4098,23 +4112,14 @@ void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
-	/* This is not real address or interface is not active. */
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
-	    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		if_connected_del(ifp->connected, ifc);
-		connected_free(&ifc);
-		return;
-	}
-
-	/* This is real route. */
-	dplane_intf_addr_unset(ifp, ifc);
-
-	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+	connected_deconfigure_maybe(ifc);
 }
 
 static int zserv_if_addr_cmp(const struct zserv_if_addr *a,
 			     const struct zserv_if_addr *b)
 {
+	if (a->proto != b->proto)
+		return numcmp(a->proto, b->proto);
 	if (a->ifp != b->ifp)
 		return numcmp(a->ifp->ifindex, b->ifp->ifindex);
 	return prefix_cmp(a->ifc->address, b->ifc->address);
@@ -4126,24 +4131,68 @@ static uint32_t zserv_if_addr_hash(const struct zserv_if_addr *a)
 
 	hash = prefix_hash_key(a->ifc->address);
 	hash = jhash_1word(a->ifp->ifindex, hash);
+	hash = jhash_1word(a->proto, hash);
 	return hash;
 }
 
-DECLARE_HASH(zserv_if_addrs, struct zserv_if_addr, item, zserv_if_addr_cmp,
+DECLARE_HASH(zserv_if_addrs, struct zserv_if_addr, ifaitem, zserv_if_addr_cmp,
 	     zserv_if_addr_hash);
 
-void if_addr_zapi_init(struct zserv *client)
+static void if_addr_zapi_holdover(struct event *ev)
 {
-	zserv_if_addrs_init(client->if_addrs);
+	struct zserv_if_addr *zia = EVENT_ARG(ev);
+	struct connected *ifc = zia->ifc;
+
+	connected_reqs_del(ifc->zserv_reqs, zia);
+	connected_deconfigure_maybe(ifc);
 }
 
-static void if_addr_zapi_remove(struct zserv *client, struct connected *ifc)
+static int if_addr_zapi_on_connect(struct zserv *client)
 {
-	CPP_NOTICE("STUB - IMPLEMENT ME");
+	zserv_if_addrs_init(client->if_addrs);
+
+	return 0;
+}
+
+static int if_addr_zapi_on_close(struct zserv *client)
+{
+	struct zserv_if_addr *zia;
+
+	while ((zia = zserv_if_addrs_pop(client->if_addrs))) {
+		event_add_timer(zrouter.master, if_addr_zapi_holdover, zia,
+				ZAPI_ADDR_HOLDOVER_ZAPI_DISCONNECT, 
+				&zia->t_holdover);
+	}
+
+	zserv_if_addrs_fini(client->if_addrs);
+
+	return 0;
+}
+
+static void if_addr_zapi_remove(struct zserv *client, struct connected *ifc,
+				enum zserv_if_addr_proto proto)
+{
+	struct zserv_if_addr *zia, ref = {
+		.ifp = ifc->ifp,
+		.ifc = ifc,
+		.proto = proto,
+	};
+	
+	zia = zserv_if_addrs_find(client->if_addrs, &ref);
+	if (!zia) {
+		zlog_warn("delete for non-existing address %pFX on %s from daemon",
+			  ifc->address, ifc->ifp->name);
+		return;
+	}
+
+	zserv_if_addrs_del(client->if_addrs, zia);
+	connected_reqs_del(ifc->zserv_reqs, zia);
+
+	connected_deconfigure_maybe(ifc);
 }
 
 void if_addr_zapi(struct zserv *client, struct interface *ifp, struct prefix *p,
-		  bool create)
+		  enum zserv_if_addr_proto proto, bool create)
 {
 	struct zebra_if *if_data = ifp->info;
 	struct connected *ifc;
@@ -4153,12 +4202,13 @@ void if_addr_zapi(struct zserv *client, struct interface *ifp, struct prefix *p,
 	if (!create) {
 		if (!ifc)
 			return;
-		if_addr_zapi_remove(client, ifc);
+		if_addr_zapi_remove(client, ifc, proto);
 		return;
 	}
 
 	if (!ifc) {
 		ifc = connected_new();
+		connected_reqs_init(ifc->zserv_reqs);
 		ifc->ifp = ifp;
 		ifc->address = prefix_new();
 		prefix_copy(ifc->address, p);
@@ -4166,18 +4216,29 @@ void if_addr_zapi(struct zserv *client, struct interface *ifp, struct prefix *p,
 		if_connected_add_tail(ifp->connected, ifc);
 	}
 
-	zia = XCALLOC(MTYPE_ZAPI_IFADDR, sizeof(*zia));
-	zia->ifp = ifp;
-	zia->ifc = ifc;
+	frr_each (connected_reqs, ifc->zserv_reqs, zia) {
+		if (zia->t_holdover && zia->proto == proto) {
+			event_cancel(&zia->t_holdover);
+			break;
+		}
+	}
+
+	if (!zia) {
+		zia = XCALLOC(MTYPE_ZAPI_IFADDR, sizeof(*zia));
+		zia->ifp = ifp;
+		zia->ifc = ifc;
+		zia->proto = proto;
+		connected_reqs_add_tail(ifc->zserv_reqs, zia);
+	}
 
 	if (zserv_if_addrs_add(client->if_addrs, zia)) {
 		zlog_warn("duplicate request for address %pFX on %s from daemon",
 			  p, ifp->name);
+
+		connected_reqs_del(ifc->zserv_reqs, zia);
 		XFREE(MTYPE_ZAPI_IFADDR, zia);
 		return;
 	}
-
-	ifc->zapi_count++;
 
 	/* In case of this route need to install kernel. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)
@@ -4211,6 +4272,9 @@ void zebra_if_init(void)
 	/* Initialize interface and new hook. */
 	hook_register_prio(if_add, 0, if_zebra_new_hook);
 	hook_register_prio(if_del, 0, if_zebra_delete_hook);
+
+	hook_register(zserv_client_connect, if_addr_zapi_on_connect);
+	hook_register(zserv_client_close, if_addr_zapi_on_close);
 
 	install_element(VIEW_NODE, &show_interface_cmd);
 	install_element(VIEW_NODE, &show_interface_vrf_all_cmd);

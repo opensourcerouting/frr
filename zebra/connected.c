@@ -48,8 +48,10 @@ static void connected_withdraw(struct connected *ifc)
 	/* The address is not in the kernel anymore, so clear the flag */
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED) && !ifc->zapi_count) {
+	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED) &&
+	    !connected_reqs_count(ifc->zserv_reqs)) {
 		if_connected_del(ifc->ifp->connected, ifc);
+		connected_reqs_fini(ifc->zserv_reqs);
 		connected_free(&ifc);
 	}
 }
@@ -150,6 +152,8 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 	/* Check same connected route. */
 	current = connected_check_ptp(ifp, ifc->address, ifc->destination);
 	if (current) {
+		struct zserv_if_addr *zia;
+
 		if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
 			SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
@@ -159,6 +163,7 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		 */
 		if (connected_same(current, ifc)) {
 			/* nothing to do */
+			connected_reqs_fini(ifc->zserv_reqs);
 			connected_free(&ifc);
 			return;
 		}
@@ -167,9 +172,10 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		 * by
 		 * connected withdraw. */
 		UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
-		CPP_NOTICE("FIX THIS");
-		//ifc->zapi_count += current->zapi_count;
-		//current->zapi_count = 0;
+
+		while ((zia = connected_reqs_pop(current->zserv_reqs)))
+			connected_reqs_add_tail(ifc->zserv_reqs, zia);
+
 		connected_withdraw(
 			current); /* implicit withdraw - freebsd does this */
 	}
@@ -372,6 +378,7 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 
 	/* Make connected structure. */
 	ifc = connected_new();
+	connected_reqs_init(ifc->zserv_reqs);
 	ifc->ifp = ifp;
 	ifc->flags = flags;
 	ifc->metric = metric;
@@ -625,6 +632,7 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 
 	/* Make connected structure. */
 	ifc = connected_new();
+	connected_reqs_init(ifc->zserv_reqs);
 	ifc->ifp = ifp;
 	ifc->flags = flags;
 	ifc->metric = metric;

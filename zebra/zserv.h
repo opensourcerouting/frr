@@ -23,6 +23,7 @@
 #include "lib/linklist.h"     /* for list */
 #include "lib/workqueue.h"    /* for work_queue */
 #include "lib/hook.h"         /* for DECLARE_HOOK, DECLARE_KOOH */
+#include "zebra/connected.h"
 /* clang-format on */
 
 #ifdef __cplusplus
@@ -73,8 +74,6 @@ struct client_gr_info {
 /* For managing client list */
 PREDECL_LIST(zserv_client_list);
 PREDECL_LIST(zserv_stale_client_list);
-
-PREDECL_HASH(zserv_if_addrs);
 
 /* Client structure. */
 struct zserv {
@@ -248,13 +247,6 @@ struct zserv {
 /* Declare the list operations */
 DECLARE_LIST(zserv_client_list, struct zserv, client_list_entry);
 DECLARE_LIST(zserv_stale_client_list, struct zserv, stale_client_list_entry);
-
-struct zserv_if_addr {
-	struct zserv_if_addrs_item item;
-
-	struct interface *ifp;
-	struct connected *ifc;
-};
 
 #define ZAPI_HANDLER_ARGS                                                      \
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \

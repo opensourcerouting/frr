@@ -819,7 +819,6 @@ static struct zserv *zserv_client_create(int sock)
 	pthread_mutex_init(&client->stats_mtx, NULL);
 	client->wb = buffer_new(0);
 	TAILQ_INIT(&(client->gr_info_queue));
-	if_addr_zapi_init(client);
 
 	/* Initialize flags */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {

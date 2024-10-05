@@ -17,6 +17,49 @@
 extern "C" {
 #endif
 
+/* an address can be in 2 and a half states:
+ *  - requested by daemon over zserv API
+ *    .t_holdover = NULL
+ *    .ifaitem = on struct zserv->if_addrs
+ *  - in holdover after daemon disconnects (graceful restart ish)
+ *    .t_holdover = running (ZAPI_ADDR_HOLDOVER_ZAPI_DISCONNECT)
+ *    .ifaitem = not on list
+ *    Addresses do NOT go into this state if the daemon deletes them!
+ *  - in holdover after zebra starts and we read it from the kernel[*]
+ *    .t_holdover = running (ZAPI_ADDR_HOLDOVER_ZEBRA_START)
+ *    .ifaitem = not on list
+ *
+ * The last one can only happen if we recognize an address as installed by FRR
+ * due to its rt_addrproto value.
+ */
+
+#define ZAPI_ADDR_HOLDOVER_ZAPI_DISCONNECT	60
+#define ZAPI_ADDR_HOLDOVER_ZEBRA_START		300
+
+enum zserv_if_addr_proto {
+	ZSERV_IFAPROT_INVALID = 0,
+
+	ZSERV_IFAPROT_RA_LL_PER_PREFIX,
+};
+
+PREDECL_HASH(zserv_if_addrs);
+
+struct zserv_if_addr {
+	/* struct connected -> this, always valid */
+	struct connected_reqs_item critem;
+	/* daemon / zserv connection -> this; ONLY if t_holdover == NULL! */
+	struct zserv_if_addrs_item ifaitem;
+
+	/* struct zserv * backlink not currently needed, but can be added */
+	struct interface *ifp;
+	struct connected *ifc;
+
+	enum zserv_if_addr_proto proto;
+	struct event *t_holdover;
+};
+
+DECLARE_DLIST(connected_reqs, struct zserv_if_addr, critem);
+
 extern struct connected *connected_check(struct interface *ifp,
 					 union prefixconstptr p);
 extern struct connected *connected_check_ptp(struct interface *ifp,

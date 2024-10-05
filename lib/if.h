@@ -424,6 +424,7 @@ DECLARE_KOOH(if_unreal, (struct interface *ifp), (ifp));
 DECLARE_HOOK(if_up, (struct interface *ifp), (ifp));
 DECLARE_KOOH(if_down, (struct interface *ifp), (ifp));
 
+PREDECL_DLIST(connected_reqs);
 
 #define METRIC_MAX (~0)
 
@@ -481,8 +482,8 @@ struct connected {
 	 */
 	uint32_t metric;
 
-	/* Counted up/down when this address is [un]installed via ZAPI */
-	unsigned int zapi_count;
+	/* only in zebra: ZAPI requests to create this address */
+	struct connected_reqs_head zserv_reqs[1];
 };
 
 DECLARE_DLIST(if_connected, struct connected, item);

@@ -4158,7 +4158,7 @@ static void zread_if_addr(ZAPI_HANDLER_ARGS)
 		/* possible race condition */
 		return;
 
-	if_addr_zapi(client, ifp, &p, create);
+	if_addr_zapi(client, ifp, &p, 0, create);
 	return;
 
 stream_failure:

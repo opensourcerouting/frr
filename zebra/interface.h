@@ -16,6 +16,7 @@
 #include "hook.h"
 #include "bitfield.h"
 
+#include "zebra/connected.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_l2_bridge_if.h"
 #include "zebra/zebra_nhg_private.h"
@@ -333,10 +334,9 @@ void link_param_cmd_set_float(struct interface *ifp, float *field,
 			      uint32_t type, float value);
 void link_param_cmd_unset(struct interface *ifp, uint32_t type);
 
-extern void if_addr_zapi_init(struct zserv *client);
 extern void if_addr_zapi(struct zserv *client, struct interface *ifp,
-			 struct prefix *p, bool create);
-extern void if_addr_zapi_fini(struct zserv *client);
+			 struct prefix *p, enum zserv_if_addr_proto proto,
+			 bool create);
 
 /* Nexthop group connected functions */
 extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
