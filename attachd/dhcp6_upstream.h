@@ -55,12 +55,6 @@ struct dhcp6_ust_member {
 	struct dhcp6_upstream *us;
 };
 
-enum dhcp6_upstream_state {
-	DHCP6_USST_UNDEF = 0,
-	DHCP6_USST_CONNECTING,
-	DHCP6_USST_OPERATIONAL,
-	DHCP6_USST_ERROR,
-};
 enum dhcp6_lq_state {
 	DHCP6_LQ_DISABLED = 0,
 	DHCP6_LQ_INIT,
@@ -84,20 +78,15 @@ struct dhcp6_upstream {
 
 	/* state */
 
-	enum dhcp6_upstream_state state;
 	int sock;
 	int last_err;
-	unsigned err_count;
 	struct event *t_rcv;
-	struct event *t_timeout;
 
 	/* leasequery */
 
 	enum dhcp6_lq_state lq_state;
 	int lq_sock;
 	struct event *t_lq_rcv, *t_lq_snd;
-
-	unsigned retry_place;
 };
 
 DECLARE_QOBJ_TYPE(dhcp6_upstream);

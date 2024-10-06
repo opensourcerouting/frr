@@ -29,9 +29,6 @@ struct persist_ops {
 	struct dhcp6_binding *(*dhcp6_id_first)(struct persist_target *tgt);
 	struct dhcp6_binding *(*dhcp6_id_next)(struct persist_target *tgt,
 					       struct dhcp6_binding *prev);
-	struct dhcp6_binding *(*dhcp6_expy_first)(struct persist_target *tgt);
-	struct dhcp6_binding *(*dhcp6_expy_next)(struct persist_target *tgt,
-						 struct dhcp6_binding *prev);
 
 	bool (*dhcp6_fill)(struct persist_target *tgt,
 			   struct dhcp6_binding *bnd);

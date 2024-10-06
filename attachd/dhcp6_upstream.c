@@ -77,15 +77,8 @@ static struct dhcp6_upstreams_head upstreams[1];
 static void dhcp6_ust_error(struct dhcp6_upstream *us, int err,
 			    const char *what)
 {
-	us->err_count++;
 	us->last_err = errno;
-
 	zlog_warn("%pSU: error(%s): %m", &us->addr, what);
-
-	if (us->err_count > 5) {
-		zlog_warn("%pSU: marking server as down", &us->addr);
-		us->state = DHCP6_USST_ERROR;
-	}
 }
 
 static void dhcp6_us_rcv(struct event *ev)
@@ -123,15 +116,10 @@ static void dhcp6_us_rcv(struct event *ev)
 	mh->msg_controllen = sizeof(cmsgbuf);
 
 	retval = recvmsg(us->sock, mh, 0);
-	if (us->state == DHCP6_USST_CONNECTING) {
-		if (retval >= 0) {
-			us->state = DHCP6_USST_OPERATIONAL;
-		} else {
-			zlog_warn("server %pSU unavailable: %m", &us->addr);
-			us->state = DHCP6_USST_ERROR;
-
-			return;
-		}
+	if (retval >= 0) {
+	} else {
+		zlog_warn("server %pSU unavailable: %m", &us->addr);
+		return;
 	}
 
 	if (retval < 0) {
@@ -147,9 +135,6 @@ static void dhcp6_us_rcv(struct event *ev)
 		zlog_warn("empty packet or EOF");
 		return;
 	}
-	us->err_count = 0;
-	us->state = DHCP6_USST_OPERATIONAL;
-	event_cancel(&us->t_timeout);
 
 	size = retval;
 	ifp = if_lookup_by_index(pktinfo->ipi6_ifindex, VRF_DEFAULT);
@@ -237,21 +222,6 @@ static void dhcp6_us_rcv(struct event *ev)
 	}
 }
 
-static void dhcp6_ust_timeout(struct event *ev)
-{
-	struct dhcp6_upstream *us = EVENT_ARG(ev);
-
-	dhcp6_ust_error(us, ETIMEDOUT, "timeout");
-}
-
-static void dhcp6_ust_expectreply(struct dhcp6_upstream *us)
-{
-	if (us->t_timeout)
-		return;
-
-	event_add_timer(master, dhcp6_ust_timeout, us, 5, &us->t_timeout);
-}
-
 void dhcp6_ugroup_relay(const char *upstream_name, struct dhcp6r_iface *drif,
 			struct sockaddr_in6 *from, struct dhcp6 *dh6,
 			size_t len)
@@ -334,9 +304,9 @@ void dhcp6_ugroup_relay(const char *upstream_name, struct dhcp6r_iface *drif,
 	relayid->hdr.dh6opt_type = htons(DH6OPT_RELAY_ID);
 	relayid->hdr.dh6opt_len = htons(10);
 	relayid->duid_type = htons(DUIDT_EN);
-	val = htonl(50145);
+	val = htonl(50145);	/* Enterprise ID */
 	memcpy(relayid->duid + 0, &val, sizeof(val));
-	val = htonl(12345678);
+	val = htonl(12345678);	/* FIXME */
 	memcpy(relayid->duid + 4, &val, sizeof(val));
 
 	ssize_t retval;
@@ -366,21 +336,15 @@ void dhcp6_ugroup_relay(const char *upstream_name, struct dhcp6r_iface *drif,
 	mh->msg_iov = iov;
 	mh->msg_iovlen = iovp - iov;
 
-	struct dhcp6_upstream *fallback = NULL;
 	struct dhcp6_ust_member *umemb;
+
+	if (!dhcp6_ust_member_count(ug->members)) {
+		zlog_warn("%s: no server available", ug->name);
+		return;
+	}
 
 	frr_each (dhcp6_ust_member, ug->members, umemb) {
 		struct dhcp6_upstream *us = umemb->us;
-
-		zlog_debug("try server %pSU state %u", &us->addr, us->state);
-		if (us->state == DHCP6_USST_ERROR) {
-			if (!fallback
-			    || ((us->retry_place - fallback->retry_place)
-				>= 0x80000000))
-				fallback = us;
-		}
-		if (us->state != DHCP6_USST_OPERATIONAL)
-			continue;
 
 		mh->msg_name = (struct sockaddr *)&us->addr;
 		mh->msg_namelen = sizeof(us->addr);
@@ -389,30 +353,10 @@ void dhcp6_ugroup_relay(const char *upstream_name, struct dhcp6r_iface *drif,
 		if (retval > 0) {
 			zlog_debug("%s: %pSU: relayed to %pSU", drif->ifp->name,
 				   from, &us->addr);
-
-			dhcp6_ust_expectreply(us);
 			return;
 		}
 
 		dhcp6_ust_error(us, errno, "sendmsg");
-	}
-
-	if (!fallback) {
-		zlog_warn("%s: no server available", ug->name);
-		return;
-	}
-	fallback->retry_place += dhcp6_ust_member_count(ug->members);
-
-	zlog_warn("%s: retrying failed server %pSU", ug->name, &fallback->addr);
-
-	mh->msg_name = (struct sockaddr *)&fallback->addr;
-	mh->msg_namelen = sizeof(fallback->addr);
-
-	retval = sendmsg(fallback->sock, mh, 0);
-
-	if (retval < 0) {
-		zlog_warn("sendmsg to %pSU failed: %m", &fallback->addr);
-		return;
 	}
 }
 
@@ -482,7 +426,6 @@ static void dhcp6_ust_start(struct dhcp6_upstream *us)
 		zlog_info("not connecting to multicast address %pI6", &us->addr.sin6_addr);
 	}
 
-	us->state = rv ? DHCP6_USST_CONNECTING : DHCP6_USST_OPERATIONAL;
 	event_add_read(master, dhcp6_us_rcv, us, us->sock, &us->t_rcv);
 }
 
@@ -792,23 +735,8 @@ static void dhcp6_show_server_one(struct vty *vty, struct dhcp6_upstream *us)
 {
 	vty_out(vty, "DHCPv6 server %pSUp:\n", &us->addr);
 
-	switch (us->state) {
-	case DHCP6_USST_UNDEF:
-		vty_out(vty, "  state: initializing\n");
-		break;
-	case DHCP6_USST_CONNECTING:
-		vty_out(vty, "  state: connecting\n");
-		break;
-	case DHCP6_USST_OPERATIONAL:
-		vty_out(vty, "  state: operational\n");
-		break;
-	case DHCP6_USST_ERROR:
-		vty_out(vty, "  state: failed\n");
 		vty_out(vty, "  last error: %s\n", safe_strerror(us->last_err));
-		break;
-	}
 
-	vty_out(vty, "  %u errors\n", us->err_count);
 	vty_out(vty, "\n");
 
 }

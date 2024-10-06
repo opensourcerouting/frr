@@ -39,14 +39,6 @@ static struct dhcp6_binding *lmdb_id_first(struct persist_target *tgt)
 //	struct dhcp6_binding *(*dhcp6_id_next)(struct persist_target *tgt,
 //					       struct dhcp6_binding *prev);
 
-static struct dhcp6_binding *lmdb_expy_first(struct persist_target *tgt)
-{
-	return NULL;
-}
-
-//static struct dhcp6_binding *dhcp6_expy_next)(struct persist_target *tgt,
-//						 struct dhcp6_binding *prev);
-
 static bool lmdb_fill(struct persist_target *tgt,
 			   struct dhcp6_binding *bnd)
 {
@@ -68,7 +60,6 @@ static void lmdb_expire(struct persist_target *tgt,
 static const struct persist_ops lmdb_ops = {
 	.name = "LMDB",
 	.dhcp6_id_first = lmdb_id_first,
-	.dhcp6_expy_first = lmdb_expy_first,
 	.dhcp6_fill = lmdb_fill,
 	.dhcp6_update = lmdb_update,
 	.dhcp6_expire = lmdb_expire,
