@@ -2513,12 +2513,20 @@ void cmd_init(int terminal)
 	host.version = XSTRDUP(MTYPE_HOST, names.version);
 
 #ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
-	if ((strcmp(names.domainname, "(none)") == 0))
-		host.domainname = NULL;
-	else
-		host.domainname = XSTRDUP(MTYPE_HOST, names.domainname);
+	if (strcmp(names.domainname, "(none)") == 0) {
+		host.domainname = cmd_domainname_set(NULL);
+
+		if (names.nodename[0] != '\0') {
+			char *dot = strchr(names.nodename, '.');
+
+			if (dot)
+				cmd_domainname_set(dot);
+		}
+	} else {
+		host.domainname = cmd_domainname_set(names.domainname);
+	}
 #else
-	host.domainname = NULL;
+	host.domainname = cmd_domainname_set(NULL);
 #endif
 	host.password = NULL;
 	host.enable = NULL;
