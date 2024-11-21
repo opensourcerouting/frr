@@ -12,6 +12,6 @@ if "TOPOTATO_INNER" not in os.environ:
     from .base import TestBase, topotatofunc
     from .fixtures import *
     from .assertions import *
-    from .utils import JSONCompareIgnoreContent
+    from .utils import JSONCompareIgnoreContent, JSONCompareRegex
 
 del os
