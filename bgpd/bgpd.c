@@ -3347,6 +3347,9 @@ int bgp_delete(struct bgp *bgp)
 
 	hook_call(bgp_inst_delete, bgp);
 
+	FOREACH_AFI_SAFI (afi, safi)
+		THREAD_OFF(bgp->t_revalidate[afi][safi]);
+
 	THREAD_OFF(bgp->t_startup);
 	THREAD_OFF(bgp->t_maxmed_onstartup);
 	THREAD_OFF(bgp->t_update_delay);
