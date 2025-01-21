@@ -66,6 +66,11 @@
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
+
+#define RPKI_VALID 1
+#define RPKI_NOTFOUND 2
+#define RPKI_INVALID 3
 
 #define POLLING_PERIOD_DEFAULT 3600
 #define EXPIRE_INTERVAL_DEFAULT 7200
@@ -126,7 +131,6 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 			 json_object *json);
 static bool is_synchronized(void);
 static bool is_running(void);
-static bool is_stopping(void);
 static void route_match_free(void *rule);
 static enum route_map_cmd_result_t route_match(void *rule,
 					       const struct prefix *prefix,
@@ -134,7 +138,6 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
-static void revalidate_all_routes(void);
 
 static struct rtr_mgr_config *rtr_config;
 static struct list *cache_list;
@@ -371,15 +374,9 @@ inline bool is_running(void)
 	return rtr_is_running;
 }
 
-inline bool is_stopping(void)
+static void pfx_record_to_prefix(struct pfx_record *record,
+				 struct prefix *prefix)
 {
-	return rtr_is_stopping;
-}
-
-static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
-{
-	struct prefix *prefix = prefix_new();
-
 	prefix->prefixlen = record->min_len;
 
 	if (record->prefix.ver == LRTR_IPV4) {
@@ -390,67 +387,102 @@ static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
 		ipv6_addr_to_network_byte_order(record->prefix.u.addr6.addr,
 						prefix->u.prefix6.s6_addr32);
 	}
-
-	return prefix;
 }
 
-static void bgpd_sync_callback(struct thread *thread)
+struct rpki_revalidate_prefix {
+	struct bgp *bgp;
+	struct prefix prefix;
+	afi_t afi;
+	safi_t safi;
+};
+
+static void rpki_revalidate_prefix(struct thread *thread)
+{
+	struct rpki_revalidate_prefix *rrp = THREAD_ARG(thread);
+	struct bgp_dest *match, *node;
+
+	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
+					 &rrp->prefix);
+
+	node = match;
+
+	while (node) {
+		if (bgp_dest_has_bgp_path_info_data(node)) {
+			revalidate_bgp_node(node, rrp->afi, rrp->safi);
+		}
+
+		node = bgp_route_next_until(node, match);
+	}
+
+	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
+}
+
+static void revalidate_single_prefix(struct prefix prefix, afi_t afi)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct prefix *prefix;
-	struct pfx_record rec;
-
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
-
-	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
-		while (read(rpki_sync_socket_bgpd, &rec,
-			    sizeof(struct pfx_record)) != -1)
-			;
-
-		atomic_store_explicit(&rtr_update_overflow, 0,
-				      memory_order_seq_cst);
-		revalidate_all_routes();
-		return;
-	}
-
-	int retval =
-		read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
-	if (retval != sizeof(struct pfx_record)) {
-		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
-		return;
-	}
-	prefix = pfx_record_to_prefix(&rec);
-
-	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		safi_t safi;
 
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
 			struct bgp_table *table = bgp->rib[afi][safi];
+			struct rpki_revalidate_prefix *rrp;
 
 			if (!table)
 				continue;
 
-			struct bgp_dest *match;
-			struct bgp_dest *node;
-
-			match = bgp_table_subtree_lookup(table, prefix);
-			node = match;
-
-			while (node) {
-				if (bgp_dest_has_bgp_path_info_data(node)) {
-					revalidate_bgp_node(node, afi, safi);
-				}
-
-				node = bgp_route_next_until(node, match);
-			}
+			rrp = XCALLOC(MTYPE_BGP_RPKI_REVALIDATE, sizeof(*rrp));
+			rrp->bgp = bgp;
+			rrp->prefix = prefix;
+			rrp->afi = afi;
+			rrp->safi = safi;
+			thread_add_event(bm->master, rpki_revalidate_prefix,
+					 rrp, 0, &bgp->t_revalidate[afi][safi]);
 		}
 	}
+}
 
-	prefix_free(&prefix);
+static void bgpd_sync_callback(struct thread *thread)
+{
+	struct prefix prefix;
+	struct pfx_record rec;
+	afi_t afi;
+	int retval;
+
+	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
+		ssize_t size = 0;
+
+		retval = read(rpki_sync_socket_bgpd, &rec,
+			      sizeof(struct pfx_record));
+		while (retval != -1) {
+			if (retval != sizeof(struct pfx_record))
+				break;
+
+			size += retval;
+			pfx_record_to_prefix(&rec, &prefix);
+			afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
+			revalidate_single_prefix(prefix, afi);
+
+			retval = read(rpki_sync_socket_bgpd, &rec,
+				      sizeof(struct pfx_record));
+		}
+
+		atomic_store_explicit(&rtr_update_overflow, 0,
+				      memory_order_seq_cst);
+		return;
+	}
+
+	retval = read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
+	if (retval != sizeof(struct pfx_record)) {
+		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
+		return;
+	}
+	pfx_record_to_prefix(&rec, &prefix);
+
+	afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
+
+	revalidate_single_prefix(prefix, afi);
 }
 
 static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
@@ -475,38 +507,11 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 	}
 }
 
-static void revalidate_all_routes(void)
-{
-	struct bgp *bgp;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		struct peer *peer;
-		struct listnode *peer_listnode;
-
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
-
-			for (size_t i = 0; i < 2; i++) {
-				safi_t safi;
-				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
-
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					if (!peer->bgp->rib[afi][safi])
-						continue;
-
-					bgp_soft_reconfig_in(peer, afi, safi);
-				}
-			}
-		}
-	}
-}
-
 static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				    const struct pfx_record rec,
 				    const bool added __attribute__((unused)))
 {
-	if (is_stopping() ||
+	if (rtr_is_stopping ||
 	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
