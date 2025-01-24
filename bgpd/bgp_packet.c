@@ -3211,8 +3211,8 @@ static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 			 */
 			if (!bac.flags || bac.flags > 3) {
 				flog_warn(EC_BGP_CAPABILITY_INVALID_LENGTH,
-					  "Add Path: Received invalid send/receive value %u in Add Path capability",
-					  bac.flags);
+					  "%s Add Path: Received invalid send/receive value %u in Add Path capability",
+					  peer->host, bac.flags);
 				goto ignore;
 			}
 
