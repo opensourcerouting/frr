@@ -9207,18 +9207,15 @@ DEFUN(neighbor_disable_addpath_rx,
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 	int ret;
-	int action;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	action = bgp_addpath_capability_action(peer->addpath_type[afi][safi], 0);
-
 	ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
 				   PEER_FLAG_DISABLE_ADDPATH_RX);
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -9236,18 +9233,15 @@ DEFUN(no_neighbor_disable_addpath_rx,
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 	int ret;
-	int action;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	action = bgp_addpath_capability_action(peer->addpath_type[afi][safi], 0);
-
 	ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
 				     PEER_FLAG_DISABLE_ADDPATH_RX);
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
