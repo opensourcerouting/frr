@@ -1449,17 +1449,16 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 				}
 
 				stream_putc(s, flags);
+
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s, flags: %d",
+						   peer,
+						   action == CAPABILITY_ACTION_SET ? "Advertising"
+										   : "Removing",
+						   capability, iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi), flags);
 			}
 		}
-
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
-				   peer,
-				   action == CAPABILITY_ACTION_SET
-					   ? "Advertising"
-					   : "Removing",
-				   capability, iana_afi2str(pkt_afi),
-				   iana_safi2str(pkt_safi));
 
 		COND_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV,
 			  action == CAPABILITY_ACTION_SET);
