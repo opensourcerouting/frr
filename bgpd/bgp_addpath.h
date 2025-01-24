@@ -68,5 +68,4 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 			    safi_t safi);
 
 void bgp_addpath_type_changed(struct bgp *bgp);
-extern int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type, uint16_t paths);
 #endif

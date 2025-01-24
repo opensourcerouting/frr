@@ -361,30 +361,6 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 	}
 }
 
-int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type, uint16_t paths)
-{
-	int action = CAPABILITY_ACTION_UNSET;
-
-	switch (addpath_type) {
-	case BGP_ADDPATH_ALL:
-	case BGP_ADDPATH_BEST_PER_AS:
-		action = CAPABILITY_ACTION_SET;
-		break;
-	case BGP_ADDPATH_BEST_SELECTED:
-		if (paths)
-			action = CAPABILITY_ACTION_SET;
-		else
-			action = CAPABILITY_ACTION_UNSET;
-		break;
-	case BGP_ADDPATH_NONE:
-	case BGP_ADDPATH_MAX:
-		action = CAPABILITY_ACTION_UNSET;
-		break;
-	}
-
-	return action;
-}
-
 /*
  * Change the addpath type assigned to a peer, or peer group. In addition to
  * adjusting the counts, peer sessions will be reset as needed to make the
@@ -398,7 +374,6 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
 	struct peer_group *group;
-	int action = bgp_addpath_capability_action(addpath_type, paths);
 
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
@@ -461,7 +436,7 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 			peer_change_action(peer, afi, safi, peer_change_reset);
 	}
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
+	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, CAPABILITY_ACTION_SET);
 }
 
 /*
