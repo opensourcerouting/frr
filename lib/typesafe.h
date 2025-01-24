@@ -62,40 +62,40 @@ extern "C" {
 #define TYPESAFE_FIRST_NEXT(prefix, type)                                      \
 macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 {                                                                              \
-	return (type *)prefix ## _const_first(h);                              \
+	return unconst(prefix ## _const_first(h));                             \
 }                                                                              \
 macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
 {                                                                              \
-	return (type *)prefix ## _const_next(h, item);                         \
+	return unconst(prefix ## _const_next(h, item));                        \
 }                                                                              \
 /* ... */
 #define TYPESAFE_LAST_PREV(prefix, type)                                       \
 macro_pure type *prefix ## _last(struct prefix##_head *h)                      \
 {                                                                              \
-	return (type *)prefix ## _const_last(h);                               \
+	return unconst(prefix ## _const_last(h));                              \
 }                                                                              \
 macro_pure type *prefix ## _prev(struct prefix##_head *h, type *item)          \
 {                                                                              \
-	return (type *)prefix ## _const_prev(h, item);                         \
+	return unconst(prefix ## _const_prev(h, item));                        \
 }                                                                              \
 /* ... */
 #define TYPESAFE_FIND(prefix, type)                                            \
 macro_inline type *prefix ## _find(struct prefix##_head *h,                    \
 				   const type *item)                           \
 {                                                                              \
-	return (type *)prefix ## _const_find(h, item);                         \
+	return unconst(prefix ## _const_find(h, item));                        \
 }                                                                              \
 /* ... */
 #define TYPESAFE_FIND_CMP(prefix, type)                                        \
 macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 				      const type *item)                        \
 {                                                                              \
-	return (type *)prefix ## _const_find_lt(h, item);                      \
+	return unconst(prefix ## _const_find_lt(h, item));                     \
 }                                                                              \
 macro_inline type *prefix ## _find_gteq(struct prefix##_head *h,               \
 					const type *item)                      \
 {                                                                              \
-	return (type *)prefix ## _const_find_gteq(h, item);                    \
+	return unconst(prefix ## _const_find_gteq(h, item));                   \
 }                                                                              \
 /* ... */
 

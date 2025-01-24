@@ -36,7 +36,7 @@ static inline uint16_t in_cksum(const void *data, size_t nbytes)
 {
 	struct iovec iov[1];
 
-	iov[0].iov_base = (void *)data;
+	iov[0].iov_base = unconst((const uint8_t *)data);
 	iov[0].iov_len = nbytes;
 	return in_cksumv(iov, array_size(iov));
 }
@@ -46,9 +46,9 @@ static inline uint16_t in_cksum_with_ph4(const struct ipv4_ph *ph,
 {
 	struct iovec iov[2];
 
-	iov[0].iov_base = (void *)ph;
+	iov[0].iov_base = unconst(ph);
 	iov[0].iov_len = sizeof(*ph);
-	iov[1].iov_base = (void *)data;
+	iov[1].iov_base = unconst((const uint8_t *)data);
 	iov[1].iov_len = nbytes;
 	return in_cksumv(iov, array_size(iov));
 }
@@ -58,9 +58,9 @@ static inline uint16_t in_cksum_with_ph6(const struct ipv6_ph *ph,
 {
 	struct iovec iov[2];
 
-	iov[0].iov_base = (void *)ph;
+	iov[0].iov_base = unconst(ph);
 	iov[0].iov_len = sizeof(*ph);
-	iov[1].iov_base = (void *)data;
+	iov[1].iov_base = unconst((const uint8_t *)data);
 	iov[1].iov_len = nbytes;
 	return in_cksumv(iov, array_size(iov));
 }
