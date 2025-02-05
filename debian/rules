@@ -21,10 +21,10 @@ else
   CONF_RPKI=--disable-rpki
 endif
 
-ifeq ($(filter pkg.frr.lua,$(DEB_BUILD_PROFILES)),)
-  CONF_LUA=--disable-scripting
-else
+ifeq ($(filter pkg.frr.nolua,$(DEB_BUILD_PROFILES)),)
   CONF_LUA=--enable-scripting
+else
+  CONF_LUA=--disable-scripting
 endif
 
 ifeq ($(filter pkg.frr.nopim6d,$(DEB_BUILD_PROFILES)),)
