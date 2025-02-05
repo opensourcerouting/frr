@@ -65,20 +65,14 @@ Suggests:
  frr-doc,
 Conflicts:
  pimd,
-Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
- FRRouting implements the routing protocols commonly used in the
- internet and private networks to exchange information between routers.
- Both IP and IPv6 are supported, as are BGP, OSPFv2, OSPFv3, IS-IS, BABEL,
- EIGRP, RIP, RIPng, LDP, BFD, PIM, VRRP, PBR, and NHRP.
+Description: FRRouting Internet routing protocol suite
+ FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
+ RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
  .
- These protocols are used to turn your system into a dynamic router,
- exchanging information about available connections with other routers
- in a standards-compliant way.  The actual packet forwarding
- functionality is provided by the OS kernel.
- .
- FRRouting is a fork of Quagga with an open community model. The main
- git lives on https://github.com/frrouting/frr.git and the project name
- is commonly abbreviated as "FRR."
+ FRR's integration in Linux IP networking stacks makes it a general purpose
+ routing stack for a wide variety of use cases including connecting
+ hosts/VMs/containers to the network, advertising network services, LAN
+ switching and routing, Internet access routers, and Internet peering.
 
 Package: frr-doc
 Section: doc
@@ -91,10 +85,11 @@ Built-Using:
  ${sphinxdoc:Built-Using},
 Suggests:
  frr,
-Description: FRRouting suite - user manual
- This provides the FRR user manual in HTML form.  This is the official
- manual maintained as part of the package and is also available online
- at https://frrouting.readthedocs.io/
+Description: FRRouting Internet routing protocol suite (documentation)
+ FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
+ RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
+ .
+ This package contains the HTML user guide (https://frrouting.readthedocs.io).
 
 Package: frr-grpc
 Architecture: linux-any
@@ -114,28 +109,34 @@ Depends:
  frr (>= ${source:Version}~),
  python3:any,
  ${misc:Depends},
-Description: FRRouting suite - Python tools
- The FRRouting suite uses a small Python tool to provide configuration
- reload functionality, particularly useful when the interactive configuration
- shell is not used.
+Description: FRRouting Internet routing protocol suite (reload support)
+ FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
+ RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
  .
- Without this package installed, "reload" (as a systemd or init script
- invocation) will not work for the FRR daemons.
+ This package contains a small Python tool to provide configuration reload
+ functionality.
+ .
+ This is useful when the interactive configuration shell is not used. Without
+ this package installed, "reload" will not work for the FRR daemons.
 
 Package: frr-rpki-rtrlib
 Section: net
 Architecture: linux-any
+Build-Profiles: <!pkg.frr.nortrlib>
 Depends:
  frr (= ${binary:Version}),
  ${misc:Depends},
  ${shlibs:Depends},
-Description: FRRouting suite - BGP RPKI support (rtrlib)
- Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
- against cryptographic information stored in WHOIS databases.  This is
- used to prevent hijacking of networks on the wider internet.  It is only
- relevant to internet service providers using their own autonomous system
+Description: FRRouting Internet routing protocol suite (BGP RPKI support)
+ FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
+ RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
+ .
+ This package adds RPKI support to FRR's bgpd, allowing validation of BGP
+ routes against cryptographic information stored in WHOIS databases.
+ .
+ This is used to prevent hijacking of networks on the wider internet and is
+ only relevant to internet service providers using their own autonomous system
  number.
-Build-Profiles: <!pkg.frr.nortrlib>
 
 Package: frr-snmp
 Section: net
@@ -146,10 +147,15 @@ Depends:
  ${shlibs:Depends},
 Recommends:
  snmpd,
-Description: FRRouting suite - SNMP support
- Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
- through the AgentX protocol.  Provides read-only access to current
- routing state through standard SNMP MIBs.
+Description: FRRouting Internet routing protocol suite (SNMP support)
+ FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
+ RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
+ .
+ This package adds SNMP support to FRR's daemons by attaching to net-snmp's
+ snmpd through the AgentX protocol.
+ .
+ This allows read-only access to current routing state through standard SNMP
+ MIBs.
 
 Package: frr-test-tools
 Architecture: linux-any
