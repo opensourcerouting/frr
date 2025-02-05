@@ -4,6 +4,11 @@ set -e
 
 case "${1}" in
 	purge)
+		if dpkg-statoverride --list /etc/frr > /dev/null 2>&1
+		then
+			dpkg-statoverride --remove /etc/frr
+		fi
+
 		rm -f /etc/frr/.pkg.frr.nointegrated
 		rmdir /etc/frr > /dev/null 2>&1 || true
 
