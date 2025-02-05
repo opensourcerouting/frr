@@ -2,44 +2,46 @@ Source: frr
 Section: net
 Priority: optional
 Maintainer: David Lamparter <equinox-debian@diac24.net>
-Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
-           Ondřej Surý <ondrej@debian.org>,
-           Daniel Baumann <daniel@debian.org>,
-Build-Depends: bison,
-               chrpath,
-               debhelper-compat (= 13),
-               flex,
-               gawk,
-               install-info,
-               libc-ares-dev,
-               libcap-dev,
-               libelf-dev:native,
-               libjson-c-dev,
-               libpam0g-dev,
-               libpcre2-dev,
-               libprotobuf-c-dev,
-               libpython3-dev:native,
-               libreadline-dev,
-               librtr-dev <!pkg.frr.nortrlib>,
-               libsnmp-dev,
-               libssh-dev <!pkg.frr.nortrlib>,
-               libyang-dev (>= 3.0.3) | libyang2-dev (>= 2.1.128),
-               libunwind-dev [!alpha !m68k !sparc64 !x32],
-               pkgconf,
-               protobuf-c-compiler,
-               python3:native,
-               python3-dev:native,
-               python3-pytest:native <!nocheck>,
-               python3-sphinx:native,
-               texinfo,
-               lua5.3 <pkg.frr.lua>,
-               liblua5.3-dev <pkg.frr.lua>,
-	       libgrpc-dev (>=1.16.1) <pkg.frr.grpc>,
-	       libgrpc++-dev (>=1.16.1) <pkg.frr.grpc>,
-	       protobuf-compiler (>=3.6.1) <pkg.frr.grpc>,
-	       protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
-               libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>,
-               libgoogle-perftools-dev <pkg.frr.tcmalloc>
+Uploaders:
+ FRRouting-dev <dev@lists.frrouting.org>,
+ Ondřej Surý <ondrej@debian.org>,
+ Daniel Baumann <daniel@debian.org>,
+Build-Depends:
+ bison,
+ chrpath,
+ debhelper-compat (= 13),
+ flex,
+ gawk,
+ install-info,
+ libc-ares-dev,
+ libcap-dev,
+ libelf-dev:native,
+ libgoogle-perftools-dev <pkg.frr.tcmalloc>,
+ libgrpc++-dev (>=1.16.1) <pkg.frr.grpc>,
+ libgrpc-dev (>=1.16.1) <pkg.frr.grpc>,
+ libjson-c-dev,
+ liblua5.3-dev <pkg.frr.lua>,
+ libpam0g-dev,
+ libpcre2-dev,
+ libprotobuf-c-dev,
+ libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>,
+ libpython3-dev:native,
+ libreadline-dev,
+ librtr-dev <!pkg.frr.nortrlib>,
+ libsnmp-dev,
+ libssh-dev <!pkg.frr.nortrlib>,
+ libunwind-dev [!alpha !m68k !sparc64 !x32],
+ libyang-dev (>= 3.0.3) | libyang2-dev (>= 2.1.128),
+ lua5.3 <pkg.frr.lua>,
+ pkgconf,
+ protobuf-c-compiler,
+ protobuf-compiler (>=3.6.1) <pkg.frr.grpc>,
+ protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
+ python3-dev:native,
+ python3-pytest:native <!nocheck>,
+ python3-sphinx:native,
+ python3:native,
+ texinfo,
 Rules-Requires-Root: no
 Standards-Version: 4.7.0
 Homepage: https://www.frrouting.org
@@ -49,15 +51,20 @@ Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
 Package: frr
 Section: net
 Architecture: linux-any
-Depends: iproute2,
-         logrotate,
-         lsof,
-         ${misc:Depends},
-         ${shlibs:Depends}
-Pre-Depends: adduser
-Recommends: frr-pythontools
-Suggests: frr-doc
-Conflicts: pimd,
+Depends:
+ iproute2,
+ logrotate,
+ lsof,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Pre-Depends:
+ adduser,
+Recommends:
+ frr-pythontools,
+Suggests:
+ frr-doc,
+Conflicts:
+ pimd,
 Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  FRRouting implements the routing protocols commonly used in the
  internet and private networks to exchange information between routers.
@@ -73,67 +80,21 @@ Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  git lives on https://github.com/frrouting/frr.git and the project name
  is commonly abbreviated as "FRR."
 
-Package: frr-snmp
-Section: net
-Architecture: linux-any
-Depends: frr (= ${binary:Version}),
-         ${misc:Depends},
-         ${shlibs:Depends}
-Recommends: snmpd
-Description: FRRouting suite - SNMP support
- Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
- through the AgentX protocol.  Provides read-only access to current
- routing state through standard SNMP MIBs.
-
-Package: frr-rpki-rtrlib
-Section: net
-Architecture: linux-any
-Depends: frr (= ${binary:Version}),
-         ${misc:Depends},
-         ${shlibs:Depends}
-Description: FRRouting suite - BGP RPKI support (rtrlib)
- Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
- against cryptographic information stored in WHOIS databases.  This is
- used to prevent hijacking of networks on the wider internet.  It is only
- relevant to internet service providers using their own autonomous system
- number.
-Build-Profiles: <!pkg.frr.nortrlib>
-
-Package: frr-test-tools
-Architecture: linux-any
-Depends: frr (= ${binary:Version}),
-	${misc:Depends},
-	${shlibs:Depends}
-Description: FRRouting suite - Testing Tools
- Adds FRR test tools, used in testing FRR.
-
 Package: frr-doc
 Section: doc
 Architecture: all
 Multi-Arch: foreign
-Depends: ${misc:Depends},
-         ${sphinxdoc:Depends}
-Built-Using: ${sphinxdoc:Built-Using}
-Suggests: frr
+Depends:
+ ${misc:Depends},
+ ${sphinxdoc:Depends},
+Built-Using:
+ ${sphinxdoc:Built-Using},
+Suggests:
+ frr,
 Description: FRRouting suite - user manual
  This provides the FRR user manual in HTML form.  This is the official
  manual maintained as part of the package and is also available online
  at https://frrouting.readthedocs.io/
-
-Package: frr-pythontools
-Section: net
-Architecture: all
-Depends: frr (<< ${source:Upstream-Version}.0-~),
-         frr (>= ${source:Version}~),
-         python3:any,
-         ${misc:Depends}
-Description: FRRouting suite - Python tools
- The FRRouting suite uses a small Python tool to provide configuration
- reload functionality, particularly useful when the interactive configuration
- shell is not used.
- .
- Without this package installed, "reload" (as a systemd or init script
- invocation) will not work for the FRR daemons.
 
 Package: frr-grpc
 Architecture: linux-any
@@ -144,3 +105,55 @@ Description: FRRouting suite - GRPC interface
  This provides the GRPC interface to the daemons.
 Build-Profiles: <pkg.frr.grpc>
 
+Package: frr-pythontools
+Section: net
+Architecture: all
+Depends:
+ frr (<< ${source:Upstream-Version}.0-~),
+ frr (>= ${source:Version}~),
+ python3:any,
+ ${misc:Depends},
+Description: FRRouting suite - Python tools
+ The FRRouting suite uses a small Python tool to provide configuration
+ reload functionality, particularly useful when the interactive configuration
+ shell is not used.
+ .
+ Without this package installed, "reload" (as a systemd or init script
+ invocation) will not work for the FRR daemons.
+
+Package: frr-rpki-rtrlib
+Section: net
+Architecture: linux-any
+Depends:
+ frr (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: FRRouting suite - BGP RPKI support (rtrlib)
+ Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
+ against cryptographic information stored in WHOIS databases.  This is
+ used to prevent hijacking of networks on the wider internet.  It is only
+ relevant to internet service providers using their own autonomous system
+ number.
+Build-Profiles: <!pkg.frr.nortrlib>
+
+Package: frr-snmp
+Section: net
+Architecture: linux-any
+Depends:
+ frr (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
+Recommends:
+ snmpd,
+Description: FRRouting suite - SNMP support
+ Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
+ through the AgentX protocol.  Provides read-only access to current
+ routing state through standard SNMP MIBs.
+
+Package: frr-test-tools
+Architecture: linux-any
+Depends: frr (= ${binary:Version}),
+	${misc:Depends},
+	${shlibs:Depends}
+Description: FRRouting suite - Testing Tools
+ Adds FRR test tools, used in testing FRR.
