@@ -1,9 +1,0 @@
-# function names & co.
-frr binary: spelling-error-in-binary *writen written*
-frr binary: spelling-error-in-binary *iif if*
-
-# prefixed man pages for off-PATH daemons
-manpage-without-executable
-
-# personal name
-spelling-error-in-copyright Ang And
