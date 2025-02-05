@@ -143,11 +143,6 @@ override_dh_auto_test:
 	true
 endif
 
-ifeq ($(DEB_HOST_ARCH),s390x)
-override_dh_auto_test:
-	dh_auto_test || true
-endif
-
 override_dh_auto_clean:
 	dh_auto_clean
 	-rm -rf tests/.pytest_cache
