@@ -56,15 +56,6 @@ Pre-Depends: adduser
 Recommends: frr-pythontools
 Suggests: frr-doc
 Conflicts: pimd,
-           quagga,
-           quagga-bgpd,
-           quagga-core,
-           quagga-isisd,
-           quagga-ospf6d,
-           quagga-ospfd,
-           quagga-pimd,
-           quagga-ripd,
-           quagga-ripngd,
            zebra,
            zebra-pj
 Replaces: zebra,
@@ -124,7 +115,6 @@ Depends: ${misc:Depends},
          ${sphinxdoc:Depends}
 Built-Using: ${sphinxdoc:Built-Using}
 Suggests: frr
-Conflicts: quagga-doc
 Description: FRRouting suite - user manual
  This provides the FRR user manual in HTML form.  This is the official
  manual maintained as part of the package and is also available online
