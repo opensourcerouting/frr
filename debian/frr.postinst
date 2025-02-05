@@ -1,48 +1,75 @@
 #!/bin/sh
+
 set -e
 
-# most of this file makes sense to execute regardless of whether this is any
-# of normal "configure" or error-handling "abort-upgrade", "abort-remove" or
-# "abort-deconfigure"
+Remove_default_file()
+{
+	FILENAME="${1}"
+	CHECKSUM="${2}"
 
-groupadd --system frrvty
-groupadd --system frr
-useradd \
-	--system \
-	-c "Frr routing suite" \
-	-g frr \
-	--home-dir /nonexistent \
-	--no-create-home \
-	frr
-usermod -a -G frrvty frr
+	if [ ! -e "${FILENAME}" ] || [ -z "${CHECKSUM}" ]
+	then
+		return 0
+	fi
 
-mkdir -m 0755 -p /var/log/frr
-mkdir -m 0700 -p /var/lib/frr
-mkdir -p /etc/frr
+	MD5SUM="$(md5sum "${FILENAME}" | cut -d' ' -f1)"
 
-chown frr: /var/lib/frr
-
-rmsum() {
-       fname="$1"
-       test -f "$1" || return 0
-       fhash="`sha1sum \"$fname\"`"
-       fhash="${fhash%% *}"
-       if test "$fhash" = "$2"; then
-               rm "$fname"
-       fi
+	if [ "${CHECKSUM}" = "${MD5SUM}" ]
+	then
+		rm -f "${FILENAME}"
+	fi
 }
 
-case "$1" in
-configure)
-	if test -f /etc/frr/.pkg.frr.nointegrated; then
-		# remove integrated config setup
-		# (if checksums match, the files match freshly installed
-		# defaults, but the user has split config in place)
-		rmsum /etc/frr/vtysh.conf 5e7e3a488c51751e1ff98f27c9ad6085e1ad9cbb
-		rmsum /etc/frr/frr.conf   dac6f2af4fca9919ba40eb338885a5d1773195c8
-		rm /etc/frr/.pkg.frr.nointegrated
-	fi
-	;;
+case "${1}" in
+	configure)
+		# creating group
+		for GROUP in frr frrvty
+		do
+			if ! getent group "${GROUP}" > /dev/null 2>&1
+			then
+				groupadd --system "${GROUP}"
+			fi
+		done
+
+		# creating user
+		if ! getent passwd frr > /dev/null 2>&1
+		then
+			useradd --system -g frr --home-dir /nonexistent --no-create-home frr
+		fi
+
+		usermod -G frrvty frr
+
+		mkdir -p /etc/frr
+		if ! dpkg-statoverride --list /etc/frr > /dev/null 2>&1
+		then
+			dpkg-statoverride --update --add frr frr 0700 /etc/frr
+		fi
+
+		mkdir -p /var/lib/frr
+		chown frr:frr /var/lib/frr
+
+		mkdir -p /var/log/frr
+		chown frr:adm /var/log/frr
+
+		if [ -e /etc/frr/.pkg.frr.nointegrated ]
+		then
+			Remove_default_file	/etc/frr/frr.conf	53456334f26ca14c15053dff133b4ac0
+			Remove_default_file	/etc/frr/vtysh.conf	a9381cc58d80a472e8f51522e007e507
+
+			rm -f /etc/frr/.pkg.frr.nointegrated
+		fi
+		;;
+
+	abort-upgrade|abort-remove|abort-deconfigure)
+
+		;;
+
+	*)
+		echo "postinst called with unknown argument \`${1}'" >&2
+		exit 1
+		;;
 esac
 
 #DEBHELPER#
+
+exit 0
