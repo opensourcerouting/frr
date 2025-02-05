@@ -6,3 +6,4 @@ TODO
   * debian/watch pgpsigurlmangle / signing-key
   * multiarch for DSOs?
   * frr try-restart
+  * add debconf question to purge logs and delete users/groups.
