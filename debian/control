@@ -56,10 +56,6 @@ Pre-Depends: adduser
 Recommends: frr-pythontools
 Suggests: frr-doc
 Conflicts: pimd,
-           zebra,
-           zebra-pj
-Replaces: zebra,
-          zebra-pj
 Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  FRRouting implements the routing protocols commonly used in the
  internet and private networks to exchange information between routers.
