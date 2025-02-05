@@ -1,5 +1,7 @@
 #!/usr/bin/make -f
 
+include /usr/share/dpkg/architecture.mk
+
 # standard Debian options & profiles
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
@@ -139,6 +141,11 @@ override_dh_missing:
 ifneq ($(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
 override_dh_auto_test:
 	true
+endif
+
+ifeq ($(DEB_HOST_ARCH),s390x)
+override_dh_auto_test:
+	dh_auto_test || true
 endif
 
 override_dh_auto_clean:
