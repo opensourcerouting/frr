@@ -1,6 +1,6 @@
-etc/
-tools/etc/frr/frr.conf etc/frr/
-tools/frr-reload usr/lib/frr/
+etc
+tools/etc/frr/frr.conf			etc/frr
+tools/frr-reload			usr/lib/frr
 usr/bin/mtracebis
 usr/bin/vtysh
 usr/lib/*/frr/libfrr.*
@@ -16,5 +16,5 @@ usr/lib/frr/*.sh
 usr/lib/frr/*d
 usr/lib/frr/watchfrr
 usr/lib/frr/zebra
-usr/share/man/
-usr/share/yang/
+usr/share/man
+usr/share/yang
