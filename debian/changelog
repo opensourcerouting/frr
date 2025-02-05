@@ -57,6 +57,39 @@ frr (10.2-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 12 Nov 2024 02:00:00 -0600
 
+frr (10.1.1-2) unstable; urgency=medium
+
+  * Updating to debhelper-compat 13.
+  * Updating standards version.
+  * Updating homepage field.
+  * Trimming alternative from depends pre-bookworm.
+  * Trimming versions from depends pre-bookworm.
+  * Removing obsolete quagga conflicts.
+  * Removing obsolete zebra conflicts.
+  * Prefixing debhelper names with explicit package names.
+  * Removing obsolete doc-base debhelper file.
+  * Removing old lintian-overrides.
+  * Making maintainer scripts executable in debian directory.
+  * Adding Rules-Requires-Root field.
+  * Adding binary package sections explicitly.
+  * Wrap and sorting debian packaging files.
+  * Skipping sysvinit script.
+  * Removing spurious frr.tmpfile copy.
+  * Updating package descriptions.
+  * Removing redundant information from README.Debian.
+  * Removing unused frr-test-tools remains.
+  * Trimming README.Maintainer.
+  * Renaming remaining README.Maintainers to TODO.
+  * Reformating TODO file.
+  * Updating TODO file.
+  * Replacing adduser with tools from util-linux.
+  * Removing now unused quagga upgrade handling in frr postinst.
+  * Reformating install files.
+  * Rewriting frr.postinst in policy compliant way.
+  * Rewriting frr.postrm in policy compliant way.
+
+ -- Daniel Baumann <daniel@debian.org>  Sun, 10 Nov 2024 17:13:38 +0100
+
 frr (10.1.1-1) unstable; urgency=medium
 
   * Adding myself to uploaders, thanks David.
