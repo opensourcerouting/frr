@@ -1,9 +1,10 @@
 TODO
 ====
 
+  * add debconf question to purge logs and delete users/groups.
+
   * check that tests/{control,daemons} actually do something useful and sensible
   * /usr/share/doc/frr-doc should be named just frr?
   * debian/watch pgpsigurlmangle / signing-key
   * multiarch for DSOs?
   * frr try-restart
-  * add debconf question to purge logs and delete users/groups.
