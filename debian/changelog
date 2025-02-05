@@ -57,6 +57,18 @@ frr (10.2-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 12 Nov 2024 02:00:00 -0600
 
+frr (10.1.1-3) unstable; urgency=medium
+
+  * Changing lua build-profile to match its original intendet purpose of
+    enabling scripting support by default but allowing to exclude it if
+    needed.
+  * Changing pim6d build-profile to match its original intendet purpose of
+    enabling pim6d by default but allowing to exclude it if needed
+    (Closes: #1071653).
+  * Updating TODO file.
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 12 Nov 2024 14:56:14 +0100
+
 frr (10.1.1-2) unstable; urgency=medium
 
   * Updating to debhelper-compat 13.
