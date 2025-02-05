@@ -51,6 +51,16 @@ frr (10.3-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 10 Mar 2025 02:00:00 -0600
 
+frr (10.2.1-2) unstable; urgency=medium
+
+  * Adding patch from Helge Deller <deller@kernel.org> to fix FTBFS on all
+    big endian architectures (Closes: #1091379).
+  * Removing disabling of tests on s390.
+  * Removing dpkg-statoverride for /etc/frr in postrm, thanks Andreas
+    Hasenack <andreas.hasenack@canonical.com> (Closes: #1091415).
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 14 Jan 2025 16:58:11 +0100
+
 frr (10.2.1-1) unstable; urgency=medium
 
   * Merging upstream version 10.2.1.
