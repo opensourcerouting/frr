@@ -40,7 +40,7 @@ Build-Depends: bison,
 	       protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
                libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>,
                libgoogle-perftools-dev <pkg.frr.tcmalloc>
-Standards-Version: 4.5.0.3
+Standards-Version: 4.7.0
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
 Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
