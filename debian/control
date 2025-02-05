@@ -57,8 +57,6 @@ Depends:
  lsof,
  ${misc:Depends},
  ${shlibs:Depends},
-Pre-Depends:
- adduser,
 Recommends:
  frr-pythontools,
 Suggests:

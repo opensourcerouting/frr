@@ -5,13 +5,13 @@ set -e
 # of normal "configure" or error-handling "abort-upgrade", "abort-remove" or
 # "abort-deconfigure"
 
-addgroup --system frrvty
-addgroup --system frr
-adduser \
+groupadd --system frrvty
+groupadd --system frr
+useradd \
 	--system \
-	--ingroup frr \
-	--home /nonexistent \
-	--gecos "Frr routing suite" \
+	-c "Frr routing suite" \
+	-g frr \
+	--home-dir /nonexistent \
 	--no-create-home \
 	frr
 usermod -a -G frrvty frr
