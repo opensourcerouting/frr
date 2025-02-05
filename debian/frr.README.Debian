@@ -11,17 +11,6 @@ Instead apt-get only displays a warning saying that a new version would be
 available forcing you to explicitly type "apt-get install frr" to upgrade it.
 
 
-What is frr?
-============
-
-http://www.frrouting.org/
-FRR is a routing software suite, providing implementations of OSPFv2,
-OSPFv3, RIP v1 and v2, RIPng, ISIS, PIM, BGP and LDP for Unix platforms, particularly
-FreeBSD and Linux and also NetBSD, to mention a few. FRR is a fork of Quagga
-which itself is a fork of Zebra.
-Zebra was developed by Kunihiro Ishiguro.
-
-
 Build Profiles used in the upstream debian/
 ===========================================
 
