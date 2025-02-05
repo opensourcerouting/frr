@@ -47,6 +47,7 @@ Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
 Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
 
 Package: frr
+Section: net
 Architecture: linux-any
 Depends: iproute2,
          logrotate,
@@ -73,6 +74,7 @@ Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  is commonly abbreviated as "FRR."
 
 Package: frr-snmp
+Section: net
 Architecture: linux-any
 Depends: frr (= ${binary:Version}),
          ${misc:Depends},
@@ -84,6 +86,7 @@ Description: FRRouting suite - SNMP support
  routing state through standard SNMP MIBs.
 
 Package: frr-rpki-rtrlib
+Section: net
 Architecture: linux-any
 Depends: frr (= ${binary:Version}),
          ${misc:Depends},
@@ -118,6 +121,7 @@ Description: FRRouting suite - user manual
  at https://frrouting.readthedocs.io/
 
 Package: frr-pythontools
+Section: net
 Architecture: all
 Depends: frr (<< ${source:Upstream-Version}.0-~),
          frr (>= ${source:Version}~),
