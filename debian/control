@@ -45,8 +45,8 @@ Build-Depends:
 Rules-Requires-Root: no
 Standards-Version: 4.7.0
 Homepage: https://www.frrouting.org
-Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
-Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
+Vcs-Browser: https://forgejo.debian.net/frrouting/frr
+Vcs-Git: https://forgejo.debian.net/frrouting/frr
 
 Package: frr
 Section: net
