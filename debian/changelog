@@ -51,6 +51,14 @@ frr (10.3-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 10 Mar 2025 02:00:00 -0600
 
+frr (10.2.1-3) unstable; urgency=medium
+
+  * Manually adding ftbfs-big-endian.patch from previous upload to git
+    (patches are excluded because of upstreams gitignore file).
+  * Updating vcs fields.
+
+ -- Daniel Baumann <daniel@debian.org>  Thu, 06 Feb 2025 23:58:04 +0100
+
 frr (10.2.1-2) unstable; urgency=medium
 
   * Adding patch from Helge Deller <deller@kernel.org> to fix FTBFS on all
