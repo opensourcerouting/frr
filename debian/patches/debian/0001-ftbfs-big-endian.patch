@@ -1,0 +1,15 @@
+Author: Helge Deller <deller@kernel.org>
+Description: Fix the FTBFS on all big endian architectures (Closes: #1091379).
+
+diff -Naurp frr.orig/tests/lib/test_frrscript.c frr/tests/lib/test_frrscript.c
+--- frr.orig/tests/lib/test_frrscript.c
++++ frr/tests/lib/test_frrscript.c
+@@ -54,7 +54,7 @@ int main(int argc, char **argv)
+ 	n = 4;
+ 	result = frrscript_call(fs, "fact", ("n", &n));
+ 	assert(result == 0);
+-	ansptr = frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
++	ansptr = frrscript_get_result(fs, "fact", "ans", lua_tolonglongp);
+ 	assert(*ansptr == 24);
+ 
+ 	XFREE(MTYPE_SCRIPT_RES, ansptr);
