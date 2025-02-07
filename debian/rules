@@ -34,9 +34,9 @@ else
 endif
 
 ifeq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
-  CONF_GRPC=--disable-grpc
+  CONF_GRPC=--disable-grpc --disable-protobuf
 else
-  CONF_GRPC=--enable-grpc
+  CONF_GRPC=--enable-grpc --enable-protobuf
 endif
 
 export PYTHON=python3
@@ -63,13 +63,13 @@ override_dh_auto_configure:
 		--enable-doc-html \
 		--enable-snmp \
 		--enable-fpm \
-		--disable-protobuf \
 		--disable-zeromq \
 		--enable-ospfapi \
 		--enable-bgp-vnc \
 		--enable-multipath=256 \
 		--enable-pcre2posix \
-		\
+		--enable-mgmtd-test-be-client \
+		--enable-fpm-listener \
 		--enable-user=frr \
 		--enable-group=frr \
 		--enable-vty-group=frrvty \
@@ -96,6 +96,15 @@ override_dh_auto_install:
 	cp -r tools/etc/* debian/tmp/etc/
 	-rm debian/tmp/etc/frr/daemons.conf
 
+# install proto files to /usr/lib/frr
+#ifneq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
+	cp lib/*.proto debian/tmp/usr/lib/frr/
+	cp fpm/*.proto debian/tmp/usr/lib/frr/
+	cp grpc/*.proto debian/tmp/usr/lib/frr/
+	cp mlag/*.proto debian/tmp/usr/lib/frr/
+	cp qpb/*.proto debian/tmp/usr/lib/frr/
+#endif
+	
 # drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
