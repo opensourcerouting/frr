@@ -51,6 +51,12 @@ frr (10.3-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 10 Mar 2025 02:00:00 -0600
 
+frr (10.2.1-4) experimental; urgency=medium
+
+  * Building with libyang 3.
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 11 Feb 2025 20:12:28 +0100
+
 frr (10.2.1-3) unstable; urgency=medium
 
   * Manually adding ftbfs-big-endian.patch from previous upload to git
