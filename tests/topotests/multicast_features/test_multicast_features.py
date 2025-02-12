@@ -185,102 +185,64 @@ def test_pim_convergence():
     expect_pim_peer("r1", "ipv6", "r1-eth1", r3_link_address)
 
 
-def test_igmp_immediate_leave():
-    "Test IGMPv2 immediate leave feature."
+def host_send_igmp_packet(host, script, type, source, group, router_alert=True):
+    "Sends packet using specified script from host."
+    command = f"python3 {CWD}/../../packets/{script}"
+    command += f" --src_ip={source} --gaddr={group}"
+    command += f" --iface={host}-eth0 --type={type}"
+    if router_alert:
+        command += f" --enable_router_alert"
+
+    tgen = get_topogen()
+    tgen.gears[host].run(command)
+
+
+def host_send_igmpv3_packet(host, source, group, router_alert=True):
+    "Sends packet using specified script from host."
+    command = f"python3 {CWD}/../../packets/igmp/igmp_v3.py"
+    command += f" --src_ip={source} --gaddr=224.0.0.22"
+    command += f" --iface={host}-eth0 --type=0x22"
+    command += f" --record={group} "
+    if router_alert:
+        command += f" --enable_router_alert"
+
+    tgen = get_topogen()
+    tgen.gears[host].run(command)
+
+def expect_igmp_group(router, interface, group):
+    tgen = get_topogen()
+    igmp_groups = tgen.gears[router].vtysh_cmd("show ip igmp groups json", isjson=True)
+    try:
+        for group in igmp_groups[interface]["groups"]:
+            if group["group"] == group:
+                return True
+
+        return False
+    except KeyError:
+        return False
+
+
+def test_igmp_router_alert():
+    "Test IGMP router alert check feature."
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sysctl_assure(
-        tgen.gears["h1"],
-        "net.ipv4.conf.h1-eth0.force_igmp_version",
-        "2")
-    tgen.gears["r1"].vtysh_cmd("""
-        configure terminal
-        interface r1-eth2
-         ip igmp immediate-leave
-    """)
+    source = "192.168.100.100"
+    group = "224.100.10.10"
+    host_send_igmp_packet("h1", "igmp/igmp_v1.py", 0x12, source, group, router_alert=False)
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    topotest.run_and_expect(test_func, True, count=10, wait=2)
 
-    app_helper.run("h1", ["224.0.110.1", "h1-eth0"])
-    app_helper.run("h3", ["224.0.110.1", "h3-eth0"])
+    group = "224.100.10.11"
+    host_send_igmp_packet("h1", "igmp/igmp_v2.py", 0x16, source, group, router_alert=False)
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    topotest.run_and_expect(test_func, True, count=10, wait=2)
 
-    def expect_igmp_group():
-        igmp_groups = tgen.gears["r1"].vtysh_cmd("show ip igmp groups json", isjson=True)
-        try:
-            for group in igmp_groups["r1-eth2"]["groups"]:
-                if group["group"] == "224.0.110.1":
-                    return True
-
-            return False
-        except KeyError:
-            return False
-
-    topotest.run_and_expect(expect_igmp_group, True, count=10, wait=2)
-
-    # Send leave and expect immediate leave
-    app_helper.stop_host("h1")
-    topotest.run_and_expect(expect_igmp_group, False, count=10, wait=2)
-
-    # Clean up
-    tgen.gears["r1"].vtysh_cmd("""
-        configure terminal
-        interface r1-eth2
-         no ip igmp immediate-leave
-    """)
-    topotest.sysctl_assure(
-        tgen.gears["h1"],
-        "net.ipv4.conf.h1-eth0.force_igmp_version",
-        "0")
-    app_helper.stop_host("h3")
-
-
-def test_mldv1_immediate_leave():
-    "Test MLDv1 immediate leave feature."
-    tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    topotest.sysctl_assure(
-        tgen.gears["h1"],
-        "net.ipv6.conf.h1-eth0.force_mld_version",
-        "1")
-    tgen.gears["r1"].vtysh_cmd("""
-        configure terminal
-        interface r1-eth2
-         ipv6 mld immediate-leave
-    """)
-
-    app_helper.run("h1", ["ff05::2000", "h1-eth0"])
-    app_helper.run("h3", ["ff05::2000", "h3-eth0"])
-
-    def expect_mld_group():
-        igmp_groups = tgen.gears["r1"].vtysh_cmd("show ipv6 mld groups json", isjson=True)
-        try:
-            for group in igmp_groups["r1-eth2"]["groups"]:
-                if group["group"] == "ff05::2000":
-                    return True
-
-            return False
-        except KeyError:
-            return False
-
-    topotest.run_and_expect(expect_mld_group, True, count=10, wait=2)
-
-    # Send leave and expect immediate leave
-    app_helper.stop_host("h1")
-    topotest.run_and_expect(expect_mld_group, False, count=10, wait=2)
-
-    # Clean up
-    tgen.gears["r1"].vtysh_cmd("""
-        configure terminal
-        interface r1-eth2
-         no ipv6 mld immediate-leave
-    """)
-    topotest.sysctl_assure(
-        tgen.gears["h1"],
-        "net.ipv6.conf.h1-eth0.force_mld_version",
-        "0")
-    app_helper.stop_host("h3")
+    group = "224.100.10.12"
+    host_send_igmp_packet("h1", "igmp/igmp_v2.py", 0x16, source, group, router_alert=False)
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    topotest.run_and_expect(test_func, True, count=10, wait=2)
 
 
 def test_memory_leak():
