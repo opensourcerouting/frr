@@ -15,6 +15,15 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#ifdef linux
+/* --deny-exit */
+#include <linux/seccomp.h>
+#include <linux/filter.h>
+#include <linux/prctl.h>
+#include <sys/syscall.h>
+#include <sys/prctl.h>
+#endif
+
 #include "libfrr.h"
 #include "getopt.h"
 #include "privs.h"
@@ -69,6 +78,8 @@ bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
 static uint64_t startup_fds;
 
+static bool deny_exit;
+
 static char comb_optstr[256];
 static struct option comb_lo[64];
 static struct option *comb_next_lo = &comb_lo[0];
@@ -100,6 +111,7 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_LOGGING   1007
 #define OPTION_LIMIT_FDS 1008
 #define OPTION_SCRIPTDIR 1009
+#define OPTION_DENYEXIT  1010
 
 static const struct option lo_always[] = {
 	{ "help", no_argument, NULL, 'h' },
@@ -120,6 +132,7 @@ static const struct option lo_always[] = {
 	{ "log-level", required_argument, NULL, OPTION_LOGLEVEL },
 	{ "command-log-always", no_argument, NULL, OPTION_LOGGING },
 	{ "limit-fds", required_argument, NULL, OPTION_LIMIT_FDS },
+	{ "deny-exit", no_argument, NULL, OPTION_DENYEXIT },
 	{ NULL }
 };
 static const struct optspec os_always = {
@@ -649,6 +662,9 @@ static int frr_opt(int opt)
 	case OPTION_LIMIT_FDS:
 		di->limit_fds = strtoul(optarg, &err, 0);
 		break;
+	case OPTION_DENYEXIT:
+		deny_exit = true;
+		break;
 	default:
 		return 1;
 	}
@@ -726,6 +742,37 @@ static void _err_print(const void *cookie, const char *errstr)
 
 	fprintf(stderr, "%s: %s\n", prefix, errstr);
 }
+
+static void deny_exit_enforce(void)
+{
+#ifdef linux
+	static struct sock_filter bpf[] = {
+		BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
+
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_exit, 0, 1),
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRAP),
+
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_exit_group, 0, 1),
+		BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_TRAP),
+
+		BPF_STMT(BPF_RET | BPF_W, SECCOMP_RET_ALLOW),
+	};
+	static struct sock_fprog fprog = {
+		.len = array_size(bpf),
+		.filter = bpf,
+	};
+
+	if (prctl(PR_SET_NO_NEW_PRIVS, 1L, 0L, 0L, 0L))
+		fprintf(stderr, "--deny-exit: prctl(NO_NEW_PRIVS): %m\n");
+	if (syscall(SYS_seccomp, SECCOMP_SET_MODE_FILTER, 0, &fprog))
+		fprintf(stderr, "--deny-exit: seccomp(): %m\n");
+	else
+		fprintf(stderr, "--deny-exit applied\n");
+#else
+	fprintf(stderr, "--deny-exit not implemented on this platform\n");
+#endif
+}
+
 
 static struct event_loop *master;
 struct event_loop *frr_init(void)
@@ -1058,6 +1105,8 @@ void frr_config_fork(void)
 		frr_daemonize();
 
 	frr_is_after_fork = true;
+	if (deny_exit)
+		deny_exit_enforce();
 
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
