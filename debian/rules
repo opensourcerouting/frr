@@ -99,11 +99,8 @@ override_dh_auto_install:
 
 # install proto files to /usr/lib/frr
 #ifneq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
-	cp lib/*.proto debian/tmp/usr/lib/frr/
-	cp fpm/*.proto debian/tmp/usr/lib/frr/
-	cp grpc/*.proto debian/tmp/usr/lib/frr/
-	cp mlag/*.proto debian/tmp/usr/lib/frr/
-	cp qpb/*.proto debian/tmp/usr/lib/frr/
+#	cp usr/lib/x86_64-linux-gnu/frr/frr/mgmt.proto debian/tmp/usr/lib/frr/
+#	mv usr/lib/x86_64-linux-gnu/frr/frr/*.proto debian/tmp/usr/lib/frr/
 #endif
 	
 # drop dev-only files
