@@ -524,11 +524,7 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 
 # install proto files
 %if %{with_grpc}
-    install -m644 %{zeb_src}/lib/*.proto %{buildroot}/usr/lib/frr/
-    install -m644 %{zeb_src}/fpm/*.proto %{buildroot}/usr/lib/frr/
-    install -m644 %{zeb_src}/grpc/*.proto %{buildroot}/usr/lib/frr/
-    install -m644 %{zeb_src}/mlag/*.proto %{buildroot}/usr/lib/frr/
-    install -m644 %{zeb_src}/qpb/*.proto %{buildroot}/usr/lib/frr/
+    mv %{buildroot}%{_libdir}/frr/*.proto %{buildroot}/usr/lib/frr/
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
