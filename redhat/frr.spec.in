@@ -776,11 +776,13 @@ fi
 %{_libdir}/libfrr*.so*
 %{_libdir}/frr/modules/*.so
 %{_libdir}/libmgmt_be_nb.so*
+%exclude %{_sbindir}/*.proto
 %{_bindir}/*
 %if %{with_grpc}
     %exclude %{_libdir}/libfrrgrpc_pb.so*
     %exclude %{_libdir}/frr/modules/grpc.so
 %endif
+%exclude %{_libdir}/frr/*.proto
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
 %if "%{initsystem}" == "systemd"
