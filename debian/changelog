@@ -57,7 +57,7 @@ frr (10.2.1-4) experimental; urgency=medium
 
  -- Daniel Baumann <daniel@debian.org>  Tue, 11 Feb 2025 20:12:28 +0100
 
-frr (10.2.1-3) unstable; urgency=medium
+frr (10.2.1-3) sid; urgency=medium
 
   * Manually adding ftbfs-big-endian.patch from previous upload to git
     (patches are excluded because of upstreams gitignore file).
@@ -65,7 +65,7 @@ frr (10.2.1-3) unstable; urgency=medium
 
  -- Daniel Baumann <daniel@debian.org>  Thu, 06 Feb 2025 23:58:04 +0100
 
-frr (10.2.1-2) unstable; urgency=medium
+frr (10.2.1-2) sid; urgency=medium
 
   * Adding patch from Helge Deller <deller@kernel.org> to fix FTBFS on all
     big endian architectures (Closes: #1091379).
@@ -75,19 +75,19 @@ frr (10.2.1-2) unstable; urgency=medium
 
  -- Daniel Baumann <daniel@debian.org>  Tue, 14 Jan 2025 16:58:11 +0100
 
-frr (10.2.1-1) unstable; urgency=medium
+frr (10.2.1-1) sid; urgency=medium
 
   * Merging upstream version 10.2.1.
 
  -- Daniel Baumann <daniel@debian.org>  Tue, 24 Dec 2024 08:34:42 +0100
 
-frr (10.2-2) unstable; urgency=medium
+frr (10.2-2) sid; urgency=medium
 
   * Avoid failing the testsuite on s390x for now.
 
  -- Daniel Baumann <daniel@debian.org>  Mon, 16 Dec 2024 16:03:09 +0100
 
-frr (10.2-1) unstable; urgency=medium
+frr (10.2-1) sid; urgency=medium
 
   * Merging upstream version 10.2.
 
@@ -99,7 +99,7 @@ frr (10.2-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 12 Nov 2024 02:00:00 -0600
 
-frr (10.1.1-3) unstable; urgency=medium
+frr (10.1.1-3) sid; urgency=medium
 
   * Changing lua build-profile to match its original intendet purpose of
     enabling scripting support by default but allowing to exclude it if
@@ -111,7 +111,7 @@ frr (10.1.1-3) unstable; urgency=medium
 
  -- Daniel Baumann <daniel@debian.org>  Tue, 12 Nov 2024 14:56:14 +0100
 
-frr (10.1.1-2) unstable; urgency=medium
+frr (10.1.1-2) sid; urgency=medium
 
   * Updating to debhelper-compat 13.
   * Updating standards version.
@@ -144,21 +144,21 @@ frr (10.1.1-2) unstable; urgency=medium
 
  -- Daniel Baumann <daniel@debian.org>  Sun, 10 Nov 2024 17:13:38 +0100
 
-frr (10.1.1-1) unstable; urgency=medium
+frr (10.1.1-1) sid; urgency=medium
 
   * Adding myself to uploaders, thanks David.
   * Harmonizing my email address in changelog entries.
 
  -- Daniel Baumann <daniel@debian.org>  Sat, 09 Nov 2024 14:27:13 +0100
 
-frr (10.1.1-0.1) unstable; urgency=medium
+frr (10.1.1-0.1) sid; urgency=medium
 
   * Non-maintainer upload.
   * New upstream release.
 
  -- Daniel Baumann <daniel@debian.org>  Tue, 17 Sep 2024 05:15:20 +0200
 
-frr (10.1-0.2) unstable; urgency=medium
+frr (10.1-0.2) sid; urgency=medium
 
   * Non-maintainer upload to unstable.
 
@@ -179,7 +179,7 @@ frr (10.1-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 26 Jul 2024 02:00:00 -0600
 
-frr (10.0.1-0.1) unstable; urgency=medium
+frr (10.0.1-0.1) sid; urgency=medium
 
   * Non-maintainer upload.
   * New upstream release:
@@ -227,14 +227,14 @@ frr (10.0-1) unstable; urgency=medium
 
  -- David Lamparter <equinox-debian@diac24.net>  Tue, 30 Apr 2024 19:36:44 +0200
 
-frr (10.0-0.2) unstable; urgency=medium
+frr (10.0-0.2) sid; urgency=medium
 
   * Non-maintainer upload.
   * Linking with atomic like armel to fix FTBFS.
 
  -- Daniel Baumann <daniel@debian.org>  Sat, 27 Apr 2024 07:44:24 +0200
 
-frr (10.0-0.1) unstable; urgency=medium
+frr (10.0-0.1) sid; urgency=medium
 
   * Non-maintainer upload.
   * New upstream release.
@@ -250,7 +250,7 @@ frr (10.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 25 Mar 2024 02:00:00 -0600
 
-frr (9.1-0.1) unstable; urgency=high
+frr (9.1-0.1) sid; urgency=high
 
   * Non-maintainer upload.
   * New upstream release (Closes: #1042473, #1055852):
