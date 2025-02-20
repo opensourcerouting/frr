@@ -6,9 +6,9 @@ Uploaders:
  FRRouting-dev <dev@lists.frrouting.org>,
  Daniel Baumann <daniel@debian.org>,
 Build-Depends:
+ debhelper-compat (= 13),
  bison,
  chrpath,
- debhelper-compat (= 13),
  flex,
  gawk,
  install-info,
