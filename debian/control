@@ -4,7 +4,6 @@ Priority: optional
 Maintainer: David Lamparter <equinox-debian@diac24.net>
 Uploaders:
  FRRouting-dev <dev@lists.frrouting.org>,
- Ondřej Surý <ondrej@debian.org>,
  Daniel Baumann <daniel@debian.org>,
 Build-Depends:
  bison,
