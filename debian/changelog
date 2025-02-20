@@ -51,6 +51,15 @@ frr (10.3-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 10 Mar 2025 02:00:00 -0600
 
+frr (10.2.1-6) sid; urgency=medium
+
+  * Harmonizing watch file.
+  * Removing Ondřej from Uploaders as wished and with thanks for his past
+    work (#1098233).
+  * Wrap and sorting debian files.
+
+ -- Daniel Baumann <daniel@debian.org>  Thu, 20 Feb 2025 06:51:41 +0100
+
 frr (10.2.1-5) sid; urgency=medium
 
   * Updating vcs fields.
