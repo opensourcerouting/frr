@@ -224,8 +224,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: afi=%s, safi=%s, p=%pBD", __func__,
-			   afi2str(afi), safi2str(safi), ctx->dest);
+		zlog_debug("%s: peer=%pBP, afi=%s, safi=%s, p=%pBD", __func__, peer, afi2str(afi),
+			   safi2str(safi), ctx->dest);
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		/* An update-group that uses addpath */
