@@ -216,6 +216,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	safi_t safi;
 	struct peer *peer;
 	struct bgp_adj_out *adj, *adj_next;
+	struct bgp_path_info *bpi;
 	bool addpath_capable;
 
 	afi = UPDGRP_AFI(updgrp);
@@ -284,7 +285,16 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					if (adj->subgroup != subgrp)
 						continue;
 
-					if (!adj->adv)
+					for (bpi = bgp_dest_get_bgp_path_info(ctx->dest); bpi;
+					     bpi = bpi->next) {
+						if (bgp_addpath_id_for_peer(peer, afi, safi,
+									    &bpi->tx_addpath) ==
+							    adj->addpath_tx_id &&
+						    CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
+							continue;
+					}
+
+					if (bpi)
 						subgroup_process_announce_selected(subgrp, NULL,
 										   ctx->dest, afi,
 										   safi,
