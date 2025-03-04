@@ -42,7 +42,7 @@ Build-Depends:
  python3:native,
  texinfo,
 Rules-Requires-Root: no
-Standards-Version: 4.7.1
+Standards-Version: 4.7.2
 Homepage: https://www.frrouting.org
 Vcs-Browser: https://forgejo.debian.net/frr/frr
 Vcs-Git: https://forgejo.debian.net/frr/frr
