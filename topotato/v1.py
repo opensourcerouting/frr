@@ -28,6 +28,7 @@ from .utils import (
     JSONCompareIgnoreContent,
     JSONCompareIgnoreExtraListitems,
     JSONCompareListKeyedDict,
+    JSONCompareRegex
 )
 from .network import (
     TopotatoNetwork,
