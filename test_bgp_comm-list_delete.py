@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2022 Noah Krishnamoorty
+# Copyright (C) 2023 Nathan Mangar
 
 """
 Test if works the following commands:
@@ -8,10 +7,11 @@ route-map test permit 10
   set comm-list <arg> delete
 """
 
-__topotests_file__ = "bgp_comm_list_delete/test_bgp_comm-list_delete.py"
-__topotests_gitrev__ = "4953ca977f3a5de8109ee6353ad07f816ca1774c"
+__topotests_replaces__ = {
+    "bgp_comm_list_delete/": "4953ca977f3a5de8109ee6353ad07f816ca1774c",
+}
 
-# pylint: disable=wildcard-import,unused-import,unused-wildcard-import
+# pylint: disable=invalid-name, missing-class-docstring, missing-function-docstring, line-too-long, consider-using-f-string, wildcard-import, unused-wildcard-import, f-string-without-interpolation, too-few-public-methods, unused-argument, attribute-defined-outside-init
 from topotato.v1 import *
 
 
@@ -20,37 +20,17 @@ def topology(topo):
     """
     [ r1 ]
       |
-    { s1 }
-      |
     [ r2 ]
-
     """
-    topo.router("r1").lo_ip4.append("172.16.255.254/32")
 
 
 class Configs(FRRConfigs):
-    routers = ["r1", "r2"]
-
     zebra = """
     #% extends "boilerplate.conf"
-    #% block main
-    #% if router.name == 'r1'
-    interface lo
-     ip address {{ router.lo_ip4[0] }}
-    !
-    #% endif
-    #% for iface in router.ifaces
-    interface {{ iface.ifname }}
-     ip address {{ iface.ip4[0] }}
-    !
-    #% endfor
-    ip forwarding
-    !
-    #% endblock
+    ## nothing needed
     """
 
     bgpd = """
-    #% extends "boilerplate.conf"
     #% block main
     #% if router.name == 'r1'
     router bgp 65000
@@ -83,23 +63,15 @@ class Configs(FRRConfigs):
 
 class BGPCommListDeleteTest(TestBase, AutoFixture, topo=topology, configs=Configs):
     @topotatofunc
-    def _bgp_converge_bgpstate(self, topo, r1, r2):
-
-        expected = {str(r1.ifaces[0].ip4[0].ip): {"bgpState": "Established"}}
-        yield from AssertVtysh.make(
-            r2,
-            "bgpd",
-            f"show ip bgp neighbor { r1.ifaces[0].ip4[0].ip } json",
-            maxwait=5.0,
-            compare=expected,
-        )
-
-    @topotatofunc
-    def _bgp_converge_prefixCounter(self, topo, r1, r2):
-
+    def bgp_converge(self, topo, r1, r2):
         expected = {
             str(r1.ifaces[0].ip4[0].ip): {
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 2}}
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 2,
+                    }
+                },
             }
         }
 
@@ -112,8 +84,7 @@ class BGPCommListDeleteTest(TestBase, AutoFixture, topo=topology, configs=Config
         )
 
     @topotatofunc
-    def _bgp_comm_list_delete(self, topo, r1, r2):
-
+    def bgp_comm_list_delete(self, topo, r1, r2):
         expected = {
             "paths": [{"community": {"list": ["111:111", "222:222", "444:444"]}}]
         }
