@@ -45,6 +45,15 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3-1) sid; urgency=medium
+
+  * Updating to standards version 4.7.1.
+  * Updating to standards version 4.7.2.
+  * Merging upstream version 10.3.
+  * Removing ftbfs-big-endian.patch, not needed anymore.
+
+ -- Daniel Baumann <daniel@debian.org>  Wed, 12 Mar 2025 10:27:23 +0100
+
 frr (10.3-0) unstable; urgency=medium
 
   * New upstream release FRR 10.3
