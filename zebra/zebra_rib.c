@@ -2659,6 +2659,30 @@ static void early_route_memory_free(struct zebra_early_route *ere)
 	XFREE(MTYPE_WQ_WRAPPER, ere);
 }
 
+static void vrf_id_resync(struct zebra_early_route *ere)
+{
+	struct route_entry *re = ere->re;
+	struct zebra_vrf *zvrf;
+	vrf_id_t redo_vrf_id;
+
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	if (!zvrf) {
+		zlog_warn("VRF resync: VRF %u does not exist", re->vrf_id);
+		return;
+	}
+	assert(zvrf->zns);
+
+	redo_vrf_id = zebra_vrf_lookup_by_table(re->table, zvrf->zns->ns_id);
+	if (redo_vrf_id == re->vrf_id)
+		return;
+
+	zlog_warn("VRF resync: VRF creation/deletion race condition detected on table %u (was VRF %u, now VRF %u)",
+		  re->table, re->vrf_id, redo_vrf_id);
+
+	/* I wish, but no, can't do that, breaks things elsewhere */
+	// re->vrf_id = redo_vrf_id;
+}
+
 static void process_subq_early_route_add(struct zebra_early_route *ere)
 {
 	struct route_entry *re = ere->re;
@@ -2668,6 +2692,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	struct route_entry *same = NULL, *first_same = NULL;
 	int same_count = 0;
 	rib_dest_t *dest;
+
+	vrf_id_resync(ere);
 
 	/* Lookup table.  */
 	table = zebra_vrf_get_table_with_table_id(ere->afi, ere->safi,
