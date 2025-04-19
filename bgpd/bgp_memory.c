@@ -137,3 +137,7 @@ DEFINE_MTYPE(BGPD, BGP_NOTIFICATION, "BGP Notification Message");
 DEFINE_MTYPE(BGPD, BGP_SOFT_VERSION, "Software Version");
 
 DEFINE_MTYPE(BGPD, BGP_EVPN_OVERLAY, "BGP EVPN Overlay");
+
+DEFINE_MTYPE(BGPD, BGP_NHC, "BGP Next Hop Dependent Characteristics Attribute");
+DEFINE_MTYPE(BGPD, BGP_NHC_TLV, "BGP Next Hop Dependent Characteristics TLV");
+DEFINE_MTYPE(BGPD, BGP_NHC_TLV_VAL, "BGP Next Hop Dependent Characteristics TLV value");

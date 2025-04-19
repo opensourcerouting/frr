@@ -318,6 +318,9 @@ struct attr {
 
 	/* AIGP Metric */
 	uint64_t aigp_metric;
+
+	/* Next-hop characteristics */
+	struct bgp_nhc *nhc;
 };
 
 /* rmap_change_flags definition */
@@ -582,6 +585,21 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 					struct transit *transit)
 {
 	attr->transit = transit;
+}
+
+static inline struct bgp_nhc *bgp_attr_get_nhc(const struct attr *attr)
+{
+	return attr->nhc;
+}
+
+static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
+{
+	attr->nhc = bnc;
+
+	if (bnc)
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
+	else
+		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
 }
 
 #define AIGP_TRANSMIT_ALLOWED(peer)                                                                \

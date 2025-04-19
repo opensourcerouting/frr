@@ -31,6 +31,7 @@
 #include "frrdistance.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_nhc.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
@@ -2174,6 +2175,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	uint64_t cum_bw;
 	mpls_label_t label;
 	bool global_and_ll = false;
+	struct bgp_nhc_tlv *nnhn = NULL;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2874,6 +2876,19 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			bgp_attr_set_aigp_metric(attr, aigp);
 		}
 	}
+
+	nnhn = bgp_nhc_tlv_encode_nnhn(pi);
+	struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
+
+	if (!nhc) {
+		nhc = XCALLOC(MTYPE_BGP_NHC, sizeof(struct bgp_nhc));
+		nhc->afi = afi;
+		nhc->safi = safi;
+		nhc->nh_length = attr->mp_nexthop_len;
+		bgp_attr_set_nhc(attr, nhc);
+		bgp_nhc_tlv_add(attr, nnhn);
+	}
+
 
 	/* Extended communities can be transitive and non-transitive.
 	 * If the extended community is non-transitive, strip it off,
@@ -12277,6 +12292,24 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				path, path->extra, attr);
 			vty_out(vty, "      flags net: 0x%u, path: 0x%u, attr: 0x%" PRIu64 "\n",
 				path->net->flags, path->flags, attr->flag);
+		}
+	}
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC))) {
+		if (!json_paths) {
+			struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
+			struct bgp_nhc_tlv *tlv = NULL;
+
+			if (nhc) {
+				for (tlv = nhc->tlvs; tlv; tlv = tlv->next) {
+					vty_out(vty, "      Next-next Hop Nodes:\n");
+
+					/* tlv->value is a haystack with multiple router-id's encoded */
+					/* We need to iterate by next-hop length */
+					if (tlv->code == BGP_ATTR_NHC_TLV_NNHN)
+						vty_out(vty, "       %pI4\n", tlv->value);
+				}
+			}
 		}
 	}
 
