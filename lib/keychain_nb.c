@@ -23,6 +23,8 @@
 #include "northbound.h"
 #include "keychain.h"
 
+#include "keychain_private.h"
+
 static void keychain_touch(struct keychain *keychain)
 {
 	keychain->last_touch = time(NULL);
@@ -59,15 +61,15 @@ static int key_chains_key_chain_destroy(struct nb_cb_destroy_args *args)
 
 static const void *key_chains_key_chain_get_next(struct nb_cb_get_next_args *args)
 {
-	const struct listnode *prev = args->list_entry;
+	const struct keychain *keychain = args->list_entry;
 
-	return prev ? prev->next : keychain_list->head;
+	return keychain ? keychains_const_next(keychains, keychain)
+			: keychains_const_first(keychains);
 }
 
 static int key_chains_key_chain_get_keys(struct nb_cb_get_keys_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct keychain *keychain = node->data;
+	const struct keychain *keychain = args->list_entry;
 
 	args->keys->num = 1;
 	strlcpy(args->keys->key[0], keychain->name, sizeof(args->keys->key[0]));
@@ -77,14 +79,8 @@ static int key_chains_key_chain_get_keys(struct nb_cb_get_keys_args *args)
 static const void *key_chains_key_chain_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
 	const char *name = args->keys->key[0];
-	struct keychain *keychain;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(keychain_list, node, keychain)) {
-		if (strcmp(keychain->name, name) == 0)
-			return node;
-	}
-	return NULL;
+	return keychain_lookup(name);
 }
 
 
@@ -235,17 +231,15 @@ static int key_chains_key_chain_key_destroy(struct nb_cb_destroy_args *args)
 
 static const void *key_chains_key_chain_key_get_next(struct nb_cb_get_next_args *args)
 {
-	const struct listnode *kcnode = args->parent_list_entry;
-	const struct keychain *keychain = kcnode->data;
-	const struct listnode *prev = args->list_entry;
+	const struct keychain *keychain = args->parent_list_entry;
+	const struct key *key = args->list_entry;
 
-	return prev ? prev->next : keychain->key->head;
+	return key ? kc_keys_const_next(keychain->keys, key) : kc_keys_const_first(keychain->keys);
 }
 
 static int key_chains_key_chain_key_get_keys(struct nb_cb_get_keys_args *args)
 {
-	const struct listnode *node = args->list_entry;
-	const struct key *key = node->data;
+	const struct key *key = args->list_entry;
 
 	args->keys->num = 1;
 	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%" PRIu32,
@@ -256,17 +250,11 @@ static int key_chains_key_chain_key_get_keys(struct nb_cb_get_keys_args *args)
 
 static const void *key_chains_key_chain_key_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
-	const struct listnode *kcnode = args->parent_list_entry;
-	const struct keychain *keychain = kcnode->data;
-	struct listnode *node;
-	struct key *key;
+	const struct keychain *keychain = args->parent_list_entry;
 	uint32_t index;
 
 	index = strtoul(args->keys->key[0], NULL, 0);
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key))
-		if (key->index == index)
-			return node;
-	return NULL;
+	return key_lookup(keychain, index);
 }
 
 static int __lifetime_create(struct nb_cb_create_args *args, bool send,

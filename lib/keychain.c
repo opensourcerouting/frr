@@ -10,6 +10,8 @@
 #include "linklist.h"
 #include "memory.h"
 
+#include "keychain_private.h"
+
 DEFINE_MTYPE(LIB, KEY, "Key");
 DEFINE_MTYPE(LIB, KEYCHAIN, "Key chain");
 DEFINE_MTYPE(LIB, KEYCHAIN_DESC, "Key chain description");
@@ -17,27 +19,43 @@ DEFINE_MTYPE(LIB, KEYCHAIN_DESC, "Key chain description");
 DEFINE_QOBJ_TYPE(keychain);
 DEFINE_QOBJ_TYPE(key);
 
-/* Master list of key chain. */
-struct list *keychain_list;
+static void key_free(struct key *key);
 
-static struct keychain *keychain_new(void)
+/* Master list of key chain. */
+struct keychains_head keychains[1] = { INIT_RBTREE_UNIQ(keychains[0]) };
+
+static struct keychain *keychain_new(const char *name)
 {
 	struct keychain *keychain;
+
 	keychain = XCALLOC(MTYPE_KEYCHAIN, sizeof(struct keychain));
+	keychain->name = XSTRDUP(MTYPE_KEYCHAIN, name);
+	kc_keys_init(keychain->keys);
 	QOBJ_REG(keychain, keychain);
+
 	return keychain;
 }
 
 static void keychain_free(struct keychain *keychain)
 {
+	struct key *key;
+
 	QOBJ_UNREG(keychain);
+
+	while ((key = kc_keys_pop(keychain->keys)))
+		key_free(key);
+
+	kc_keys_fini(keychain->keys);
+	XFREE(MTYPE_KEYCHAIN, keychain->name);
 	XFREE(MTYPE_KEYCHAIN, keychain);
 }
 
-static struct key *key_new(void)
+static struct key *key_new(uint32_t index)
 {
 	struct key *key = XCALLOC(MTYPE_KEY, sizeof(struct key));
 
+	key->index = index;
+	key->hash_algo = KEYCHAIN_ALGO_NULL;
 	QOBJ_REG(key, key);
 	return key;
 }
@@ -50,36 +68,12 @@ static void key_free(struct key *key)
 
 struct keychain *keychain_lookup(const char *name)
 {
-	struct listnode *node;
-	struct keychain *keychain;
+	const struct keychain ref = { .name = (char *)name };
 
-	if (name == NULL)
+	if (!name)
 		return NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(keychain_list, node, keychain)) {
-		if (strcmp(keychain->name, name) == 0)
-			return keychain;
-	}
-	return NULL;
-}
-
-static int key_cmp_func(void *arg1, void *arg2)
-{
-	const struct key *k1 = arg1;
-	const struct key *k2 = arg2;
-
-	if (k1->index > k2->index)
-		return 1;
-	if (k1->index < k2->index)
-		return -1;
-	return 0;
-}
-
-static void key_delete_func(struct key *key)
-{
-	if (key->string)
-		XFREE(MTYPE_KEY, key->string);
-	key_free(key);
+	return keychains_find(keychains, &ref);
 }
 
 struct keychain *keychain_get(const char *name)
@@ -88,49 +82,35 @@ struct keychain *keychain_get(const char *name)
 
 	keychain = keychain_lookup(name);
 
-	if (keychain)
-		return keychain;
-
-	keychain = keychain_new();
-	keychain->name = XSTRDUP(MTYPE_KEYCHAIN, name);
-	keychain->key = list_new();
-	keychain->key->cmp = (int (*)(void *, void *))key_cmp_func;
-	keychain->key->del = (void (*)(void *))key_delete_func;
-	listnode_add(keychain_list, keychain);
-
+	if (!keychain) {
+		keychain = keychain_new(name);
+		keychains_add(keychains, keychain);
+	}
 	return keychain;
 }
 
 void keychain_delete(struct keychain *keychain)
 {
-	XFREE(MTYPE_KEYCHAIN, keychain->name);
-
-	list_delete(&keychain->key);
-	listnode_delete(keychain_list, keychain);
+	keychains_del(keychains, keychain);
 	keychain_free(keychain);
 }
 
-struct key *key_lookup(const struct keychain *keychain, uint32_t index)
+struct key *key_lookup(const struct keychain *keychain_const, uint32_t index)
 {
-	struct listnode *node;
-	struct key *key;
+	struct keychain *keychain = (struct keychain *)keychain_const;
+	const struct key ref = { .index = index };
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->index == index)
-			return key;
-	}
-	return NULL;
+	return kc_keys_find(keychain->keys, &ref);
 }
 
 const struct key *key_lookup_for_accept(const struct keychain *keychain, uint32_t index)
 {
-	struct listnode *node;
-	struct key *key;
+	const struct key *key;
 	time_t now;
 
 	now = time(NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+	frr_each (kc_keys_const, keychain->keys, key) {
 		if (key->index >= index) {
 			if (key->accept.start == 0)
 				return key;
@@ -146,13 +126,12 @@ const struct key *key_lookup_for_accept(const struct keychain *keychain, uint32_
 
 const struct key *key_match_for_accept(const struct keychain *keychain, const char *auth_str)
 {
-	struct listnode *node;
-	struct key *key;
+	const struct key *key;
 	time_t now;
 
 	now = time(NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+	frr_each (kc_keys_const, keychain->keys, key) {
 		if (key->accept.start == 0
 		    || (key->accept.start <= now
 			&& (key->accept.end >= now || key->accept.end == -1)))
@@ -164,13 +143,12 @@ const struct key *key_match_for_accept(const struct keychain *keychain, const ch
 
 const struct key *key_lookup_for_send(const struct keychain *keychain)
 {
-	struct listnode *node;
-	struct key *key;
+	const struct key *key;
 	time_t now;
 
 	now = time(NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+	frr_each (kc_keys_const, keychain->keys, key) {
 		if (key->send.start == 0)
 			return key;
 
@@ -181,28 +159,23 @@ const struct key *key_lookup_for_send(const struct keychain *keychain)
 	return NULL;
 }
 
-struct key *key_get(const struct keychain *keychain, uint32_t index)
+struct key *key_get(struct keychain *keychain, uint32_t index)
 {
 	struct key *key;
 
 	key = key_lookup(keychain, index);
 
-	if (key)
-		return key;
-
-	key = key_new();
-	key->index = index;
-	key->hash_algo = KEYCHAIN_ALGO_NULL;
-	listnode_add_sort(keychain->key, key);
-
+	if (!key) {
+		key = key_new(index);
+		kc_keys_add(keychain->keys, key);
+	}
 	return key;
 }
 
 void key_delete(struct keychain *keychain, struct key *key)
 {
-	listnode_delete(keychain->key, key);
+	kc_keys_del(keychain->keys, key);
 
-	XFREE(MTYPE_KEY, key->string);
 	key_free(key);
 }
 
@@ -280,20 +253,14 @@ void keychain_terminate(void)
 {
 	struct keychain *keychain;
 
-	while (listcount(keychain_list)) {
-		keychain = listgetdata(listhead(keychain_list));
+	while ((keychain = keychains_pop(keychains)))
+		keychain_free(keychain);
 
-		listnode_delete(keychain_list, keychain);
-		keychain_delete(keychain);
-	}
-
-	list_delete(&keychain_list);
+	/* keychains is static (INIT_RBTREE_UNIQ), no keychains_free here */
 }
 
 void keychain_init_new(bool in_backend)
 {
-	keychain_list = list_new();
-
 	if (!in_backend)
 		keychain_cli_init();
 }

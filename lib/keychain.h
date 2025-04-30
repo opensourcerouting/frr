@@ -6,6 +6,7 @@
 #ifndef _ZEBRA_KEYCHAIN_H
 #define _ZEBRA_KEYCHAIN_H
 
+#include "typesafe.h"
 #include "memory.h"
 #include "northbound.h"
 #include "qobj.h"
@@ -59,12 +60,17 @@ keychain_get_hash_algo_info(enum keychain_hash_algo key);
 enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name);
 const char *keychain_get_algo_name_by_id(enum keychain_hash_algo key);
 
+PREDECL_RBTREE_UNIQ(keychains);
+PREDECL_RBTREE_UNIQ(kc_keys);
+
 struct keychain {
+	struct keychains_item keychains_item;
+
 	char *name;
 	char *desc;
 	time_t last_touch;
 
-	struct list *key;
+	struct kc_keys_head keys[1];
 
 	QOBJ_FIELDS;
 };
@@ -78,6 +84,7 @@ struct key_range {
 };
 
 struct key {
+	struct kc_keys_item kc_keys_item;
 	uint32_t index;
 
 	char *string;
@@ -94,12 +101,11 @@ DECLARE_MTYPE(KEYCHAIN);
 DECLARE_MTYPE(KEYCHAIN_DESC);
 
 /* keychain implementation */
-extern struct list *keychain_list;
 struct keychain *keychain_lookup(const char *name);
 struct keychain *keychain_get(const char *name);
 void keychain_delete(struct keychain *keychain);
 struct key *key_lookup(const struct keychain *keychain, uint32_t index);
-struct key *key_get(const struct keychain *keychain, uint32_t index);
+struct key *key_get(struct keychain *keychain, uint32_t index);
 void key_delete(struct keychain *keychain, struct key *key);
 
 void keychain_cli_init(void);
