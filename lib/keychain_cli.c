@@ -108,11 +108,41 @@ DEFPY_YANG(
 DEFPY_YANG(
        key_string,
        key_string_cmd,
-       "key-string LINE",
+       "key-string <LINE|encrypted METHOD CIPHERTEXT|input-crypt METHOD PLAINTEXT>",
        "Set key string\n"
-       "The key\n")
+       "The key\n"
+       "encrypted\nmethod\nciphertext\ninput\nmethod\nplaintext\n"
+       )
 {
-	nb_cli_enqueue_change(vty, "./key-string/keystring", NB_OP_CREATE, line);
+	if (ciphertext) {
+		nb_cli_enqueue_change(vty, "./key-string/frr-deviations-ietf-key-chain:encrypted/alg", NB_OP_CREATE, method);
+		nb_cli_enqueue_change(vty, "./key-string/frr-deviations-ietf-key-chain:encrypted/ciphertext", NB_OP_CREATE, ciphertext);
+	} else if (plaintext) {
+		struct psk_encdata enc;
+		char identity[256];
+		uint32_t index;
+		char *kcname = NULL;
+		int ret;
+
+		if (sscanf(vty->xpath[vty->xpath_index - 1],
+			   "/ietf-key-chain:key-chains/key-chain[name='%m[^']']/key[key-id='%u']",
+			   &kcname, &index) != 2) {
+			free(kcname);
+			vty_out(vty, "%% error parsing YANG xpath back into keychain name?!\n");
+			return CMD_WARNING;
+		}
+
+		snprintfrr(identity, sizeof(identity), "keychain:%pSQq:%u", kcname, index);
+		ret = psk_input_encrypt(vty, identity, &enc, method, plaintext);
+		if (ret != CMD_SUCCESS)
+			return ret;
+
+		nb_cli_enqueue_change(vty, "./key-string/frr-deviations-ietf-key-chain:encrypted/alg", NB_OP_CREATE, method);
+		nb_cli_enqueue_change(vty, "./key-string/frr-deviations-ietf-key-chain:encrypted/ciphertext", NB_OP_CREATE, enc.ciphertext);
+
+		free(kcname);
+	} else
+		nb_cli_enqueue_change(vty, "./key-string/keystring", NB_OP_CREATE, line);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

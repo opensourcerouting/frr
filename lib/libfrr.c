@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "frrscript.h"
 #include "systemd.h"
+#include "secrets.h"
 
 #include "lib/config_paths.h"
 
@@ -834,6 +835,8 @@ struct event_loop *frr_init(void)
 	log_ref_init();
 	log_ref_vty_init();
 	lib_error_init();
+
+	secrets_init();
 
 	nb_init(master, di->yang_modules, di->n_yang_modules, true,
 		(di->flags & FRR_LOAD_YANG_LIBRARY) != 0);

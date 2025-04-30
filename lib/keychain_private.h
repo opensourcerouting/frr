@@ -22,4 +22,6 @@ DECLARE_RBTREE_UNIQ(kc_keys, struct key, kc_keys_item, kc_keys_cmp);
 
 extern struct keychains_head keychains[1];
 
+extern const struct pskref_consumer keychain_consumer[1];
+
 #endif /* _FRR_KEYCHAIN_PRIVATE_H */

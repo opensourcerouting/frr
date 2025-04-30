@@ -100,6 +100,7 @@ lib_libfrr_la_SOURCES = \
 	lib/routemap_cli.c \
 	lib/routemap_northbound.c \
 	lib/sbuf.c \
+	lib/secrets.c \
 	lib/seqlock.c \
 	lib/sha256.c \
 	lib/sigevent.c \
@@ -199,6 +200,7 @@ clippy_scan += \
 	lib/plist.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
+	lib/secrets.c \
 	lib/event.c \
 	lib/vty.c \
 	lib/zlog_5424_cli.c \

@@ -10,6 +10,7 @@
 #include "memory.h"
 #include "northbound.h"
 #include "qobj.h"
+#include "secrets.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,9 +86,13 @@ struct key_range {
 
 struct key {
 	struct kc_keys_item kc_keys_item;
+	struct keychain *keychain;
 	uint32_t index;
 
-	char *string;
+	union {
+		struct key_basic;
+		struct pskref ref;
+	};
 	enum keychain_hash_algo hash_algo;
 	struct key_range send;
 	struct key_range accept;

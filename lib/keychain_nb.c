@@ -30,6 +30,28 @@ static void keychain_touch(struct keychain *keychain)
 	keychain->last_touch = time(NULL);
 }
 
+static size_t keychain_key_identity(const struct pskref *ref, struct fbuf *nameout)
+{
+	const struct key *key = container_of(ref, struct key, ref);
+
+	return bprintfrr(nameout, "keychain:%pSQq:%u", key->keychain->name, key->index);
+}
+
+static void keychain_key_notify(struct pskref *ref)
+{
+	struct key *key = container_of(ref, struct key, ref);
+
+	keychain_touch(key->keychain);
+}
+
+const struct pskref_consumer keychain_consumer[1] = {
+	{
+		.name = "keychain",
+		.identity = keychain_key_identity,
+		.notify = keychain_key_notify,
+	},
+};
+
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain
  */
@@ -877,6 +899,102 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/accept-lifetime-active",
 			.cbs = {
 				.get_elem = key_chains_key_chain_key_accept_lifetime_active_get_elem,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	},
+};
+
+static int encrypted_key_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+static int encrypted_key_modify(struct nb_cb_modify_args *args)
+{
+	struct keychain *keychain;
+	const char *name;
+	struct key *key;
+	uint32_t index;
+	const char *alg;
+	const char *ciphertext;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "../../../../name");
+	zlog_debug("name: %s", name);
+	keychain = keychain_lookup(name);
+	assert(keychain);
+	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../../../key-id");
+	key = key_lookup(keychain, index);
+	assert(key);
+
+	alg = yang_dnode_get_string(args->dnode, "../alg");
+	ciphertext = yang_dnode_get_string(args->dnode, "../ciphertext");
+	if (!psk_set_encrypted(&key->ref, alg, ciphertext)) {
+		zlog_debug("failed!");
+		return NB_ERR_VALIDATION;
+	}
+	zlog_debug("ok: %pSQq", key->string);
+
+	keychain_touch(keychain);
+	return NB_OK;
+}
+
+static int encrypted_key_destroy(struct nb_cb_destroy_args *args)
+{
+	struct keychain *keychain;
+	const char *name;
+	struct key *key;
+	uint32_t index;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	name = yang_dnode_get_string(args->dnode, "../../../name");
+	keychain = keychain_lookup(name);
+	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../../key-id");
+	key = key_lookup(keychain, index);
+	assert(key);
+
+	psk_clear(&key->ref);
+	keychain_touch(keychain);
+
+	return NB_OK;
+}
+
+static void encrypted_key_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *alg = yang_dnode_get_string(dnode, "alg");
+	const char *ciphertext = yang_dnode_get_string(dnode, "ciphertext");
+
+	vty_out(vty, "  key-string encrypted %s %s\n", alg, ciphertext);
+}
+
+const struct frr_yang_module_info ietf_key_chain_deviation_info = {
+	.name = "frr-deviations-ietf-key-chain",
+	.nodes = {
+		{
+			.xpath = "/ietf-key-chain:key-chains/key-chain/key/key-string/frr-deviations-ietf-key-chain:encrypted",
+			.cbs = {
+				.create = encrypted_key_create,
+				.destroy = encrypted_key_destroy,
+				.cli_show = encrypted_key_cli_write,
+			},
+		},
+		{
+			.xpath = "/ietf-key-chain:key-chains/key-chain/key/key-string/frr-deviations-ietf-key-chain:encrypted/ciphertext",
+			.cbs = {
+				.modify = encrypted_key_modify,
+			}
+		},
+		{
+			.xpath = "/ietf-key-chain:key-chains/key-chain/key/key-string/frr-deviations-ietf-key-chain:encrypted/alg",
+			.cbs = {
+				.modify = encrypted_key_modify,
 			}
 		},
 		{

@@ -26,4 +26,19 @@ module frr-deviations-ietf-key-chain {
       mandatory false;
     }
   }
+
+  augment /kc:key-chains/kc:key-chain/kc:key/kc:key-string/kc:key-string-style {
+    case encrypted {
+      container encrypted {
+        leaf alg {
+          type string;
+          mandatory true;
+        }
+        leaf ciphertext {
+          type string;
+          mandatory true;
+        }
+      }
+    }
+  }
 }

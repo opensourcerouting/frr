@@ -50,18 +50,21 @@ static void keychain_free(struct keychain *keychain)
 	XFREE(MTYPE_KEYCHAIN, keychain);
 }
 
-static struct key *key_new(uint32_t index)
+static struct key *key_new(struct keychain *keychain, uint32_t index)
 {
 	struct key *key = XCALLOC(MTYPE_KEY, sizeof(struct key));
 
+	key->keychain = keychain;
 	key->index = index;
 	key->hash_algo = KEYCHAIN_ALGO_NULL;
+	psk_init(&key->ref, keychain_consumer);
 	QOBJ_REG(key, key);
 	return key;
 }
 
 static void key_free(struct key *key)
 {
+	psk_clear(&key->ref);
 	QOBJ_UNREG(key);
 	XFREE(MTYPE_KEY, key);
 }
@@ -166,7 +169,7 @@ struct key *key_get(struct keychain *keychain, uint32_t index)
 	key = key_lookup(keychain, index);
 
 	if (!key) {
-		key = key_new(index);
+		key = key_new(keychain, index);
 		kc_keys_add(keychain->keys, key);
 	}
 	return key;
@@ -269,13 +272,3 @@ void keychain_init(void)
 {
 	keychain_init_new(false);
 }
-
-const struct frr_yang_module_info ietf_key_chain_deviation_info = {
-	.name = "frr-deviations-ietf-key-chain",
-	.ignore_cfg_cbs = true,
-	.nodes = {
-		{
-			.xpath = NULL,
-		},
-	},
-};
