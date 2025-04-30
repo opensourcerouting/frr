@@ -85,10 +85,8 @@ static const EVP_MD *ospf_auth_get_openssl_evp_md_from_key(struct key *key)
 }
 #endif
 
-static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
-					   struct ospf_header *ospfh,
-					   struct ip *iph,
-					   struct key *key)
+static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi, struct ospf_header *ospfh,
+					   struct ip *iph, const struct key *key)
 {
 	unsigned char digest[KEYCHAIN_MAX_HASH_SIZE];
 	struct ospf_neighbor *nbr;
@@ -151,8 +149,8 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 	return 1;
 }
 
-static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
-				      struct ospf_header *ospfh, struct ip *iph, struct key *key)
+static int ospf_auth_check_md5_digest(struct ospf_interface *oi, struct ospf_header *ospfh,
+				      struct ip *iph, const struct key *key)
 {
 #ifdef CRYPTO_OPENSSL
 	EVP_MD_CTX *ctx;
@@ -232,8 +230,8 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	return 1;
 }
 
-static int ospf_auth_make_md5_digest(struct ospf_interface *oi,
-				     struct ospf_packet *op, struct key *key)
+static int ospf_auth_make_md5_digest(struct ospf_interface *oi, struct ospf_packet *op,
+				     const struct key *key)
 {
 	void *ibuf = STREAM_DATA(op->s);
 	struct ospf_header *ospfh = (struct ospf_header *)ibuf;
@@ -287,9 +285,8 @@ static int ospf_auth_make_md5_digest(struct ospf_interface *oi,
 	return OSPF_AUTH_MD5_SIZE;
 }
 
-static int ospf_auth_make_hmac_sha_digest(struct ospf_interface *oi,
-					  struct ospf_packet *op,
-					  struct key *key)
+static int ospf_auth_make_hmac_sha_digest(struct ospf_interface *oi, struct ospf_packet *op,
+					  const struct key *key)
 {
 	void *ibuf;
 	struct ospf_header *ospfh;
@@ -350,7 +347,7 @@ static int ospf_auth_make_hmac_sha_digest(struct ospf_interface *oi,
 int ospf_auth_check_digest(struct ospf_interface *oi, struct ip *iph, struct ospf_header *ospfh)
 {
 	struct keychain *keychain = NULL;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	int key_id = ospfh->u.crypt.key_id;
 	uint8_t auth_data_len = ospfh->u.crypt.auth_data_len;
 
@@ -407,7 +404,7 @@ int ospf_auth_make_digest(struct ospf_interface *oi, struct ospf_packet *op)
 	struct ospf_header *ospfh;
 	void *ibuf;
 	struct keychain *keychain = NULL;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	int key_id;
 
 	ibuf = STREAM_DATA(op->s);

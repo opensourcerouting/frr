@@ -119,9 +119,9 @@ extern void keychain_init(void);
 extern void keychain_init_new(bool in_backend);
 extern void keychain_terminate(void);
 extern struct keychain *keychain_lookup(const char *);
-extern struct key *key_lookup_for_accept(const struct keychain *, uint32_t);
-extern struct key *key_match_for_accept(const struct keychain *, const char *);
-extern struct key *key_lookup_for_send(const struct keychain *);
+extern const struct key *key_lookup_for_accept(const struct keychain *, uint32_t);
+extern const struct key *key_match_for_accept(const struct keychain *, const char *);
+extern const struct key *key_lookup_for_send(const struct keychain *);
 const char *keychain_algo_str(enum keychain_hash_algo hash_algo);
 
 

@@ -305,7 +305,7 @@ struct ospf_interface {
 
 	/* Buffered values for keychain and key */
 	struct keychain *keychain;
-	struct key *key;
+	const struct key *key;
 
 	QOBJ_FIELDS;
 };

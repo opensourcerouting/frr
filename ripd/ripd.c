@@ -860,10 +860,10 @@ static int rip_auth_simple_password(struct rte *rte, struct sockaddr_in *from,
 	}
 	if (ri->key_chain) {
 		struct keychain *keychain;
-		struct key *key;
+		const struct key *key;
 
 		keychain = keychain_lookup(ri->key_chain);
-		if (keychain == NULL || keychain->key == NULL)
+		if (!keychain)
 			return 0;
 
 		key = key_match_for_accept(keychain, auth_str);
@@ -881,7 +881,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	struct rip_md5_info *md5;
 	struct rip_md5_data *md5data;
 	struct keychain *keychain;
-	struct key *key;
+	const struct key *key;
 #ifdef CRYPTO_OPENSSL
 	EVP_MD_CTX *ctx;
 #elif CRYPTO_INTERNAL
@@ -980,7 +980,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
  * zero padded.
  *
  */
-static void rip_auth_prepare_str_send(struct rip_interface *ri, struct key *key,
+static void rip_auth_prepare_str_send(struct rip_interface *ri, const struct key *key,
 				      char *auth_str, int len)
 {
 	assert(ri || key);
@@ -1021,7 +1021,7 @@ static void rip_auth_simple_write(struct stream *s, char *auth_str, int len)
  * length to the auth-data MD5 digest is known.
  */
 static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
-				    struct key *key)
+				    const struct key *key)
 {
 	size_t doff = 0;
 	static uint32_t seq = 0;
@@ -1071,7 +1071,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
  * or 0 if this is not required
  */
 static size_t rip_auth_header_write(struct stream *s, struct rip_interface *ri,
-				    struct key *key, char *auth_str, int len)
+				    const struct key *key, char *auth_str, int len)
 {
 	assert(ri->auth_type != RIP_NO_AUTH);
 
@@ -2081,7 +2081,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	struct prefix_ipv4 *p;
 	struct prefix_ipv4 classfull;
 	struct prefix_ipv4 ifaddrclass;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	/* this might need to made dynamic if RIP ever supported auth methods
 	   with larger key string sizes */
 	char auth_str[RIP_AUTH_SIMPLE_SIZE];

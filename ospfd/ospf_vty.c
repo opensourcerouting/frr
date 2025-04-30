@@ -3538,7 +3538,7 @@ static void ospf_interface_auth_show(struct vty *vty, struct ospf_interface *oi,
 				struct keychain *keychain = keychain_lookup(OSPF_IF_PARAM(oi, keychain_name));
 
 				if (keychain) {
-					struct key *key = key_lookup_for_send(keychain);
+					const struct key *key = key_lookup_for_send(keychain);
 
 					if (key) {
 						vty_out(vty, "    Sending SA: Key %u, Algorithm %s - key chain %s\n",

@@ -284,7 +284,7 @@ uint16_t ospf6_auth_len_get(struct ospf6_interface *oi)
 	uint16_t at_len = 0;
 	char *keychain_name = NULL;
 	struct keychain *keychain = NULL;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 
 	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN)) {
 		if (CHECK_FLAG(oi->at_data.flags,
@@ -471,7 +471,7 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 	struct ospf6_auth_hdr *ospf6_auth;
 	uint32_t ipv6_addr_size = sizeof(struct in6_addr);
 	struct keychain *keychain = NULL;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	char *auth_str = NULL;
 	uint16_t auth_len = 0;
 	uint8_t hash_algo = 0;
@@ -569,7 +569,7 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 	struct ospf6_auth_hdr *ospf6_auth;
 	char *keychain_name = NULL;
 	struct keychain *keychain = NULL;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	char *auth_str = NULL;
 	uint16_t key_id = 0;
 	enum keychain_hash_algo hash_algo = KEYCHAIN_ALGO_NULL;

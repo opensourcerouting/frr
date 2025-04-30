@@ -2026,7 +2026,7 @@ static void ospf6_auth_trailer_copy_keychain_key(struct ospf6_interface *oi)
 {
 	char *keychain_name = NULL;
 	struct keychain *keychain = NULL;
-	struct key *key = NULL;
+	const struct key *key = NULL;
 
 	keychain_name = oi->at_data.keychain;
 	keychain = keychain_lookup(keychain_name);

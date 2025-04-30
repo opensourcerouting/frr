@@ -122,8 +122,7 @@ struct key *key_lookup(const struct keychain *keychain, uint32_t index)
 	return NULL;
 }
 
-struct key *key_lookup_for_accept(const struct keychain *keychain,
-				  uint32_t index)
+const struct key *key_lookup_for_accept(const struct keychain *keychain, uint32_t index)
 {
 	struct listnode *node;
 	struct key *key;
@@ -145,8 +144,7 @@ struct key *key_lookup_for_accept(const struct keychain *keychain,
 	return NULL;
 }
 
-struct key *key_match_for_accept(const struct keychain *keychain,
-				 const char *auth_str)
+const struct key *key_match_for_accept(const struct keychain *keychain, const char *auth_str)
 {
 	struct listnode *node;
 	struct key *key;
@@ -164,7 +162,7 @@ struct key *key_match_for_accept(const struct keychain *keychain,
 	return NULL;
 }
 
-struct key *key_lookup_for_send(const struct keychain *keychain)
+const struct key *key_lookup_for_send(const struct keychain *keychain)
 {
 	struct listnode *node;
 	struct key *key;

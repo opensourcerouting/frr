@@ -85,7 +85,7 @@ static int eigrp_retrans_count_exceeded(struct eigrp_packet *ep,
 int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 			  uint8_t flags)
 {
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	struct keychain *keychain;
 
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
@@ -158,7 +158,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	MD5_CTX ctx;
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
 	unsigned char orig[EIGRP_AUTH_TYPE_MD5_LEN];
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	struct keychain *keychain;
 	uint8_t *ibuf;
 	size_t backup_end;
@@ -240,7 +240,7 @@ int eigrp_check_md5_digest(struct stream *s,
 int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 			     uint8_t flags)
 {
-	struct key *key = NULL;
+	const struct key *key = NULL;
 	struct keychain *keychain;
 	char source_ip[PREFIX_STRLEN];
 
@@ -1210,7 +1210,7 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 					 struct eigrp_interface *ei)
 {
-	struct key *key;
+	const struct key *key;
 	struct keychain *keychain;
 	struct TLV_MD5_Authentication_Type *authTLV;
 
@@ -1250,7 +1250,7 @@ uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
 					    struct eigrp_interface *ei)
 {
-	struct key *key;
+	const struct key *key;
 	struct keychain *keychain;
 	struct TLV_SHA256_Authentication_Type *authTLV;
 
