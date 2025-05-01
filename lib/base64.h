@@ -7,6 +7,8 @@
 #ifndef _BASE64_H_
 #define _BASE64_H_
 
+#include <stdlib.h>
+
 enum base64_encodestep {
 	step_A, step_B, step_C
 };
@@ -25,6 +27,10 @@ int base64_encode_block(const char *plaintext_in, int length_in, char *code_out,
 
 int base64_encode_blockend(char *code_out, struct base64_encodestate *state_in);
 
+static inline size_t base64_encoded_length(size_t raw_len)
+{
+	return (raw_len + 2) / 3 * 4;
+}
 
 enum base64_decodestep {
 	step_a, step_b, step_c, step_d
@@ -41,5 +47,10 @@ signed char base64_decode_value(signed char value_in);
 
 int base64_decode_block(const char *code_in, int length_in, char *plaintext_out,
 			struct base64_decodestate *state_in);
+
+static inline size_t base64_decoded_max_length(size_t base64_len)
+{
+	return (base64_len * 3) / 4;
+}
 
 #endif /* _BASE64_H_ */
