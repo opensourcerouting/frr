@@ -451,6 +451,16 @@ lib_syskeys_la_LDFLAGS = $(MODULE_LDFLAGS) -lcrypto
 clippy_scan += lib/syskeys.c
 
 #
+# linux-keyring
+#
+module_LTLIBRARIES += lib/linuxkeys.la
+
+lib_linuxkeys_la_SOURCES = lib/keyctl.c
+lib_linuxkeys_la_LDFLAGS = $(MODULE_LDFLAGS) -lkeyutils
+
+clippy_scan += lib/keyctl.c
+
+#
 # CLI utilities
 #
 noinst_PROGRAMS += \
