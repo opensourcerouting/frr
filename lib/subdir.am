@@ -441,6 +441,16 @@ lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
 lib_grpc_la_SOURCES = lib/northbound_grpc.cpp
 
 #
+# syskeys
+#
+module_LTLIBRARIES += lib/syskeys.la
+
+lib_syskeys_la_SOURCES = lib/syskeys.c
+lib_syskeys_la_LDFLAGS = $(MODULE_LDFLAGS) -lcrypto
+
+clippy_scan += lib/syskeys.c
+
+#
 # CLI utilities
 #
 noinst_PROGRAMS += \
