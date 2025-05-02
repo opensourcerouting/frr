@@ -22,6 +22,7 @@ FRR is a fork of `Quagga <http://www.quagga.net/>`_.
 
    introduction
    basics
+   secrets
    protocols
 
 .. toctree::
