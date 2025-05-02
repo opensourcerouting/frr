@@ -45,6 +45,12 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3-3) sid; urgency=medium
+
+  * Simplifying watch file.
+
+ -- Daniel Baumann <daniel@debian.org>  Fri, 02 May 2025 04:59:37 +0200
+
 frr (10.3-2) sid; urgency=medium
 
   * Adding patch from upstream to fix FTBFS with tests on s390 and others
