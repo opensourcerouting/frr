@@ -164,6 +164,12 @@ def test_bgp_community_update_path_change():
                 duplicate = True
             i += 1
             sleep(0.5)
+        # TODO: Remove this debug
+        tgen.gears["x1"].vtysh_cmd(
+            """
+show ip bgp attribute-info
+"""
+        )
         return duplicate
 
     step("Check if we see duplicate BGP UPDATE message in c1 (suppress-duplicates)")
