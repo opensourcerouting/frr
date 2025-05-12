@@ -295,10 +295,15 @@ static unsigned int ospf_packet_authspace(struct ospf_interface *oi)
 
 static unsigned int ospf_packet_max(struct ospf_interface *oi)
 {
+	struct ospf_if_params *params = IF_DEF_PARAMS(oi->ifp);
 	int max;
 
-	max = oi->ifp->mtu - ospf_packet_authspace(oi);
+	if (OSPF_IF_PARAM_CONFIGURED(params, static_mtu))
+		max = params->static_mtu;
+	else
+		max = oi->ifp->mtu;
 
+	max -= ospf_packet_authspace(oi);
 	max -= (OSPF_HEADER_SIZE + sizeof(struct ip));
 
 	return max;

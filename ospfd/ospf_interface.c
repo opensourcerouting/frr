@@ -683,6 +683,7 @@ int ospf_if_new_hook(struct interface *ifp)
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), priority);
 	IF_DEF_PARAMS(ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
 
+	IF_DEF_PARAMS(ifp)->static_mtu = 0;
 	IF_DEF_PARAMS(ifp)->mtu_ignore = OSPF_MTU_IGNORE_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_hello);

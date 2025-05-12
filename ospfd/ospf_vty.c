@@ -9676,6 +9676,32 @@ DEFUN (no_ip_ospf_mtu_ignore,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ip_ospf_mtu,
+       ip_ospf_mtu_cmd,
+       "[no] ip ospf mtu ![(1-65535)$mtu]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "OSPF Interface MTU\n"
+       "OSPF Interface MTU\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+	struct in_addr addr = {.s_addr = INADDR_ANY};
+
+	params->static_mtu = mtu;
+	if (!no) {
+		SET_IF_PARAM(params, static_mtu);
+		params->static_mtu = mtu;
+	} else {
+		UNSET_IF_PARAM(params, static_mtu);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, addr);
+			ospf_if_update_params(ifp, addr);
+		}
+	}
+	return CMD_SUCCESS;
+}
 
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
@@ -11990,6 +12016,11 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			if (params && params->bfd_config)
 				ospf_bfd_write_config(vty, params);
 
+			/* Static MTU print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, static_mtu))
+				vty_out(vty, " ip ospf mtu %u\n",
+					params->static_mtu);
+
 			/* MTU ignore print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, mtu_ignore)
 			    && params->mtu_ignore != OSPF_MTU_IGNORE_DEFAULT) {
@@ -12741,6 +12772,9 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf mtu-ignore" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_mtu_ignore_addr_cmd);
+
+	/* "ip ospf mtu" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_mtu_cmd);
 
 	/* "ip ospf dead-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_dead_interval_cmd);

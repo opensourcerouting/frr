@@ -87,6 +87,9 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t, v_wait);  /* Router Dead Interval */
 	bool is_v_wait_set;                  /* Check for Dead Interval set */
 
+	/* Static MTU */
+	DECLARE_IF_PARAM(uint16_t, static_mtu);
+
 	/* MTU mismatch check (see RFC2328, chap 10.6) */
 	DECLARE_IF_PARAM(uint8_t, mtu_ignore);
 
