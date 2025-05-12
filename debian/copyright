@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: FRR
-Upstream-Contact: maintainers@frrouting.org, security@frrouting.org
-Source: https://www.frrouting.org/
+Upstream-Contact: https://github.com/frrouting/frr/issues
+Source: https://github.com/frrouting/frr/tags
 
 Files: *
 Comment: Note: GPL Versions of FRR binaries
