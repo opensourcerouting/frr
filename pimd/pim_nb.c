@@ -782,9 +782,23 @@ const struct frr_yang_module_info frr_pim_rmap_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:ipv6-multicast-group-address",
+			.cbs = {
+				.modify = pim_nb_rmap_match_groupv6_modify,
+				.destroy = lib_route_map_entry_match_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:ipv4-multicast-source-address",
 			.cbs = {
 				.modify = pim_nb_rmap_match_source_modify,
+				.destroy = lib_route_map_entry_match_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-pim-route-map:ipv6-multicast-source-address",
+			.cbs = {
+				.modify = pim_nb_rmap_match_sourcev6_modify,
 				.destroy = lib_route_map_entry_match_destroy,
 			}
 		},

@@ -46,10 +46,17 @@ struct pim_rmap_info {
 bool pim_filter_match(const struct pim_filter_ref *ref, const struct prefix_sg *sg,
 		      struct interface *generic_ifp, struct interface *iif)
 {
+#if PIM_IPV == 4
 	if (sg->grp.ipaddr_v4.s_addr && !pim_is_group_224_4(sg->grp.ipaddr_v4))
 		return false;
 	if (sg->src.ipaddr_v4.s_addr && IPV4_CLASS_DE(ntohl(sg->src.ipaddr_v4.s_addr)))
 		return false;
+#else
+	if (sg->grp.ipaddr_v6.s6_addr[0] && !pim_addr_is_multicast(sg->grp.ipaddr_v6))
+		return false;
+	if (sg->src.ipaddr_v6.s6_addr[0] && pim_addr_is_multicast(sg->src.ipaddr_v6))
+		return false;
+#endif
 
 	if (ref->rmapname) {
 		route_map_result_t result;
@@ -160,6 +167,23 @@ static enum route_map_cmd_result_t route_match_src(void *rule, const struct pref
 	return RMAP_MATCH;
 }
 
+static enum route_map_cmd_result_t route_match_srcv6(void *rule, const struct prefix *prefix,
+						     void *object)
+{
+	struct pim_rmap_info *info = object;
+	struct in6_addr addr;
+	int ret;
+
+	ret = inet_pton(AF_INET6, rule, &addr);
+	if (ret != 1)
+		return RMAP_NOMATCH;
+
+	if (memcmp(&addr, &info->sg->src.ipaddr_v6, sizeof(addr)) != 0)
+		return RMAP_NOMATCH;
+
+	return RMAP_MATCH;
+}
+
 static enum route_map_cmd_result_t route_match_grp(void *rule, const struct prefix *prefix,
 						   void *object)
 {
@@ -177,9 +201,33 @@ static enum route_map_cmd_result_t route_match_grp(void *rule, const struct pref
 	return RMAP_MATCH;
 }
 
+static enum route_map_cmd_result_t route_match_grpv6(void *rule, const struct prefix *prefix,
+						     void *object)
+{
+	struct pim_rmap_info *info = object;
+	struct in6_addr addr;
+	int ret;
+
+	ret = inet_pton(AF_INET6, rule, &addr);
+	if (ret != 1)
+		return RMAP_NOMATCH;
+
+	if (memcmp(&addr, &info->sg->grp.ipaddr_v6, sizeof(addr)) != 0)
+		return RMAP_NOMATCH;
+
+	return RMAP_MATCH;
+}
+
 static const struct route_map_rule_cmd route_match_src_cmd = {
 	"src",
 	route_match_src,
+	route_map_rule_str_compile,
+	route_map_rule_str_free,
+};
+
+static const struct route_map_rule_cmd route_match_srcv6_cmd = {
+	"srcv6",
+	route_match_srcv6,
 	route_map_rule_str_compile,
 	route_map_rule_str_free,
 };
@@ -191,6 +239,12 @@ static const struct route_map_rule_cmd route_match_grp_cmd = {
 	route_map_rule_str_free,
 };
 
+static const struct route_map_rule_cmd route_match_grpv6_cmd = {
+	"grpv6",
+	route_match_grpv6,
+	route_map_rule_str_compile,
+	route_map_rule_str_free,
+};
 
 static enum route_map_cmd_result_t route_match_src_plist(void *rule, const struct prefix *prefix,
 							 void *object)
@@ -204,6 +258,27 @@ static enum route_map_cmd_result_t route_match_src_plist(void *rule, const struc
 	p.prefix = info->sg->src.ipaddr_v4;
 
 	plist = prefix_list_lookup(AFI_IP, (char *)rule);
+	if (!plist)
+		return RMAP_NOMATCH;
+
+	if (prefix_list_apply_ext(plist, NULL, &p, true) != PREFIX_PERMIT)
+		return RMAP_NOMATCH;
+
+	return RMAP_MATCH;
+}
+
+static enum route_map_cmd_result_t route_match_srcv6_plist(void *rule, const struct prefix *prefix,
+							   void *object)
+{
+	struct pim_rmap_info *info = object;
+	struct prefix_list *plist;
+	struct prefix_ipv6 p;
+
+	p.family = AF_INET6;
+	p.prefixlen = IPV6_MAX_BITLEN;
+	p.prefix = info->sg->src.ipaddr_v6;
+
+	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 	if (!plist)
 		return RMAP_NOMATCH;
 
@@ -234,6 +309,27 @@ static enum route_map_cmd_result_t route_match_grp_plist(void *rule, const struc
 	return RMAP_MATCH;
 }
 
+static enum route_map_cmd_result_t route_match_grpv6_plist(void *rule, const struct prefix *prefix,
+							   void *object)
+{
+	struct pim_rmap_info *info = object;
+	struct prefix_list *plist;
+	struct prefix_ipv6 p;
+
+	p.family = AF_INET6;
+	p.prefixlen = IPV6_MAX_BITLEN;
+	p.prefix = info->sg->grp.ipaddr_v6;
+
+	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
+	if (!plist)
+		return RMAP_NOMATCH;
+
+	if (prefix_list_apply_ext(plist, NULL, &p, true) != PREFIX_PERMIT)
+		return RMAP_NOMATCH;
+
+	return RMAP_MATCH;
+}
+
 static const struct route_map_rule_cmd route_match_src_plist_cmd = {
 	"src prefix-list",
 	route_match_src_plist,
@@ -241,9 +337,23 @@ static const struct route_map_rule_cmd route_match_src_plist_cmd = {
 	route_map_rule_str_free,
 };
 
+static const struct route_map_rule_cmd route_match_srcv6_plist_cmd = {
+	"srcv6 prefix-list",
+	route_match_srcv6_plist,
+	route_map_rule_str_compile,
+	route_map_rule_str_free,
+};
+
 static const struct route_map_rule_cmd route_match_grp_plist_cmd = {
 	"grp prefix-list",
 	route_match_grp_plist,
+	route_map_rule_str_compile,
+	route_map_rule_str_free,
+};
+
+static const struct route_map_rule_cmd route_match_grpv6_plist_cmd = {
+	"grpv6 prefix-list",
+	route_match_grpv6_plist,
 	route_map_rule_str_compile,
 	route_map_rule_str_free,
 };
@@ -276,9 +386,13 @@ void pim_route_map_init(void)
 	route_map_no_match_interface_hook(generic_match_delete);
 
 	route_map_install_match(&route_match_src_cmd);
+	route_map_install_match(&route_match_srcv6_cmd);
 	route_map_install_match(&route_match_grp_cmd);
+	route_map_install_match(&route_match_grpv6_cmd);
 	route_map_install_match(&route_match_src_plist_cmd);
+	route_map_install_match(&route_match_srcv6_plist_cmd);
 	route_map_install_match(&route_match_grp_plist_cmd);
+	route_map_install_match(&route_match_grpv6_plist_cmd);
 	route_map_install_match(&route_match_iif_cmd);
 	route_map_install_match(&route_match_interface_cmd);
 
@@ -327,9 +441,19 @@ int pim_nb_rmap_match_source_modify(struct nb_cb_modify_args *args)
 	return pim_nb_rmap_match_item_modify(args, "src");
 }
 
+int pim_nb_rmap_match_sourcev6_modify(struct nb_cb_modify_args *args)
+{
+	return pim_nb_rmap_match_item_modify(args, "srcv6");
+}
+
 int pim_nb_rmap_match_group_modify(struct nb_cb_modify_args *args)
 {
 	return pim_nb_rmap_match_item_modify(args, "grp");
+}
+
+int pim_nb_rmap_match_groupv6_modify(struct nb_cb_modify_args *args)
+{
+	return pim_nb_rmap_match_item_modify(args, "grpv6");
 }
 
 int pim_nb_rmap_match_iif_modify(struct nb_cb_modify_args *args)
@@ -347,6 +471,10 @@ int pim_nb_rmap_match_plist_modify(struct nb_cb_modify_args *args)
 		return pim_nb_rmap_match_item_modify(args, "src prefix-list");
 	else if (IS_MATCH_IPV4_MCAST_GRP_PL(condition))
 		return pim_nb_rmap_match_item_modify(args, "grp prefix-list");
+	if (IS_MATCH_IPV6_MCAST_SRC_PL(condition))
+		return pim_nb_rmap_match_item_modify(args, "srcv6 prefix-list");
+	else if (IS_MATCH_IPV6_MCAST_GRP_PL(condition))
+		return pim_nb_rmap_match_item_modify(args, "grpv6 prefix-list");
 	else
 		assertf(0, "unknown YANG condition %s", condition);
 }
@@ -402,6 +530,49 @@ ALIAS_YANG (rmap_match_addr,
             "Multicast source address\n"
             "Multicast group address\n")
 
+DEFPY_YANG (rmap_match_v6_addr,
+	    rmap_match_v6_addr_cmd,
+	    "[no] match ipv6 <multicast-source$do_src X:X::X:X$addr|multicast-group$do_grp X:X::X:X$addr>",
+	    NO_STR
+	    MATCH_STR
+	    IPV6_STR
+	    "Multicast source address\n"
+	    "Multicast source address\n"
+	    "Multicast group address\n"
+	    "Multicast group address\n")
+{
+	const char *xpath, *xpval;
+	char xpath_value[XPATH_MAXLEN];
+
+	assert(do_src || do_grp);
+
+	if (do_src) {
+		xpath = "./match-condition[condition='frr-pim-route-map:ipv6-multicast-source']";
+		xpval = "/rmap-match-condition/frr-pim-route-map:ipv6-multicast-source-address";
+	} else {
+		xpath = "./match-condition[condition='frr-pim-route-map:ipv6-multicast-group']";
+		xpval = "/rmap-match-condition/frr-pim-route-map:ipv6-multicast-group-address";
+	}
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value), "%s%s", xpath, xpval);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, addr_str);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_YANG (rmap_match_v6_addr,
+            no_rmap_match_v6_addr_cmd,
+            "no match ipv6 <multicast-source$do_src|multicast-group$do_grp>",
+            NO_STR
+            MATCH_STR
+            IPV6_STR
+            "Multicast source address\n"
+            "Multicast group address\n")
+
 DEFPY_YANG (rmap_match_plist,
 	    rmap_match_plist_cmd,
 	    "[no] match ip <multicast-source$do_src|multicast-group$do_grp> prefix-list WORD",
@@ -445,6 +616,49 @@ ALIAS_YANG (rmap_match_plist,
             "Multicast group address\n"
             "Match against ip prefix list\n")
 
+DEFPY_YANG (rmap_match_v6_plist,
+	    rmap_match_v6_plist_cmd,
+	    "[no] match ipv6 <multicast-source$do_src|multicast-group$do_grp> prefix-list WORD",
+	    NO_STR
+	    MATCH_STR
+	    IPV6_STR
+	    "Multicast source address\n"
+	    "Multicast group address\n"
+	    "Match against ip prefix list\n"
+	    "Prefix list name\n")
+{
+	const char *xpath, *xpval;
+	char xpath_value[XPATH_MAXLEN];
+
+	assert(do_src || do_grp);
+
+	if (do_src)
+		xpath = "./match-condition[condition='frr-pim-route-map:ipv6-multicast-source-prefix-list']";
+	else
+		xpath = "./match-condition[condition='frr-pim-route-map:ipv6-multicast-group-prefix-list']";
+
+	xpval = "/rmap-match-condition/frr-pim-route-map:list-name";
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		snprintf(xpath_value, sizeof(xpath_value), "%s%s", xpath, xpval);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, prefix_list);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+ALIAS_YANG (rmap_match_v6_plist,
+            no_rmap_match_v6_plist_cmd,
+            "no match ipv6 <multicast-source$do_src|multicast-group$do_grp> prefix-list",
+            NO_STR
+            MATCH_STR
+            IPV6_STR
+            "Multicast source address\n"
+            "Multicast group address\n"
+            "Match against ip prefix list\n")
+
 
 DEFPY_YANG (rmap_match_iif,
 	    rmap_match_iif_cmd,
@@ -481,8 +695,12 @@ static void rmap_cli_init(void)
 {
 	install_element(RMAP_NODE, &rmap_match_addr_cmd);
 	install_element(RMAP_NODE, &no_rmap_match_addr_cmd);
+	install_element(RMAP_NODE, &rmap_match_v6_addr_cmd);
+	install_element(RMAP_NODE, &no_rmap_match_v6_addr_cmd);
 	install_element(RMAP_NODE, &rmap_match_plist_cmd);
 	install_element(RMAP_NODE, &no_rmap_match_plist_cmd);
+	install_element(RMAP_NODE, &rmap_match_v6_plist_cmd);
+	install_element(RMAP_NODE, &no_rmap_match_v6_plist_cmd);
 	install_element(RMAP_NODE, &rmap_match_iif_cmd);
 	install_element(RMAP_NODE, &no_rmap_match_iif_cmd);
 }

@@ -326,10 +326,18 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-pim-route-map:ipv4-multicast-source"))
 #define IS_MATCH_IPV4_MCAST_SRC_PL(C)                                          \
 	(strmatch(C, "frr-pim-route-map:ipv4-multicast-source-prefix-list"))
+#define IS_MATCH_IPV6_MCAST_SRC(C)                                             \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-source"))
+#define IS_MATCH_IPV6_MCAST_SRC_PL(C)                                          \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-source-prefix-list"))
 #define IS_MATCH_IPV4_MCAST_GRP(C)                                             \
 	(strmatch(C, "frr-pim-route-map:ipv4-multicast-group"))
 #define IS_MATCH_IPV4_MCAST_GRP_PL(C)                                          \
 	(strmatch(C, "frr-pim-route-map:ipv4-multicast-group-prefix-list"))
+#define IS_MATCH_IPV6_MCAST_GRP(C)                                             \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group"))
+#define IS_MATCH_IPV6_MCAST_GRP_PL(C)                                          \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group-prefix-list"))
 #define IS_MATCH_MCAST_IIF(C)                                                  \
 	(strmatch(C, "frr-pim-route-map:multicast-iif"))
 

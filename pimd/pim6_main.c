@@ -105,6 +105,7 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_pim_rp_info,
 	&frr_pim_candidate_info,
 	&frr_gmp_info,
+	&frr_pim_rmap_info,
 };
 
 FRR_DAEMON_INFO(pim6d, PIM6,
@@ -160,9 +161,8 @@ int main(int argc, char **argv, char **envp)
 #if 0
 	prefix_list_add_hook(pim_prefix_list_update);
 	prefix_list_delete_hook(pim_prefix_list_update);
-
-	pim_route_map_init();
 #endif
+	pim_route_map_init();
 	pim_init();
 	/*
 	 * Initialize zclient "update" and "lookup" sockets

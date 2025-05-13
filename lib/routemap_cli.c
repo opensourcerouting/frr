@@ -878,6 +878,15 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " match ip multicast-source prefix-list %s\n",
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/frr-pim-route-map:list-name"));
+	} else if (IS_MATCH_IPV6_MCAST_SRC(condition)) {
+		vty_out(vty, " match ipv6 multicast-source %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:ipv6-multicast-source-address"));
+	} else if (IS_MATCH_IPV6_MCAST_SRC_PL(condition)) {
+		vty_out(vty, " match ipv6 multicast-source prefix-list %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-pim-route-map:list-name"));
 	} else if (IS_MATCH_IPV4_MCAST_GRP(condition)) {
 		vty_out(vty, " match ip multicast-group %s\n",
 			yang_dnode_get_string(
@@ -885,6 +894,15 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 				"./rmap-match-condition/frr-pim-route-map:ipv4-multicast-group-address"));
 	} else if (IS_MATCH_IPV4_MCAST_GRP_PL(condition)) {
 		vty_out(vty, " match ip multicast-group prefix-list %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-pim-route-map:list-name"));
+	} else if (IS_MATCH_IPV6_MCAST_GRP(condition)) {
+		vty_out(vty, " match ipv6 multicast-group %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-pim-route-map:ipv6-multicast-group-address"));
+	} else if (IS_MATCH_IPV6_MCAST_GRP_PL(condition)) {
+		vty_out(vty, " match ipv6 multicast-group prefix-list %s\n",
 			yang_dnode_get_string(dnode,
 					      "./rmap-match-condition/frr-pim-route-map:list-name"));
 	} else if (IS_MATCH_MCAST_IIF(condition)) {

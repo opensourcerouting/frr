@@ -296,7 +296,9 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args);
 
 /* frr-pim-route-map */
 int pim_nb_rmap_match_source_modify(struct nb_cb_modify_args *args);
+int pim_nb_rmap_match_sourcev6_modify(struct nb_cb_modify_args *args);
 int pim_nb_rmap_match_group_modify(struct nb_cb_modify_args *args);
+int pim_nb_rmap_match_groupv6_modify(struct nb_cb_modify_args *args);
 int pim_nb_rmap_match_plist_modify(struct nb_cb_modify_args *args);
 int pim_nb_rmap_match_iif_modify(struct nb_cb_modify_args *args);
 
