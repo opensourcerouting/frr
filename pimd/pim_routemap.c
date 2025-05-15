@@ -26,6 +26,30 @@
 #define MULTICAST_IPV6_GROUP_LIST  "group-v6 prefix-list"
 #define MULTICAST_INTERFACE	   "interface"
 
+void pim_filter_ref_update(void)
+{
+	struct pim_filter_ref *ref;
+
+	frr_each (pim_filter_refs, refs, ref) {
+		ref->rmap = route_map_lookup_by_name(ref->rmapname);
+	}
+}
+
+void pim_sg_to_prefix(const pim_sgaddr *sg, struct prefix_sg *prefix)
+{
+	prefix->family = PIM_AF;
+
+#if PIM_IPV == 4
+	prefix->prefixlen = IPV4_MAX_BITLEN;
+	prefix->src.ipaddr_v4 = sg->src;
+	prefix->grp.ipaddr_v4 = sg->grp;
+#else
+	prefix->prefixlen = IPV6_MAX_BITLEN;
+	prefix->src.ipaddr_v6 = sg->src;
+	prefix->grp.ipaddr_v6 = sg->grp;
+#endif
+}
+
 /*
  * CLI
  */
