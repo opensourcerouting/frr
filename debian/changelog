@@ -45,6 +45,13 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3-4) experimental; urgency=medium
+
+  * Harmonizing upstream urls.
+  * Updating watch file to exclude dev tags.
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 17 May 2025 09:22:46 +0200
+
 frr (10.3-3) sid; urgency=medium
 
   * Simplifying watch file.
