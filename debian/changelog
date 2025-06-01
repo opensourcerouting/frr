@@ -45,6 +45,13 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3.1-1) experimental; urgency=medium
+
+  * Merging upstream version 10.3.1.
+  * Removing fix-ftbfs-s390x.patch, included upstream.
+
+ -- Daniel Baumann <daniel@debian.org>  Sun, 01 Jun 2025 21:13:56 +0200
+
 frr (10.3-5) experimental; urgency=medium
 
   * Adding upstream metadata.
