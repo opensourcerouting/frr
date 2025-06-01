@@ -45,6 +45,14 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3-5) experimental; urgency=medium
+
+  * Adding upstream metadata.
+  * Adding explicit libcrypt-dev to build-depends, thanks to Helmut Grohne
+    <helmut@subdivi.de> (Closes: #1106979).
+
+ -- Daniel Baumann <daniel@debian.org>  Sun, 01 Jun 2025 07:20:19 +0200
+
 frr (10.3-4) experimental; urgency=medium
 
   * Harmonizing upstream urls.
