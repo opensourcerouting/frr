@@ -1,10 +1,9 @@
 Source: frr
 Section: net
 Priority: optional
-Maintainer: David Lamparter <equinox-debian@diac24.net>
+Maintainer: Daniel Baumann <daniel@debian.org>
 Uploaders:
- FRRouting-dev <dev@lists.frrouting.org>,
- Daniel Baumann <daniel@debian.org>,
+ David Lamparter <equinox-debian@diac24.net>,
 Build-Depends:
  debhelper-compat (= 13),
  bison,
