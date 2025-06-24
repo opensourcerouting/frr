@@ -45,6 +45,13 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3.1-2) experimental; urgency=medium
+
+  * Updating watch file to exclude pre-releases.
+  * Updating maintainer field.
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 24 Jun 2025 19:44:32 +0200
+
 frr (10.3.1-1) experimental; urgency=medium
 
   * Merging upstream version 10.3.1.
