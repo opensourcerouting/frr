@@ -209,6 +209,9 @@ struct pim_instance {
 /** Log SA event messages. */
 #define PIM_MSDP_LOG_SA_EVENTS 0x02
 
+	/* Filter on received PIM joins */
+	struct pim_filter_ref pim_filter;
+
 	bool stopping;
 
 #if PIM_IPV == 6

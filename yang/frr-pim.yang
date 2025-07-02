@@ -489,6 +489,12 @@ module frr-pim {
         description
           "Only accept registers from a specific source prefix list.";
     }
+
+    leaf pim-join-route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Pass PIM joins through specified route-map.";
+    }
   } // global-pim-config-attributes
 
   grouping interface-pim-config-attributes {
