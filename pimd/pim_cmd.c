@@ -9153,6 +9153,25 @@ DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
 				    (grp_list ? grp_list : ""), (src_list ? src_list : ""));
 }
 
+DEFPY_YANG(ip_pim_route_map, ip_pim_route_map_cmd,
+	   "[no] ip pim route-map ![RMAP_NAME]$rmap",
+	   NO_STR
+	   IP_STR
+	   PIM_STR
+	   "Filter PIM joins via route-map\n"
+	   "Route-map name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./pim-join-route-map");
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, rmap);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 struct cmd_node pim_node = {
 	.name = "pim",
 	.node = PIM_NODE,
@@ -9322,6 +9341,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_dm_prefix_list_cmd);
 
 	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
+	install_element(PIM_NODE, &ip_pim_route_map_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);

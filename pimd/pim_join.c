@@ -306,6 +306,15 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			if (group_filtered || pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
 				continue;
 
+			struct prefix_sg psg;
+			pim_sg_to_prefix(&sg, &psg);
+			if (!pim_filter_match(&pim_ifp->pim->join_filter, &psg, ifp)) {
+				if (PIM_DEBUG_PIM_TRACE)
+					zlog_debug("%s: SG%pPSG on interface %s filtered due to route-map",
+						   __func__, &psg, ifp->name);
+				continue;
+			}
+
 			recv_join(ifp, neigh, msg_holdtime, msg_upstream_addr,
 				  &sg, msg_source_flags);
 
