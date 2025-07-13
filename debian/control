@@ -41,6 +41,9 @@ Build-Depends:
  python3-sphinx:native,
  python3:native,
  texinfo,
+Build-Conflicts:
+ libunwind-19-dev,
+ libunwind-20-dev,
 Rules-Requires-Root: no
 Standards-Version: 4.7.2
 Homepage: https://www.frrouting.org
