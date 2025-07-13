@@ -42,6 +42,7 @@ Build-Depends:
  python3:native,
  texinfo,
 Build-Conflicts:
+ libunwind-14-dev,
  libunwind-19-dev,
  libunwind-20-dev,
 Rules-Requires-Root: no
