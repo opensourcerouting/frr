@@ -45,6 +45,13 @@ frr (10.4-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 16 Jul 2025 02:00:00 -0600
 
+frr (10.3.1-3) experimental; urgency=medium
+
+  * Adding build-conflicts to libunwind-dev from llvm-toolchain (#1100483)
+    to fix FTBFS.
+
+ -- Daniel Baumann <daniel@debian.org>  Sun, 13 Jul 2025 07:38:53 +0200
+
 frr (10.3.1-2) experimental; urgency=medium
 
   * Updating watch file to exclude pre-releases.
