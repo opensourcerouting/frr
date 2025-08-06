@@ -39,6 +39,12 @@ frr (10.5.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Sun, 09 Nov 2025 02:00:00 -0600
 
+frr (10.4.1-1) experimental; urgency=medium
+
+  * Merging upstream version 10.4.1.
+
+ -- Daniel Baumann <daniel@debian.org>  Wed, 06 Aug 2025 06:07:31 +0200
+
 frr (10.4.0-1) experimental; urgency=medium
 
   * Merging upstream version 10.4.0.
