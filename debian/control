@@ -45,7 +45,6 @@ Build-Conflicts:
  libunwind-14-dev,
  libunwind-19-dev,
  libunwind-20-dev,
-Rules-Requires-Root: no
 Standards-Version: 4.7.2
 Homepage: https://www.frrouting.org
 Vcs-Browser: https://forgejo.debian.net/frr/frr
