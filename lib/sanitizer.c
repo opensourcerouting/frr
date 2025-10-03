@@ -25,7 +25,8 @@ const char *__lsan_default_suppressions(void) {
 		"leak:prefix_copy\n"
 		"leak:route_node_create\n"
 		"leak:route_table_init_with_delegate\n"
-		"leak:vertex_nexthop_new\n""";
+		"leak:vertex_nexthop_new\n"
+		"";
 
 	/* clang-format on */
 }
