@@ -279,6 +279,13 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 	/*If there is topology information*/
 	while (s->endp > s->getp) {
+		/* Ensure we have at least 4 bytes for TLV header */
+		if (STREAM_READABLE(s) < 4) {
+			zlog_warn("Malformed packet: Unexpected early end of packet reached, stopping TLV processing");
+			stream_forward_getp(s, STREAM_READABLE(s));
+			break;
+		}
+
 		type = stream_getw(s);
 		switch (type) {
 		case EIGRP_TLV_IPv4_INT:
@@ -374,10 +381,23 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 		 *      for now, lets just not creash the box
 		 */
 		default:
+			/* Handle unknown TLV types gracefully */
+			zlog_warn("Unknown TLV type: 0x%04x", type);
+
+			/* Validate we have enough data for TLV length */
+			if (STREAM_READABLE(s) < 2) {
+				zlog_warn("Malformed packet: insufficient data for TLV length, skipping to end");
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
+			}
+
 			length = stream_getw(s);
-			// -2 for type, -2 for len
-			for (length -= 4; length; length--) {
-				(void)stream_getc(s);
+
+			/* Validate TLV length */
+			if (length < 4) {
+				zlog_warn("Malformed packet: TLV length too small (%u), skipping to end", length);
+				stream_forward_getp(s, STREAM_READABLE(s));
+				break;
 			}
 
 			/* Check for reasonable TLV length */
@@ -399,6 +419,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 			if (IS_DEBUG_EIGRP_PACKET(0, RECV))
 				zlog_debug("Skipping unknown TLV: type=0x%04x, length=%u", type, length);
 			stream_forward_getp(s, length - 4);
+			break;
 		}
 	}
 
