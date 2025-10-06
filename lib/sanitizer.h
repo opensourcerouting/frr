@@ -23,7 +23,7 @@
 #endif
 
 /* Suppress known FRRouting memory leaks in leak sanitizer output */
-#ifdef FRR_HAVE_LEAK_SANITIZER && !defined(FRR_NO_KNOWN_MEMLEAK)
+#if defined(FRR_HAVE_LEAK_SANITIZER) && !defined(FRR_NO_KNOWN_MEMLEAK)
 extern const char *__lsan_default_suppressions(void);
 #endif
 
