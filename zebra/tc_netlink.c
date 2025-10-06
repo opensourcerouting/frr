@@ -7,7 +7,7 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_NETLINK
+#if defined(HAVE_NETLINK) && defined(__linux__)
 
 #include <linux/rtnetlink.h>
 #include <linux/pkt_cls.h>

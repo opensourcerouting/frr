@@ -8,7 +8,7 @@
 
 #include <net/route.h>
 
-#ifndef HAVE_NETLINK
+#if !(defined(HAVE_NETLINK) && defined(__linux__))
 
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
@@ -350,6 +350,7 @@ int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client, bool reg)
 	return 0;
 }
 
+#ifndef HAVE_NETLINK
 int kernel_neigh_update(int add, int ifindex, void *addr, char *lla, int llalen,
 			ns_id_t ns_id, uint8_t family, bool permanent)
 {
@@ -381,12 +382,14 @@ extern int kernel_interface_set_master(struct interface *master,
 {
 	return 0;
 }
+#endif
 
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
 	return ifp->speed;
 }
 
+#ifndef HAVE_NETLINK
 int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
 {
 	return 0;
@@ -407,5 +410,6 @@ int kernel_del_mac_nhg(uint32_t nhg_id)
 {
 	return 0;
 }
+#endif
 
 #endif /* !HAVE_NETLINK */

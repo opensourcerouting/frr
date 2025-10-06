@@ -379,7 +379,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	return 0;
 }
 
-#ifndef HAVE_NETLINK
+#if !(defined(HAVE_NETLINK) && defined(__linux__))
 /* if_flags_mangle: A place for hacks that require mangling
  * or tweaking the interface flags.
  *

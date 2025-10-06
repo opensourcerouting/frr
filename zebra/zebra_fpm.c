@@ -8,8 +8,13 @@
 
 #include <zebra.h>
 
-#ifdef GNU_LINUX
+#ifdef __linux__
 #include <linux/rtnetlink.h>
+
+#elif defined(__FreeBSD__)
+#include <netlink/route/common.h>
+#include <netlink/route/route.h>
+
 #endif
 
 #include "log.h"

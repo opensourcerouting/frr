@@ -15,9 +15,17 @@
  */
 #define _LINUX_IN6_H
 
+#ifdef __linux__
 #include <linux/genetlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/seg6_genl.h>
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#include <netlink/netlink_generic.h>
+#include <netlink/route/route.h>
+#else
+#error unsupported netlink platform
+#endif
 
 #include "lib/ns.h"
 #include "zebra/ge_netlink.h"
@@ -132,6 +140,7 @@ int genl_resolve_family(const char *family)
 	return ge_netlink_talk(genl_parse_getfamily, &req.n, zns, false);
 }
 
+#ifdef __linux__
 /*
  * sr tunsrc change via netlink interface, using a dataplane context object
  *
@@ -342,6 +351,12 @@ int netlink_sr_tunsrc_read(struct zebra_ns *zns)
 
 	return 0;
 }
+#else
+int netlink_sr_tunsrc_read(struct zebra_ns *zns)
+{
+	return 0;
+}
+#endif /* __linux__ */
 
 void ge_netlink_init(struct zebra_ns *zns)
 {

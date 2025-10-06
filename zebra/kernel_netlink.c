@@ -7,9 +7,18 @@
 #include <fcntl.h>
 
 #ifdef HAVE_NETLINK
+#ifdef __linux__
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/filter.h>
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#include <netlink/route/common.h>
+#include <netlink/route/route.h>
+#include <net/bpf.h>
+#else
+#error unsupported netlink platform
+#endif
 
 #include "linklist.h"
 #include "if.h"
@@ -102,6 +111,7 @@ static const struct message nlmsg_str[] = {
 	{ RTM_DELNEXTHOP, "RTM_DELNEXTHOP" },
 	{ RTM_GETNEXTHOP, "RTM_GETNEXTHOP" },
 	{ RTM_NEWNETCONF, "RTM_NEWNETCONF" },
+#ifdef __linux__
 	{ RTM_DELNETCONF, "RTM_DELNETCONF" },
 	{ RTM_NEWTUNNEL, "RTM_NEWTUNNEL" },
 	{ RTM_DELTUNNEL, "RTM_DELTUNNEL" },
@@ -121,6 +131,7 @@ static const struct message nlmsg_str[] = {
 	{ RTM_NEWCHAIN, "RTM_NEWCHAIN" },
 	{ RTM_DELCHAIN, "RTM_DELCHAIN" },
 	{ RTM_GETCHAIN, "RTM_GETCHAIN" },
+#endif
 	{ 0 }
 };
 
@@ -147,7 +158,9 @@ static const struct message rtproto_str[] = {
 
 static const struct message family_str[] = {{AF_INET, "ipv4"},
 					    {AF_INET6, "ipv6"},
+#ifdef __linux__
 					    {AF_BRIDGE, "bridge"},
+#endif
 					    {RTNL_FAMILY_IPMR, "ipv4MR"},
 					    {RTNL_FAMILY_IP6MR, "ipv6MR"},
 					    {0}};
@@ -301,8 +314,10 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 static const char *group2str(uint32_t group)
 {
 	switch (group) {
+#ifdef __linux__
 	case RTNLGRP_TUNNEL:
 		return "RTNLGRP_TUNNEL";
+#endif
 	default:
 		return "UNKNOWN";
 	}
@@ -405,14 +420,17 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_route_change(h, ns_id, startup);
 	case RTM_DELROUTE:
 		return netlink_route_change(h, ns_id, startup);
+#ifdef __linux__
 	case RTM_NEWRULE:
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup);
+#endif
 	case RTM_NEWNEXTHOP:
 		return netlink_nexthop_change(h, ns_id, startup);
 	case RTM_DELNEXTHOP:
 		return netlink_nexthop_change(h, ns_id, startup);
+#ifdef __linux__
 	case RTM_NEWQDISC:
 	case RTM_DELQDISC:
 		return netlink_qdisc_change(h, ns_id, startup);
@@ -428,6 +446,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELCHAIN:
 	case RTM_GETCHAIN:
 		return 0;
+#endif
 
 	/* Messages handled in the dplane thread */
 	case RTM_NEWLINK:
@@ -435,12 +454,14 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_NEWNETCONF:
+#ifdef __linux__
 	case RTM_DELNETCONF:
 	case RTM_NEWTUNNEL:
 	case RTM_DELTUNNEL:
 	case RTM_GETTUNNEL:
 	case RTM_NEWVLAN:
 	case RTM_DELVLAN:
+#endif
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
@@ -477,9 +498,11 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELADDR:
 		return netlink_interface_addr_dplane(h, ns_id, startup);
 
+#ifdef __linux__
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
 		return netlink_netconf_change(h, ns_id, startup);
+#endif
 
 	/* TODO -- other messages for the dplane socket and pthread */
 
@@ -487,9 +510,11 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELLINK:
 		return netlink_link_change(h, ns_id, startup);
 
+#ifdef __linux__
 	case RTM_NEWVLAN:
 	case RTM_DELVLAN:
 		return netlink_vlan_change(h, ns_id, startup);
+#endif
 
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
@@ -551,6 +576,7 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 	 * this down because every time I look at this I have to
 	 * re-remember it.
 	 */
+#ifdef __linux__
 	struct sock_filter filter[] = {
 		/*
 		 * Logic:
@@ -620,6 +646,7 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 	    < 0)
 		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s",
 			     safe_strerror(errno));
+#endif /* __linux__ */
 }
 
 /*
@@ -1018,9 +1045,12 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	      (-errnum == ENODEV || -errnum == ESRCH)) ||
 	     (msg_type == RTM_NEWROUTE &&
 	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+#ifdef __linux__
 	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
 	       msg_type == RTM_GETTUNNEL) &&
-	      (-errnum == EOPNOTSUPP)))) {
+	      (-errnum == EOPNOTSUPP)) ||
+#endif
+	     0)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u",
 				   nl->name, safe_strerror(-errnum),
@@ -1047,7 +1077,11 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 				   nl_msg_type_to_str(msg_type), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	} else {
-		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
+		if ((msg_type != RTM_GETNEXTHOP
+#ifdef __linux__
+			&& msg_type != RTM_GETVLAN
+#endif
+			) ||
 		    !startup)
 			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
 				 "%s error: %s, type=%s(%u), seq=%u, pid=%u",
@@ -1559,6 +1593,21 @@ enum netlink_msg_status netlink_batch_add_msg(
 	return FRR_NETLINK_QUEUED;
 }
 
+#ifndef __linux__
+#define netlink_put_address_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_gre_set_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_intf_netconfig(x, y) FRR_NETLINK_ERROR
+#define netlink_put_intf_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_lsp_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_mac_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_pw_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_rule_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_sr_tunsrc_set_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_tc_class_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_tc_filter_update_msg(x, y) FRR_NETLINK_ERROR
+#define netlink_put_tc_qdisc_update_msg(x, y) FRR_NETLINK_ERROR
+#endif
+
 static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 					  struct zebra_dplane_ctx *ctx)
 {
@@ -1785,7 +1834,11 @@ void kernel_init(struct zebra_ns *zns)
 			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)));
 
 	/* Use setsockopt for > 31 group */
+#ifdef __linux__
 	ext_groups = RTNLGRP_TUNNEL;
+#else
+	ext_groups = 0;
+#endif /* __linux__ */
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);

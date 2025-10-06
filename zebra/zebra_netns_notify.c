@@ -7,7 +7,7 @@
 #include <zebra.h>
 #include <fcntl.h>
 
-#ifdef HAVE_NETLINK
+#if defined(HAVE_NETLINK) && defined(__linux__)
 #ifdef HAVE_NETNS
 #undef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -33,7 +33,7 @@
 #include "zebra_errors.h"
 #include "interface.h"
 
-#ifdef HAVE_NETLINK
+#if defined(HAVE_NETLINK) && defined(__linux__)
 
 /* upon creation of folder under /var/run/netns,
  * wait that netns context is bound to

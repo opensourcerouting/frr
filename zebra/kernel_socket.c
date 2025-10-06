@@ -7,7 +7,7 @@
 
 #include <net/route.h>
 
-#ifndef HAVE_NETLINK
+#if !(defined(HAVE_NETLINK) && defined(__linux__))
 
 #include <net/if_types.h>
 #ifdef __OpenBSD__
@@ -147,6 +147,7 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 #endif
 				       {0}};
 
+#ifndef HAVE_NETLINK
 static const struct message rtm_flag_str[] = {{RTF_UP, "UP"},
 					      {RTF_GATEWAY, "GATEWAY"},
 					      {RTF_HOST, "HOST"},
@@ -201,6 +202,7 @@ static const struct message rtm_flag_str[] = {{RTF_UP, "UP"},
 					      {RTF_SETSRC, "SETSRC"},
 #endif /* RTF_SETSRC */
 					      {0}};
+#endif
 
 /* Kernel routing update socket. */
 int routing_sock = -1;
@@ -393,6 +395,7 @@ const char *rtatostr(unsigned int flags, char *buf, size_t buflen)
 	return bufstart;
 }
 
+#ifndef HAVE_NETLINK
 /* Dump routing table flag for debug purpose. */
 static void rtm_flag_dump(int flag)
 {
@@ -449,6 +452,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 
 	return 0;
 }
+#endif
 #endif /* RTM_IFANNOUNCE */
 
 #ifdef HAVE_BSD_IFI_LINK_STATE
@@ -1255,6 +1259,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 #include "frrevent.h"
 #include "zebra/zserv.h"
 
+#ifndef HAVE_NETLINK
 /* For debug purpose. */
 static void rtmsg_debug(struct rt_msghdr *rtm)
 {
@@ -1641,5 +1646,6 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 	dplane_ctx_q_init(ctx_list);
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
+#endif
 
 #endif /* !HAVE_NETLINK */

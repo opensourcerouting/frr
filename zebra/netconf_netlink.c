@@ -9,6 +9,7 @@
 #include <fcntl.h>
 
 #ifdef HAVE_NETLINK /* Netlink OSes only */
+#ifdef __linux__
 
 #include <ns.h>
 
@@ -227,4 +228,5 @@ enum netlink_msg_status netlink_put_intf_netconfig(struct nl_batch *bth,
 	return ret;
 }
 
+#endif  /* __linux__ */
 #endif	/* HAVE_NETLINK */

@@ -8,7 +8,7 @@
 
 #include <net/route.h>
 
-#if !defined(GNU_LINUX)
+#ifndef __linux__
 
 #include <sys/sysctl.h>
 
@@ -22,6 +22,7 @@
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_errors.h"
 
+#ifndef HAVE_NETLINK
 /* Kernel routing table read up by sysctl function. */
 void route_read(struct zebra_ns *zns)
 {
@@ -66,6 +67,7 @@ void route_read(struct zebra_ns *zns)
 
 	return;
 }
+#endif
 
 /* Only implemented for the netlink method. */
 void macfdb_read(struct zebra_ns *zns)

@@ -9,6 +9,7 @@
 
 #include <sys/socket.h>
 
+#ifdef __linux__
 #include <linux/netconf.h>
 #include <linux/netlink.h>
 #include <linux/nexthop.h>
@@ -16,6 +17,19 @@
 #include <net/if_arp.h>
 #include <linux/fib_rules.h>
 #include <linux/lwtunnel.h>
+
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#include <netlink/route/common.h>
+#include <netlink/route/route.h>
+#include <netlink/route/neigh.h>
+#include <netlink/route/nexthop.h>
+#include <netlink/route/interface.h>
+#include <netlink/route/ifaddrs.h>
+
+#else
+#error unsupported netlink platform
+#endif
 
 #include <stdio.h>
 #include <stdint.h>
@@ -83,17 +97,21 @@ const char *nlmsg_type2str(uint16_t type)
 	case RTM_GETNEXTHOP:
 		return "GETNEXTHOP";
 
+#ifdef __linux__
 	case RTM_NEWTUNNEL:
 		return "NEWTUNNEL";
 	case RTM_DELTUNNEL:
 		return "DELTUNNEL";
 	case RTM_GETTUNNEL:
 		return "GETTUNNEL";
+#endif
 
 	case RTM_NEWNETCONF:
 		return "RTM_NEWNETCONF";
+#ifdef __linux__
 	case RTM_DELNETCONF:
 		return "RTM_DELNETCONF";
+#endif
 
 	default:
 		return "UNKNOWN";
@@ -111,8 +129,10 @@ const char *af_type2str(int type)
 		return "AF_INET";
 	case AF_INET6:
 		return "AF_INET6";
+#ifdef __linux__
 	case AF_BRIDGE:
 		return "AF_BRIDGE";
+#endif
 	case AF_NETLINK:
 		return "AF_NETLINK";
 #ifdef AF_MPLS
@@ -121,12 +141,14 @@ const char *af_type2str(int type)
 #endif /* AF_MPLS */
 	case AF_BLUETOOTH:
 		return "AF_BLUETOOTH";
+#ifdef __linux__
 	case AF_VSOCK:
 		return "AF_VSOCK";
 	case AF_KEY:
 		return "AF_KEY";
 	case AF_PACKET:
 		return "AF_PACKET";
+#endif
 	default:
 		return "UNKNOWN";
 	}
@@ -137,6 +159,7 @@ const char *ifi_type2str(int type)
 	switch (type) {
 	case ARPHRD_ETHER:
 		return "ETHER";
+#ifdef __linux__
 	case ARPHRD_EETHER:
 		return "EETHER";
 	case ARPHRD_NETROM:
@@ -249,6 +272,7 @@ const char *ifi_type2str(int type)
 		return "VOID";
 	case ARPHRD_NONE:
 		return "NONE";
+#endif /* __linux__ */
 	default:
 		return "UNKNOWN";
 	}
@@ -257,12 +281,14 @@ const char *ifi_type2str(int type)
 const char *ifla_pdr_type2str(int type)
 {
 	switch (type) {
+#ifdef __linux__
 	case IFLA_PROTO_DOWN_REASON_UNSPEC:
 		return "UNSPEC";
 	case IFLA_PROTO_DOWN_REASON_MASK:
 		return "MASK";
 	case IFLA_PROTO_DOWN_REASON_VALUE:
 		return "VALUE";
+#endif
 	default:
 		return "UNKNOWN";
 	}
@@ -447,8 +473,10 @@ const char *rtm_protocol2str(int type)
 		return "GATED";
 	case RTPROT_RA:
 		return "RA";
+#if RTPROT_MRT != RTPROT_REDIRECT
 	case RTPROT_MRT:
 		return "MRT";
+#endif
 	case RTPROT_ZEBRA:
 		return "ZEBRA";
 	case RTPROT_BGP:
@@ -635,6 +663,7 @@ const char *nhm_rta2str(int type)
 const char *frh_rta2str(int type)
 {
 	switch (type) {
+#ifdef __linux__
 	case FRA_DST:
 		return "DST";
 	case FRA_SRC:
@@ -683,6 +712,7 @@ const char *frh_rta2str(int type)
 		return "SPORT_RANGE";
 	case FRA_DPORT_RANGE:
 		return "DPORT_RANGE";
+#endif
 	default:
 		return "UNKNOWN";
 	}
@@ -691,6 +721,7 @@ const char *frh_rta2str(int type)
 const char *frh_action2str(uint8_t action)
 {
 	switch (action) {
+#ifdef __linux__
 	case FR_ACT_TO_TBL:
 		return "TO_TBL";
 	case FR_ACT_GOTO:
@@ -707,11 +738,13 @@ const char *frh_action2str(uint8_t action)
 		return "UNREACHABLE";
 	case FR_ACT_PROHIBIT:
 		return "PROHIBIT";
+#endif
 	default:
 		return "UNKNOWN";
 	}
 }
 
+#ifdef __linux__
 static const char *ncm_rta2str(int type)
 {
 	switch (type) {
@@ -742,6 +775,7 @@ static void dump_on_off(uint32_t ival, const char *prefix)
 {
 	zlog_debug("%s%s", prefix, (ival != 0) ? "on" : "off");
 }
+#endif
 
 static inline void flag_write(int flags, int flag, const char *flagstr,
 			      char *buf, size_t buflen)
@@ -791,12 +825,16 @@ const char *if_flags2str(uint32_t flags, char *buf, size_t buflen)
 	flag_write(flags, IFF_NOARP, "NOARP", buf, buflen);
 	flag_write(flags, IFF_PROMISC, "PROMISC", buf, buflen);
 	flag_write(flags, IFF_ALLMULTI, "ALLMULTI", buf, buflen);
+#ifdef __linux__
 	flag_write(flags, IFF_MASTER, "MASTER", buf, buflen);
 	flag_write(flags, IFF_SLAVE, "SLAVE", buf, buflen);
 	flag_write(flags, IFF_MULTICAST, "MULTICAST", buf, buflen);
 	flag_write(flags, IFF_PORTSEL, "PORTSEL", buf, buflen);
 	flag_write(flags, IFF_AUTOMEDIA, "AUTOMEDIA", buf, buflen);
 	flag_write(flags, IFF_DYNAMIC, "DYNAMIC", buf, buflen);
+#else
+	flag_write(flags, IFF_MULTICAST, "MULTICAST", buf, buflen);
+#endif
 
 	return (bufp);
 }
@@ -887,7 +925,7 @@ const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen)
 /*
  * Netlink abstractions.
  */
-static void nllink_pdr_dump(struct rtattr *rta, size_t msglen)
+static void nllink_pdr_dump(struct rtattr *rta, ssize_t msglen)
 {
 	size_t plen;
 	uint32_t u32v;
@@ -902,6 +940,7 @@ next_rta:
 		   rta->rta_len, plen, rta->rta_type,
 		   ifla_pdr_type2str(rta->rta_type));
 	switch (rta->rta_type) {
+#ifdef __linux__
 	case IFLA_PROTO_DOWN_REASON_MASK:
 	case IFLA_PROTO_DOWN_REASON_VALUE:
 		if (plen < sizeof(uint32_t)) {
@@ -912,18 +951,20 @@ next_rta:
 		u32v = *(uint32_t *)RTA_DATA(rta);
 		zlog_debug("        %u", u32v);
 		break;
-
+#endif
 	default:
 		/* NOTHING: unhandled. */
 		break;
 	}
+
+	(void)u32v;
 
 	/* Get next pointer and start iteration again. */
 	rta = RTA_NEXT(rta, msglen);
 	goto next_rta;
 }
 
-static void nllink_linkinfo_dump(struct rtattr *rta, size_t msglen)
+static void nllink_linkinfo_dump(struct rtattr *rta, ssize_t msglen)
 {
 	size_t plen;
 	char dbuf[128];
@@ -967,7 +1008,7 @@ next_rta:
 	goto next_rta;
 }
 
-static void nllink_dump(struct ifinfomsg *ifi, size_t msglen)
+static void nllink_dump(struct ifinfomsg *ifi, ssize_t msglen)
 {
 	uint8_t *datap;
 	struct rtattr *rta;
@@ -1067,7 +1108,7 @@ next_rta:
 	goto next_rta;
 }
 
-static void nlroute_dump(struct rtmsg *rtm, size_t msglen)
+static void nlroute_dump(struct rtmsg *rtm, ssize_t msglen)
 {
 	struct rta_mfc_stats *mfc_stats;
 	struct rtattr *rta;
@@ -1120,11 +1161,15 @@ next_rta:
 		break;
 
 	case RTA_MFC_STATS:
+#ifdef __linux__
 		mfc_stats = (struct rta_mfc_stats *)RTA_DATA(rta);
 		zlog_debug("      pkts=%ju bytes=%ju wrong_if=%ju",
 			   (uintmax_t)mfc_stats->mfcs_packets,
 			   (uintmax_t)mfc_stats->mfcs_bytes,
 			   (uintmax_t)mfc_stats->mfcs_wrong_if);
+#else
+		(void)mfc_stats;
+#endif
 		break;
 
 	default:
@@ -1137,7 +1182,7 @@ next_rta:
 	goto next_rta;
 }
 
-static void nlneigh_dump(struct ndmsg *ndm, size_t msglen)
+static void nlneigh_dump(struct ndmsg *ndm, ssize_t msglen)
 {
 	struct rtattr *rta;
 	uint8_t *datap;
@@ -1211,7 +1256,7 @@ next_rta:
 	goto next_rta;
 }
 
-static void nlifa_dump(struct ifaddrmsg *ifa, size_t msglen)
+static void nlifa_dump(struct ifaddrmsg *ifa, ssize_t msglen)
 {
 	struct rtattr *rta;
 	size_t plen;
@@ -1264,6 +1309,7 @@ next_rta:
 	goto next_rta;
 }
 
+#ifdef __linux__
 static void nltnl_dump(struct tunnel_msg *tnlm, size_t msglen)
 {
 	struct rtattr *attr;
@@ -1325,6 +1371,7 @@ static const char *lwt_type2str(uint16_t type)
 		return "UNKNOWN";
 	}
 }
+#endif
 
 static const char *nhg_type2str(uint16_t type)
 {
@@ -1338,7 +1385,7 @@ static const char *nhg_type2str(uint16_t type)
 	}
 }
 
-static void nlnh_dump(struct nhmsg *nhm, size_t msglen)
+static void nlnh_dump(struct nhmsg *nhm, ssize_t msglen)
 {
 	struct rtattr *rta;
 	int ifindex;
@@ -1369,7 +1416,7 @@ next_rta:
 		nhgrp = (struct nexthop_grp *)RTA_DATA(rta);
 		count = (RTA_PAYLOAD(rta) / sizeof(*nhgrp));
 		if (count == 0
-		    || (count * sizeof(*nhgrp)) != RTA_PAYLOAD(rta)) {
+		    || (count * sizeof(*nhgrp)) != (size_t)RTA_PAYLOAD(rta)) {
 			zlog_debug("      invalid nexthop group received");
 			return;
 		}
@@ -1385,10 +1432,12 @@ next_rta:
 			zlog_debug("      id %d weight %d", nhgrp[i].id, weight);
 		}
 		break;
+#ifdef __linux__
 	case NHA_ENCAP_TYPE:
 		u16v = *(uint16_t *)RTA_DATA(rta);
 		zlog_debug("      %s", lwt_type2str(u16v));
 		break;
+#endif
 	case NHA_GROUP_TYPE:
 		u16v = *(uint16_t *)RTA_DATA(rta);
 		zlog_debug("      %s", nhg_type2str(u16v));
@@ -1435,6 +1484,7 @@ next_rta:
 	goto next_rta;
 }
 
+#ifdef __linux__
 static void nlrule_dump(struct fib_rule_hdr *frh, size_t msglen)
 {
 	struct rtattr *rta;
@@ -1603,6 +1653,7 @@ next_rta:
 	rta = RTA_NEXT(rta, msglen);
 	goto next_rta;
 }
+#endif
 
 void nl_dump(void *msg, size_t msglen)
 {
@@ -1613,11 +1664,13 @@ void nl_dump(void *msg, size_t msglen)
 	struct ndmsg *ndm;
 	struct rtmsg *rtm;
 	struct nhmsg *nhm;
-	struct netconfmsg *ncm;
 	struct ifinfomsg *ifi;
+#ifdef __linux__
+	struct netconfmsg *ncm;
 	struct tunnel_msg *tnlm;
 	struct fib_rule_hdr *frh;
 	struct tcmsg *tcm;
+#endif
 
 	char fbuf[128];
 	char ibuf[128];
@@ -1695,6 +1748,7 @@ next_header:
 			     nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*ndm)));
 		break;
 
+#ifdef __linux__
 	case RTM_NEWRULE:
 	case RTM_DELRULE:
 		frh = NLMSG_DATA(nlmsg);
@@ -1706,6 +1760,7 @@ next_header:
 			frh->flags);
 		nlrule_dump(frh, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*frh)));
 		break;
+#endif
 
 
 	case RTM_NEWADDR:
@@ -1734,6 +1789,7 @@ next_header:
 		nlnh_dump(nhm, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*nhm)));
 		break;
 
+#ifdef __linux__
 	case RTM_NEWTUNNEL:
 	case RTM_DELTUNNEL:
 	case RTM_GETTUNNEL:
@@ -1744,7 +1800,6 @@ next_header:
 			   nlmsg->nlmsg_len -
 				   NLMSG_LENGTH(sizeof(struct tunnel_msg)));
 		break;
-
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
@@ -1768,6 +1823,7 @@ next_header:
 			tcm->tcm_ifindex, tcm->tcm_handle >> 16,
 			tcm->tcm_handle & 0xffff);
 		break;
+#endif
 
 	default:
 		break;

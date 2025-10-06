@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 
-#ifdef GNU_LINUX
+#ifdef HAVE_NETLINK
 
 #include "vty.h"
 #include "zebra/rt.h"
@@ -22,6 +22,7 @@ void route_read(struct zebra_ns *zns)
 	netlink_route_read(zns);
 }
 
+#ifdef __linux__
 void macfdb_read(struct zebra_ns *zns)
 {
 	netlink_macfdb_read(zns);
@@ -74,5 +75,6 @@ void vlan_read(struct zebra_ns *zns)
 {
 	netlink_vlan_read(zns);
 }
+#endif
 
 #endif /* GNU_LINUX */

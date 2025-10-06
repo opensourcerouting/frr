@@ -11,8 +11,19 @@
 
 #ifdef HAVE_NETLINK
 
+#ifdef __linux__
 #include <linux/rtnetlink.h>
 #include <linux/neighbour.h>
+
+#elif defined(__FreeBSD__)
+#include <netlink/route/common.h>
+#include <netlink/route/route.h>
+#include <netlink/route/neigh.h>
+
+#else
+#error unsupported netlink platform
+#endif
+
 
 #include "log.h"
 #include "rib.h"
@@ -387,7 +398,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 	if (ri->rtm_table < 256)
 		req->r.rtm_table = ri->rtm_table;
 	else {
-		req->r.rtm_table = RT_TABLE_UNSPEC;
+		req->r.rtm_table = (uint8_t)RT_TABLE_UNSPEC;
 		nl_attr_put32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table);
 	}
 
@@ -595,6 +606,9 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 		SET_FLAG(req->hdr.nlmsg_flags, (NLM_F_CREATE | NLM_F_REPLACE));
 
 	/* Construct ndmsg */
+#ifndef AF_BRIDGE
+#define AF_BRIDGE 0xb5
+#endif
 	req->ndm.ndm_family = AF_BRIDGE;
 	req->ndm.ndm_ifindex = mac->vxlan_if;
 

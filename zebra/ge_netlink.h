@@ -11,8 +11,15 @@
 
 #include <stddef.h>
 #include <sys/types.h>
+#ifdef __linux__
 #include <linux/netlink.h>
 #include <linux/genetlink.h>
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#include <netlink/netlink_generic.h>
+#else
+#error unsupported netlink platform
+#endif
 
 #include "lib/ns.h"
 #include "zebra/kernel_netlink.h"

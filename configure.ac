@@ -1329,6 +1329,11 @@ case "$host_os" in
 
     is_linux=true
     ;;
+  freebsd*)
+    AC_DEFINE([HAVE_NETLINK], [1], [netlink])
+    AC_DEFINE([HAVE_NET_RT_IFLIST], [1], [NET_RT_IFLIST])
+    AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
+    ;;
   openbsd*)
     AC_MSG_RESULT([OpenBSD])
 

@@ -7,7 +7,7 @@
 #include "zebra/rt.h"
 #include "zebra/zebra_mpls.h"
 
-#if !defined(HAVE_NETLINK) && !defined(OPEN_BSD)
+#if !(defined(HAVE_NETLINK) && defined(__linux__)) && !defined(OPEN_BSD)
 
 int mpls_kernel_init(void)
 {

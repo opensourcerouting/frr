@@ -20,7 +20,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/zebra_dplane.h"
-#if defined(HAVE_NETLINK)
+#if defined(HAVE_NETLINK) && defined(__linux__)
 
 #include <linux/net_namespace.h>
 #include <linux/netlink.h>
@@ -37,7 +37,7 @@
  */
 #define NS_BASE_NSID 0
 
-#if defined(HAVE_NETLINK)
+#if defined(HAVE_NETLINK) && defined(__linux__)
 
 #define NETLINK_SOCKET_BUFFER_SIZE 512
 #define NETLINK_ALIGNTO             4
@@ -54,7 +54,7 @@ static ns_id_t zebra_ns_id_get_fallback(const char *netnspath)
 	return zebra_ns_id_local++;
 }
 
-#if defined(HAVE_NETLINK)
+#if defined(HAVE_NETLINK) && defined(__linux__)
 
 static struct nlmsghdr *initiate_nlh(char *buf, unsigned int *seq, int type)
 {

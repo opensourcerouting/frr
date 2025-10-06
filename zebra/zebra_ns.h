@@ -22,7 +22,13 @@ extern "C" {
 struct zebra_dplane_ctx;
 
 #ifdef HAVE_NETLINK
+#ifdef __linux__
 #include <linux/netlink.h>
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#else
+#error unsupported netlink platform
+#endif
 
 /* Socket interface to kernel */
 struct nlsock {

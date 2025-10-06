@@ -73,6 +73,7 @@ void ifstat_update_sysctl(void)
 	return;
 }
 
+#ifndef HAVE_NETLINK
 /* Interface listing up function using sysctl(). */
 void interface_list(struct zebra_ns *zns)
 {
@@ -133,5 +134,6 @@ void interface_list(struct zebra_ns *zns)
 
 	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_INTERFACES_READ);
 }
+#endif
 
 #endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) */

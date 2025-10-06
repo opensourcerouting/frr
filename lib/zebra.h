@@ -42,7 +42,7 @@
 
 #include <net/if.h>
 
-#ifndef HAVE_NETLINK
+#ifndef __linux__
 #define RT_TABLE_MAIN		0
 #define RT_TABLE_LOCAL		RT_TABLE_MAIN
 #endif /* HAVE_NETLINK */

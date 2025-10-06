@@ -28,7 +28,6 @@ extern "C" {
 	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT ||             \
 	 (type) == ZEBRA_ROUTE_LOCAL)
 
-#ifndef HAVE_NETLINK
 /*
  * Update or delete a route, nexthop, LSP, pseudowire, or vxlan MAC from the
  * kernel, using info from a dataplane context.
@@ -60,8 +59,6 @@ kernel_intf_update(struct zebra_dplane_ctx *ctx);
 extern enum zebra_dplane_result
 kernel_intf_netconf_update(struct zebra_dplane_ctx *ctx);
 extern enum zebra_dplane_result kernel_tc_update(struct zebra_dplane_ctx *ctx);
-
-#endif /* !HAVE_NETLINK */
 
 extern int kernel_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 			       int llalen, ns_id_t ns_id, uint8_t family,

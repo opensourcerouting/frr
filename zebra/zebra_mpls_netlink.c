@@ -6,7 +6,7 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
-#ifdef HAVE_NETLINK
+#if defined(HAVE_NETLINK) && defined(__linux__)
 
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>

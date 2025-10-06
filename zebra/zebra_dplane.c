@@ -6733,8 +6733,10 @@ static void dplane_incoming_request(struct event *event)
 	event_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
 		       zi->info.sock, &zi->t_read);
 
+#ifdef __linux__
 	/* Send requests */
 	netlink_request_netconf(zi->info.sock);
+#endif
 }
 
 /*

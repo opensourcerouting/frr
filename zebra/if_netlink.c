@@ -6,8 +6,9 @@
 
 #include <zebra.h>
 
-#ifdef GNU_LINUX
+#if defined(HAVE_NETLINK)
 
+#ifdef __linux__
 /* The following definition is to workaround an issue in the Linux kernel
  * header files with redefinition of 'struct in6_addr' in both
  * netinet/in.h and linux/in6.h.
@@ -26,6 +27,18 @@
 #include <net/if_arp.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
+
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#include <netlink/route/common.h>
+#include <netlink/route/route.h>
+#include <netlink/route/interface.h>
+#include <netlink/route/ifaddrs.h>
+
+#else
+#error unsupported netlink platform
+#endif
+
 
 #include "linklist.h"
 #include "if.h"
@@ -89,6 +102,7 @@ static enum zebra_link_type netlink_to_zebra_link_type(unsigned int hwt)
 	switch (hwt) {
 	case ARPHRD_ETHER:
 		return ZEBRA_LLT_ETHER;
+#ifdef __linux__
 	case ARPHRD_EETHER:
 		return ZEBRA_LLT_EETHER;
 	case ARPHRD_AX25:
@@ -189,6 +203,7 @@ static enum zebra_link_type netlink_to_zebra_link_type(unsigned int hwt)
 	case ARPHRD_IEEE802154_PHY:
 		return ZEBRA_LLT_IEEE802154_PHY;
 #endif
+#endif /* __linux__ */
 
 	default:
 		return ZEBRA_LLT_UNKNOWN;
@@ -256,6 +271,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		ctx, *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]));
 }
 
+#ifdef __linux__
 static uint32_t get_iflink_speed(struct interface *interface, int *error)
 {
 	struct ifreq ifdata;
@@ -535,6 +551,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	}
 	return 0;
 }
+#endif
 
 /*
  * Extract and save L2 params (of interest) for an interface. When a
@@ -546,15 +563,18 @@ static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
 					    struct rtattr *link_data, int add,
 					    ns_id_t link_nsid)
 {
+#ifdef __linux__
 	struct zebra_l2info_bridge bridge_info;
 	struct zebra_l2info_vlan vlan_info;
 	struct zebra_l2info_vxlan vxlan_info;
 	struct zebra_l2info_gre gre_info;
+#endif
 
 	if (!link_data)
 		return;
 
 	switch (zif_type) {
+#ifdef __linux__
 	case ZEBRA_IF_BRIDGE:
 		netlink_extract_bridge_info(link_data, &bridge_info);
 		dplane_ctx_set_ifp_bridge_info(ctx, &bridge_info);
@@ -573,6 +593,12 @@ static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
 		gre_info.link_nsid = link_nsid;
 		dplane_ctx_set_ifp_gre_info(ctx, &gre_info);
 		break;
+#else
+	case ZEBRA_IF_BRIDGE:
+	case ZEBRA_IF_VLAN:
+	case ZEBRA_IF_VXLAN:
+	case ZEBRA_IF_GRE:
+#endif
 	case ZEBRA_IF_OTHER:
 	case ZEBRA_IF_VRF:
 	case ZEBRA_IF_MACVLAN:
@@ -583,6 +609,7 @@ static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
 	}
 }
 
+#ifdef __linux__
 static int
 netlink_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 					 struct rtattr *af_spec)
@@ -728,6 +755,7 @@ static int netlink_bridge_interface(struct zebra_dplane_ctx *ctx,
 	dplane_provider_enqueue_to_zebra(ctx);
 	return 0;
 }
+#endif
 
 /*
  * Process interface protodown dplane update.
@@ -748,9 +776,11 @@ static void netlink_proc_dplane_if_protodown(struct zebra_dplane_ctx *ctx,
 		netlink_parse_rtattr_nested(pd_reason_info, IFLA_INFO_MAX,
 					    tb[IFLA_PROTO_DOWN_REASON]);
 
+#ifdef __linux__
 		if (pd_reason_info[IFLA_PROTO_DOWN_REASON_VALUE])
 			rc_bitfield = *(uint32_t *)RTA_DATA(
 				pd_reason_info[IFLA_PROTO_DOWN_REASON_VALUE]);
+#endif
 	}
 
 	dplane_ctx_set_ifp_rc_bitfield(ctx, rc_bitfield);
@@ -758,6 +788,7 @@ static void netlink_proc_dplane_if_protodown(struct zebra_dplane_ctx *ctx,
 	dplane_ctx_set_ifp_protodown_set(ctx, true);
 }
 
+#ifdef __linux__
 static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 {
 	uint8_t bypass = 0;
@@ -771,6 +802,7 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 
 	return bypass;
 }
+#endif
 
 /* Request for specific interface or address information from the kernel */
 static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
@@ -799,6 +831,7 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 	return netlink_request(netlink_cmd, &req);
 }
 
+#ifdef __linux__
 enum netlink_msg_status
 netlink_put_gre_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
@@ -812,6 +845,7 @@ netlink_put_gre_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 
 	return ret;
 }
+#endif
 
 /* Interface lookup by netlink socket. */
 int interface_lookup_netlink(struct zebra_ns *zns)
@@ -824,7 +858,11 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
 	/* Get interface information. */
+#ifdef __linux__
 	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
+#else
+	ret = netlink_request_intf_addr(netlink_cmd, AF_LINK, RTM_GETLINK, 0);
+#endif
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_link_change, netlink_cmd, &dp_info, 0,
@@ -832,6 +870,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
+#ifdef __linux__
 	/* Get interface information - for bridge interfaces. */
 	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
 					RTEXT_FILTER_BRVLAN);
@@ -841,12 +880,13 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 				 true);
 	if (ret < 0)
 		return ret;
-
+#endif
 	return ret;
 }
 
 void interface_list_tunneldump(struct zebra_ns *zns)
 {
+#ifdef __linux__
 	int ret;
 
 	/*
@@ -864,6 +904,7 @@ void interface_list_tunneldump(struct zebra_ns *zns)
 		return;
 
 	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_TUNNELS_READ);
+#endif
 }
 
 
@@ -1284,6 +1325,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
+#ifdef __linux__
 	if (!(ifi->ifi_family == AF_UNSPEC || ifi->ifi_family == AF_BRIDGE
 	      || ifi->ifi_family == AF_INET6)) {
 		flog_warn(
@@ -1292,6 +1334,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			ifi->ifi_family, nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
+#endif
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	if (len < 0) {
@@ -1363,6 +1406,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	dplane_ctx_set_intf_txqlen(ctx, txqlen);
 
 	/* We are interested in some AF_BRIDGE notifications. */
+#ifdef __linux__
 #ifndef AF_BRIDGE
 #define AF_BRIDGE 7
 #endif
@@ -1370,6 +1414,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_INSTALL);
 		return netlink_bridge_interface(ctx, tb[IFLA_AF_SPEC], startup);
 	}
+#endif
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
 		dplane_ctx_set_ifp_link_ifindex(ctx, link_ifindex);
@@ -1396,6 +1441,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			vrf_id = ifi->ifi_index;
 		}
 
+#ifdef __linux__
 		if (tb[IFLA_MASTER]) {
 			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
 			    && !vrf_is_backend_netns()) {
@@ -1416,6 +1462,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+#else
+		(void)slave_kind;
+#endif
 		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
 		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
 		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);
@@ -1511,11 +1560,13 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	if (!nest_protodown_reason)
 		return -1;
 
+#ifdef __linux__
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
 		      (1 << if_netlink_get_frr_protodown_r_bit()));
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
 		      ((int)pd_reason_val)
 			      << if_netlink_get_frr_protodown_r_bit());
+#endif
 
 	nl_attr_nest_end(&req->n, nest_protodown_reason);
 
@@ -1549,6 +1600,7 @@ void interface_list_second(struct zebra_ns *zns)
 	zebra_dplane_startup_stage(zns, ZEBRA_DPLANE_ADDRESSES_READ);
 }
 
+#ifdef __linux__
 /**
  * netlink_request_tunneldump() - Request all tunnels from the linux kernel
  *
@@ -1822,5 +1874,6 @@ int netlink_vlan_read(struct zebra_ns *zns)
 
 	return ret;
 }
+#endif /* __linux__ */
 
 #endif /* GNU_LINUX */

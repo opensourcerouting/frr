@@ -12,7 +12,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
+#ifdef __linux__
 #include <linux/netlink.h>
+#elif defined(__FreeBSD__)
+#include <netlink/netlink.h>
+#else
+#error unsupported netlink platform
+#endif
 
 #include "lib/ns.h"
 

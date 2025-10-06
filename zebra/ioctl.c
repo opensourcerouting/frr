@@ -38,7 +38,7 @@ void ifreq_set_name(struct ifreq *ifreq, struct interface *ifp)
 	strlcpy(ifreq->ifr_name, ifp->name, sizeof(ifreq->ifr_name));
 }
 
-#ifndef HAVE_NETLINK
+#ifndef __linux__
 /* call ioctl system call */
 int if_ioctl(unsigned long request, caddr_t buffer)
 {
@@ -119,7 +119,9 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	}
 	return 0;
 }
+#endif
 
+#if !(defined(HAVE_NETLINK) && defined(__linux__))
 /*
  * get interface metric
  *   -- if value is not avaliable set -1
@@ -391,7 +393,7 @@ int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 #endif /* HAVE_STRUCT_IFALIASREQ */
 #endif /* HAVE_NETLINK */
 
-#ifndef HAVE_NETLINK
+#ifndef __linux__
 /* get interface flags */
 void if_get_flags(struct interface *ifp)
 {
@@ -533,7 +535,7 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 	return 0;
 }
 
-#ifndef LINUX_IPV6 /* Netlink has its own code */
+#ifndef HAVE_NETLINK /* Netlink has its own code */
 /*
  * Helper for interface-addr install, non-netlink
  */
