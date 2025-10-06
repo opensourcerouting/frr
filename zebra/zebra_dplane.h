@@ -100,7 +100,9 @@ enum zebra_dplane_result {
 
 enum zebra_dplane_startup_notifications {
 	ZEBRA_DPLANE_INTERFACES_READ,
+#ifdef __linux__
 	ZEBRA_DPLANE_TUNNELS_READ,
+#endif
 	ZEBRA_DPLANE_ADDRESSES_READ,
 };
 /*

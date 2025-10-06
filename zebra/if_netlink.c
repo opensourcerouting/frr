@@ -810,7 +810,7 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 {
 	struct {
 		struct nlmsghdr n;
-		struct ifinfomsg ifm;
+		struct ifaddrmsg ifa;
 		char buf[256];
 	} req;
 
@@ -821,8 +821,8 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_type = type;
 	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.ifm.ifi_family = family;
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+	req.ifa.ifa_family = family;
 
 	/* Include filter, if specified. */
 	if (filter_mask)
@@ -861,7 +861,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 #ifdef __linux__
 	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 #else
-	ret = netlink_request_intf_addr(netlink_cmd, AF_LINK, RTM_GETLINK, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_UNSPEC, RTM_GETLINK, 0);
 #endif
 	if (ret < 0)
 		return ret;

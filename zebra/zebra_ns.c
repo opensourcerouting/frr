@@ -299,9 +299,11 @@ void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
 
 	switch (spot) {
 	case ZEBRA_DPLANE_INTERFACES_READ:
+#ifdef __linux__
 		interface_list_tunneldump(zns);
 		break;
 	case ZEBRA_DPLANE_TUNNELS_READ:
+#endif
 		interface_list_second(zns);
 		break;
 	case ZEBRA_DPLANE_ADDRESSES_READ:

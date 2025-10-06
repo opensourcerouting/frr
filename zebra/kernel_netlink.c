@@ -939,12 +939,24 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 {
 	struct iovec iov;
-	int status;
+	int status, orig_fl = -1;
 
 	iov.iov_base = nl->buf;
 	iov.iov_len = nl->buflen;
 	msg->msg_iov = &iov;
 	msg->msg_iovlen = 1;
+
+#ifdef __FreeBSD__
+	status = fcntl(nl->sock, F_GETFL, 0);
+	if (status < 0)
+		zlog_warn("failed to get netlink fd flags");
+	else {
+		orig_fl = status;
+		status = fcntl(nl->sock, F_SETFL, (orig_fl & ~O_NONBLOCK));
+		if (status < 0)
+			zlog_warn("failed to clear netlink nonblock");
+	}
+#endif
 
 	do {
 		int bytes;
@@ -960,6 +972,11 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 
 		status = recvmsg(nl->sock, msg, 0);
 	} while (status == -1 && errno == EINTR);
+
+#ifdef __FreeBSD__
+	if (orig_fl != -1)
+		fcntl(nl->sock, F_SETFL, orig_fl);
+#endif
 
 	if (status == -1) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EMSGSIZE)

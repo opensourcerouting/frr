@@ -12,19 +12,19 @@
 #include "zebra/debug_clippy.c"
 
 /* For debug statement. */
-unsigned long zebra_debug_event;
-unsigned long zebra_debug_packet;
-unsigned long zebra_debug_kernel;
-unsigned long zebra_debug_rib;
+unsigned long zebra_debug_event = 1;
+unsigned long zebra_debug_packet = 1;
+unsigned long zebra_debug_kernel = 1;
+unsigned long zebra_debug_rib = 1;
 unsigned long zebra_debug_fpm;
 unsigned long zebra_debug_nht;
 unsigned long zebra_debug_mpls;
 unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
-unsigned long zebra_debug_dplane;
+unsigned long zebra_debug_dplane = 1;
 unsigned long zebra_debug_dplane_dpdk;
 unsigned long zebra_debug_mlag;
-unsigned long zebra_debug_nexthop;
+unsigned long zebra_debug_nexthop = 1;
 unsigned long zebra_debug_evpn_mh;
 unsigned long zebra_debug_pbr;
 unsigned long zebra_debug_neigh;
