@@ -1424,9 +1424,11 @@ next_rta:
 		for (i = 0; i < count; i++) {
 			uint16_t weight;
 
+#ifdef __linux__
 			if (zrouter.zav.nexthop_weight_is_16bit)
 				weight = nhgrp[i].weight_high << 8 | nhgrp[i].weight;
 			else
+#endif
 				weight = nhgrp[i].weight;
 
 			zlog_debug("      id %d weight %d", nhgrp[i].id, weight);
