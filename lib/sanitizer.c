@@ -14,7 +14,10 @@
 const char *__lsan_default_suppressions(void) {
 	/* clang-format off */
 
-	/* List of known memory leaks to suppress (keep in alphabetical order)*/
+	/*
+	 * List of known memory leaks to suppress. Please keep in alphabetical
+	 * order.
+	 */
 	return
 		"leak:list_new\n"
 		"leak:listnode_new\n"
@@ -26,6 +29,7 @@ const char *__lsan_default_suppressions(void) {
 		"leak:route_node_create\n"
 		"leak:route_table_init_with_delegate\n"
 		"leak:vertex_nexthop_new\n"
+		"leak:vertex_parent_new\n"
 		"";
 
 	/* clang-format on */
