@@ -2,18 +2,7 @@
 
 include /usr/share/dpkg/architecture.mk
 
-# standard Debian options & profiles
-
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-
-ifneq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
-  MAKE_SILENT="V=0"
-  export DH_VERBOSE=0
-else
-  MAKE_SILENT="V=1"
-  export DH_VERBOSE=1
-  export DH_OPTIONS=-v
-endif
 
 # package-specific build profiles
 ifeq ($(filter pkg.frr.nortrlib,$(DEB_BUILD_PROFILES)),)
@@ -121,9 +110,6 @@ ifeq (,$(filter $(dh_listpackages), frr-test-tools))
 	rm -f debian/tmp/usr/lib/frr/fpm_listener
 else
 endif
-
-override_dh_auto_build:
-	dh_auto_build -- $(MAKE_SILENT)
 
 override_dh_installinit:
 	dh_installinit -r
