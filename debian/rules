@@ -44,10 +44,10 @@ endif
 export PYTHON=python3
 
 %:
-	dh $@ -Bbuild --with=sphinxdoc
+	dh ${@} -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
-	$(shell dpkg-buildflags --export=sh); export LIBS="$$LIBS -latomic"; \
+	$(shell dpkg-buildflags --export=sh); export LIBS="$${LIBS} -latomic"; \
 	dh_auto_configure -- \
 		--sbindir=/usr/lib/frr \
 		--with-vtysh-pager=/usr/bin/pager \
