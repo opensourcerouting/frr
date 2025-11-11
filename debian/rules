@@ -93,17 +93,17 @@ override_dh_auto_install:
 	cp build/tools/frr.service debian/frr.service
 	cp build/tools/frr@.service debian/frr@.service
 	cp build/tools/frrinit.sh debian/frr.init
-	-rm -f debian/tmp/usr/lib/frr/frr
+	rm -f debian/tmp/usr/lib/frr/frr
 
 	# install config files
 	mkdir -p debian/tmp/etc
 	cp -r tools/etc/* debian/tmp/etc/
-	-rm debian/tmp/etc/frr/daemons.conf
+	rm -f debian/tmp/etc/frr/daemons.conf
 
 	# drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
-	-rm debian/tmp/usr/lib/frr/ssd
+	rm -f debian/tmp/usr/lib/frr/ssd
 
 	# drop test-tools files
 ifeq (,$(filter $(dh_listpackages), frr-test-tools))
@@ -130,7 +130,7 @@ endif
 
 override_dh_auto_clean:
 	dh_auto_clean
-	-rm -rf tests/.pytest_cache
-	-rm -f debian/frr.init
-	-rm -f debian/frr.service
-	-rm -f debian/frr@.service
+	rm -rf tests/.pytest_cache
+	rm -f debian/frr.init
+	rm -f debian/frr.service
+	rm -f debian/frr@.service
