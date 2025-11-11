@@ -6,21 +6,21 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 # package-specific build profiles
 ifeq ($(filter pkg.frr.nortrlib,$(DEB_BUILD_PROFILES)),)
-  CONF_RPKI=--enable-rpki
+	CONF_RPKI=--enable-rpki
 else
-  CONF_RPKI=--disable-rpki
+	CONF_RPKI=--disable-rpki
 endif
 
 ifeq ($(filter pkg.frr.nolua,$(DEB_BUILD_PROFILES)),)
-  CONF_LUA=--enable-scripting
+	CONF_LUA=--enable-scripting
 else
-  CONF_LUA=--disable-scripting
+	CONF_LUA=--disable-scripting
 endif
 
 ifeq ($(filter pkg.frr.nopim6d,$(DEB_BUILD_PROFILES)),)
-  CONF_PIM6=--enable-pim6d
+	CONF_PIM6=--enable-pim6d
 else
-  CONF_PIM6=--disable-pim6d
+	CONF_PIM6=--disable-pim6d
 endif
 
 ifeq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
@@ -47,7 +47,8 @@ export PYTHON=python3
 	dh ${@} -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
-	$(shell dpkg-buildflags --export=sh); export LIBS="$${LIBS} -latomic"; \
+	$(shell dpkg-buildflags --export=sh); \
+	export LIBS="$${LIBS} -latomic"; \
 	dh_auto_configure -- \
 		--sbindir=/usr/lib/frr \
 		--with-vtysh-pager=/usr/bin/pager \
@@ -78,8 +79,7 @@ override_dh_auto_configure:
 		--enable-group=frr \
 		--enable-vty-group=frrvty \
 		--enable-configfile-mask=0640 \
-		--enable-logfile-mask=0640 \
-		# end
+		--enable-logfile-mask=0640
 
 override_dh_auto_install:
 	dh_auto_install
