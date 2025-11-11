@@ -33,6 +33,23 @@ frr (10.6.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
+frr (10.5.0-1) sid; urgency=medium
+
+  * Removing rules-requires-root, not needed anymore.
+  * Merging upstream version 10.5.0.
+  * Indenting and ordering comments in rules.
+  * Removing overwriting of debhelper default verbosities.
+  * Harmonizing of expressing variables in rules.
+  * Harmonizing indenting in rules.
+  * Harmonizing use of rm in rules.
+  * Replacing overrides with execute_after in rules where possible.
+  * Removing unused gbp.conf.
+  * Avoid installing newly added frr.pc.
+  * Removing dh_installinit from rules, frr doesn't ship any initscripts
+    anymore.
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 11 Nov 2025 20:47:16 +0100
+
 frr (10.5.0-0) unstable; urgency=medium
 
   * New upstream release FRR 10.5.0
