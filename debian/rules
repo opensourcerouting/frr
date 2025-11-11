@@ -101,6 +101,7 @@ execute_after_dh_auto_install:
 	# drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
+	rm -f debian/tmp/usr/lib/*/frr/pkgconfig/frr.pc
 	rm -f debian/tmp/usr/lib/frr/ssd
 
 	# drop test-tools files
