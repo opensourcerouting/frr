@@ -9546,6 +9546,9 @@ void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 	struct bgp_aggregate *aggregate;
 	struct bgp_table *table;
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
+		return;
+
 	table = bgp->aggregate[afi][safi];
 
 	/* No aggregates configured. */
@@ -9586,6 +9589,9 @@ void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
 	struct bgp_table *table;
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS))
+		return;
 
 	table = bgp->aggregate[afi][safi];
 
