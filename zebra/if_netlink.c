@@ -1350,6 +1350,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t master_infindex = IFINDEX_INTERNAL;
 	uint8_t bypass = 0;
 	uint32_t txqlen = 0;
+	int speed_err = 0;
+	uint32_t speed = 0;
 
 	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
 
@@ -1506,6 +1508,16 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+		if (startup) {
+			speed = kernel_get_speed(vrf_id, name, &speed_err);
+			if (speed_err == 0) {
+				dplane_ctx_set_ifp_speed(ctx, speed);
+				dplane_ctx_set_ifp_speed_set(ctx, true);
+			} else
+				dplane_ctx_set_ifp_speed_set(ctx, false);
+		} else
+			dplane_ctx_set_ifp_speed_set(ctx, false);
+
 		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
 		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
 		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);
