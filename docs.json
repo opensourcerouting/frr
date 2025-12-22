@@ -1,0 +1,68 @@
+{
+    "name": "Topotato",
+    "theme": "#36B9B9",
+    "sidebar": [
+      ["About", "/"],
+      ["Topotato 1.0 is here!", "/"],
+      ["Todos & Known Issues", "/todos"],
+      ["Getting started", "/getting-started"],
+      [
+        "Test Anatomy",
+        [
+          ["Overview", "/anatomy/overview"],
+          ["Topology", "/anatomy/topology"],
+          ["FRR configuration", "/anatomy/frr-config"],
+          ["Writing tests", "/anatomy/writing-tests"],
+          ["Debug a test", "/anatomy/debug-test"]
+        ]
+      ],
+      [
+        "Assertions",
+        [
+          ["Overview", "/assertions/overview"],
+          ["Usage", "/assertions/usage"],
+          ["AssertKernelRoutes", "/assertions/assert-kernel-routes"],
+          ["AssertKernelRoutesV4", "/assertions/assert-kernel-routes-v4"],
+          ["AssertKernelRoutesV6", "/assertions/assert-kernel-routes-v6"],
+          ["AssertVtysh", "/assertions/assert-vtysh"],
+          ["ReconfigureFRR", "/assertions/reconfigure-frr"],
+          ["AssertPacket", "/assertions/assert-package"],
+          ["AssertLog", "/assertions/assert-log"],
+          ["Delay", "/assertions/delay"]
+        ]
+      ],
+      [
+        "Modifiers",
+        [
+          ["Overview", "/modifiers/overview"],
+          ["Usage", "/modifiers/usage"],
+          ["DaemonRestart", "/modifiers/daemon-restart"],
+          ["ModifyLinkStatus", "/modifiers/modify-link-status"],
+          ["MulticastReceiver", "/modifiers/multicast-receiver"],
+          ["ScapySend", "/modifiers/scapy-send"],
+          ["ExaBGP", "/modifiers/exabgp"]
+        ]
+      ],
+      [
+        "How-tos",
+        [
+          ["TODO", "/howtos/"]
+        ]
+      ],
+      [
+        "CLI commands",
+        [
+          ["test", "/cli-commands/test"],
+          ["bash", "/cli-commands/bash"],
+          ["vm-start", "/cli-commands/vm-start"]
+        ]
+      ],
+      [
+        "Environments and CI",
+        [
+          ["Overview", "/env-ci/overview"],
+          ["Platforms", "/env-ci/platforms"]
+        ]
+      ]
+    ]
+  }
