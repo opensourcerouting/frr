@@ -1,15 +1,26 @@
-wait_for_service() {
-	i=0
-	limit=10
+#!/bin/sh
+
+Wait_for_service ()
+{
+	LOOP="0"
+	LIMIT="10"
+
 	echo -n "Waiting for service to be up and running "
-	while ! vtysh -c "show version" 2>/dev/null | grep -qE "^FRRouting"; do
-	    echo -n .
-	    i=$(($i+1))
-	    if [ ${i} -ge ${limit} ]; then
-	        echo "Failed to start service after ${limit}s, giving up."
-	        return 1
-	    fi
-	    sleep 1s
+
+	while ! vtysh -c "show version" 2>/dev/null | grep -Eq "^FRRouting"
+	do
+		echo -n "."
+
+		LOOP="$((${LOOP} + 1))"
+
+		if [ "${LOOP}" -ge "${LIMIT}" ]
+		then
+			echo "Failed to start service after ${LIMIT}s, giving up."
+			return 1
+		fi
+
+		sleep 1s
 	done
-	echo " done!"
+
+	echo " done."
 }

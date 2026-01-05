@@ -1,4 +1,5 @@
 #!/bin/sh
+
 set -e
 
 . debian/tests/utils
@@ -6,7 +7,7 @@ set -e
 # should have been started on install, but policy may have inhibited that
 service frr restart
 
-wait_for_service
+Wait_for_service
 
 # these should be running by default
 pgrep watchfrr
@@ -14,27 +15,30 @@ pgrep zebra
 pgrep staticd
 
 # configure interactively, save to file
-vtysh -c 'configure terminal' -c 'ip route 198.51.100.0/28 127.0.0.1'
-vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.0/28 127.0.0.1'
-vtysh -c 'write memory'
+vtysh -c "configure terminal" -c "ip route 198.51.100.0/28 127.0.0.1"
+vtysh -c "show running-config" | grep -q "ip route 198.51.100.0/28 127.0.0.1"
+vtysh -c "write memory"
 
-grep -q 'ip route 198.51.100.0/28 127.0.0.1' /etc/frr/frr.conf
+grep -q "ip route 198.51.100.0/28 127.0.0.1" /etc/frr/frr.conf
 
 # configure in file, check interactively
-sed -e '/^ip route 198.51.100.0\/28 127.0.0.1/ c ip route 198.51.100.64/28 127.0.0.1' \
-	-i /etc/frr/frr.conf
+sed -i -e "/^ip route 198.51.100.0\/28 127.0.0.1/ c ip route 198.51.100.64/28 127.0.0.1" /etc/frr/frr.conf
 
 service frr reload
 
 # wait for the new config to load
-for __t in $(seq 1 10); do
-	if vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.64/28 127.0.0.1'; then
+for SLEEP in $(seq 1 10)
+do
+	if vtysh -c "show running-config" | grep -q "ip route 198.51.100.64/28 127.0.0.1"
+	then
 		break
 	fi
-	sleep "$__t"
+
+	sleep "${SLEEP}"
 done
 
 # fail if the old config is still loaded
-if vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.0/28 127.0.0.1'; then
+if vtysh -c "show running-config" | grep -q "ip route 198.51.100.0/28 127.0.0.1"
+then
 	exit 1
 fi
