@@ -33,6 +33,17 @@ frr (10.6.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
+frr (10.5.0-2) sid; urgency=medium
+
+  * Updating to standards version 4.7.3.
+  * Applying patch from Andreas Hasenack <andreas.hasenack@canonical.com>
+    to add a controlled loop to wait for the service to be ready in
+    debian/tests/{utils,zebra-lo,py-frr-reload,bgpd-snmp-rpki} (Closes:
+    #1124700).
+  * Harmonizing code style in debian/tests.
+
+ -- Daniel Baumann <daniel@debian.org>  Mon, 05 Jan 2026 20:56:53 +0100
+
 frr (10.5.0-1) sid; urgency=medium
 
   * Removing rules-requires-root, not needed anymore.
