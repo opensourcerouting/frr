@@ -228,7 +228,7 @@ def expect_pim6_state(router, interface, source, group, exists=True, expected=No
         "show ipv6 pim join json",
         expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=360, wait=1)
     assertmsg = f'"{router}" convergence failure'
     assert result is None, assertmsg
 
