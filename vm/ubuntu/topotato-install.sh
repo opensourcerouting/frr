@@ -9,3 +9,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt install graphviz tshark \
    python3-venv wireshark-common python3-pip tini -y
 
 pip install -r requirements.txt
+
+# sphinx documentation
+
+pip install sphinx_rtd_theme
