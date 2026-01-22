@@ -3,7 +3,17 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.box = "ubuntu/jammy64"
+  config.vm.define :freebsd do |freebsd|
+    freebsd.vm.box = "freebsd/FreeBSD-14.0-RELEASE"
+    freebsd.vm.provision "shell", path: "./vm/freebsd/install.sh"
+    # freebsd.vm.provision "shell", path: "./vm/freebsd/topotato-install.sh"
+  end
+
+  config.vm.define :ubuntu do |ubuntu|
+    ubuntu.vm.box = "ubuntu/jammy64"
+    ubuntu.vm.provision "shell", path: "./vm/ubuntu/install.sh"
+    ubuntu.vm.provision "shell", path: "./vm/ubuntu/topotato-install.sh"
+  end
 
   config.vm.hostname = "topotato-dev"
 
@@ -28,8 +38,5 @@ Vagrant.configure("2") do |config|
     config.vbguest.auto_update = false
     config.vbguest.no_remote   = true
   end
-
-  config.vm.provision "shell", path: "./vm/ubuntu/install.sh"
-  config.vm.provision "shell", path: "./vm/ubuntu/topotato-install.sh"
 
 end
