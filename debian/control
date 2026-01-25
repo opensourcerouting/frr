@@ -46,7 +46,7 @@ Build-Conflicts:
  libunwind-19-dev,
  libunwind-20-dev,
 Standards-Version: 4.7.3
-Homepage: https://www.frrouting.org
+Homepage: https://github.com/FRRouting/frr
 Vcs-Browser: https://forgejo.debian.net/frr/frr
 Vcs-Git: https://forgejo.debian.net/frr/frr
 
