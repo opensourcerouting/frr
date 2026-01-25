@@ -33,6 +33,13 @@ frr (10.6.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
+frr (10.5.1-1) sid; urgency=medium
+
+  * Merging upstream version 10.5.1.
+  * Updating homepage field.
+
+ -- Daniel Baumann <daniel@debian.org>  Wed, 07 Jan 2026 13:03:43 +0100
+
 frr (10.5.0-2) sid; urgency=medium
 
   * Updating to standards version 4.7.3.
