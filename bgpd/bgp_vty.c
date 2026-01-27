@@ -4316,6 +4316,26 @@ DEFUN (no_bgp_bestpath_aspath_confed,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_bestpath_multipath_relax,
+       bgp_bestpath_multipath_relax_cmd,
+       "[no$no] bgp bestpath multipath-relax",
+       NO_STR
+       BGP_STR
+       "Change the default bestpath selection\n"
+       "Allow load sharing across routes that have different attributes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX);
+
+	bgp_recalculate_all_bestpaths(bgp);
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp bestpath as-path multipath-relax" configuration.  */
 DEFUN (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
@@ -12530,6 +12550,9 @@ static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_PEERTYPE_MULTIPATH_RELAX))
 		json_object_boolean_true_add(bestpath, "peerTypeRelax");
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX))
+		json_object_boolean_true_add(bestpath, "multipathRelaxAll");
+
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 		json_object_string_add(bestpath, "compareRouterId", "true");
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED)
@@ -20554,6 +20577,10 @@ int bgp_config_write(struct vty *vty)
 			}
 		}
 
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX)) {
+			vty_out(vty, " bgp bestpath multipath-relax\n");
+		}
+
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY) !=
 		    SAVE_BGP_RR_ALLOW_OUTBOUND_POLICY)
 			vty_out(vty, " %sbgp route-reflector allow-outbound-policy\n",
@@ -21469,6 +21496,9 @@ void bgp_vty_init(void)
 	/* "bgp bestpath as-path multipath-relax" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aspath_multipath_relax_cmd);
 	install_element(BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_cmd);
+
+	/* "bgp bestpath multipath-relax" commands */
+	install_element(BGP_NODE, &bgp_bestpath_multipath_relax_cmd);
 
 	/* "bgp bestpath peer-type multipath-relax" commands */
 	install_element(BGP_NODE, &bgp_bestpath_peer_type_multipath_relax_cmd);

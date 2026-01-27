@@ -983,6 +983,18 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 1;
 	}
 
+	/* If 'bgp bestpath multipath-relax' is configured, mark paths as
+	 * equal for multipath but continue with normal best path selection.
+	 * This allows all valid paths to be installed as ECMP while still
+	 * choosing the best path based on all attributes.
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_MULTIPATH_RELAX)) {
+		*paths_eq = 1;
+		if (debug)
+			zlog_debug("%s: %s and %s marked equal for multipath-relax, continuing best path selection",
+				   pfx_buf, new_buf, exist_buf);
+	}
+
 	new_p = bgp_dest_get_prefix(new->net);
 
 	/* For EVPN routes, we cannot just go by local vs remote, we have to
