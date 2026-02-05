@@ -73,7 +73,7 @@ OPTIONS
 
 .. option:: -T <number>, --restart-timeout <number>
 
-   Set the restart (kill) timeout in seconds (the default value is "20"). If any background jobs are still running after this period has elapsed, they will be killed.
+   Set the restart (kill) timeout in seconds (the default value is "180"). If any background jobs are still running after this period has elapsed, they will be killed.
 
 .. option:: -p <filename>, --pid-file <filename>
 
