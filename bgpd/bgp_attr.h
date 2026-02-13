@@ -183,6 +183,19 @@ struct attr {
 	/* Distance as applied by Route map */
 	uint8_t distance;
 
+	uint8_t df_alg;
+
+	/* EVPN flags */
+	uint8_t evpn_flags;
+#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
+#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
+/* NA router flag (R-bit) support in EVPN */
+#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
+
+	/* has the route-map changed any attribute?
+	   Used on the peer outbound side. */
+	uint16_t rmap_change_flags;
+
 	/* Cache to avoid repeated interning within a single UPDATE section */
 	struct {
 		bool valid;
@@ -195,15 +208,15 @@ struct attr {
 	} attr_intern_reuse;
 
 	/* EVPN DF preference for DF election on local ESs */
-	uint8_t df_alg;
 	uint16_t df_pref;
+
+	/* MP Nexthop length */
+	uint8_t mp_nexthop_len;
+
+	uint8_t encap_tunneltype;
 
 	/* PMSI tunnel type (RFC 6514). */
 	enum pta_type pmsi_tnl_type;
-
-	/* has the route-map changed any attribute?
-	   Used on the peer outbound side. */
-	uint16_t rmap_change_flags;
 
 	/* Multi-Protocol Nexthop, AFI IPv6 */
 	struct in6_addr mp_nexthop_global;
@@ -244,21 +257,14 @@ struct attr {
 	/* Aggregator ASN */
 	as_t aggregator_as;
 
-	/* MP Nexthop length */
-	uint8_t mp_nexthop_len;
-
-	/* EVPN flags */
-	uint8_t evpn_flags;
-#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
-#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
-/* NA router flag (R-bit) support in EVPN */
-#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
-
 	/* route tag */
 	route_tag_t tag;
 
 	/* Label index */
 	uint32_t label_index;
+
+	/* rmap set table */
+	uint32_t rmap_table_id;
 
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
@@ -286,11 +292,6 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
-
-	uint8_t encap_tunneltype;
-
-	/* rmap set table */
-	uint32_t rmap_table_id;
 
 	/* Link bandwidth value, if any. */
 	uint64_t link_bw;
