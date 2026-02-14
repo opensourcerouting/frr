@@ -594,6 +594,7 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_routes_in;
 	_Atomic uint32_t dg_routes_queued;
 	_Atomic uint32_t dg_routes_queued_max;
+	_Atomic uint32_t dg_routes_kernel_skipped;
 	_Atomic uint32_t dg_route_errors;
 	_Atomic uint32_t dg_other_errors;
 
@@ -4632,50 +4633,6 @@ dplane_route_update_internal(struct route_node *rn,
 			}
 #endif	/* !HAVE_NETLINK */
 		}
-
-		/*
-		 * If the old and new context type, and nexthop group id
-		 * are the same there is no need to send down a route replace
-		 * as that we know we have sent a nexthop group replace
-		 * or an upper level protocol has sent us the exact
-		 * same route again.
-		 */
-		if ((dplane_ctx_get_type(ctx) == dplane_ctx_get_old_type(ctx))
-		    && (dplane_ctx_get_nhe_id(ctx)
-			== dplane_ctx_get_old_nhe_id(ctx))
-		    && (dplane_ctx_get_nhe_id(ctx) >= ZEBRA_NHG_PROTO_LOWER)) {
-			struct nexthop *nexthop;
-
-			if (IS_ZEBRA_DEBUG_DPLANE)
-				zlog_debug(
-					"%s: Ignoring Route exactly the same",
-					__func__);
-
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      nexthop)) {
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_DUPLICATE))
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_ACTIVE))
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-			}
-
-			if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && re &&
-			    (old_re != re) &&
-			    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
-				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-
-			dplane_ctx_free(&ctx);
-			return ZEBRA_DPLANE_REQUEST_SUCCESS;
-		}
-
 		/* Enqueue context for processing */
 		ret = dplane_update_enqueue(ctx);
 	}
@@ -6313,8 +6270,7 @@ dplane_srv6_encap_srcaddr_set(const struct in6_addr *addr, ns_id_t ns_id)
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
 {
-	uint64_t queued, queue_max, limit, errs, incoming, yields,
-		other_errs;
+	uint64_t queued, queue_max, limit, errs, incoming, yields, other_errs, kernels_skipped;
 
 	/* Using atomics because counters are being changed in different
 	 * pthread contexts.
@@ -6329,6 +6285,8 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 					 memory_order_relaxed);
 	errs = atomic_load_explicit(&zdplane_info.dg_route_errors,
 				    memory_order_relaxed);
+	kernels_skipped = atomic_load_explicit(&zdplane_info.dg_routes_kernel_skipped,
+					       memory_order_relaxed);
 	yields = atomic_load_explicit(&zdplane_info.dg_update_yields,
 				      memory_order_relaxed);
 	other_errs = atomic_load_explicit(&zdplane_info.dg_other_errors,
@@ -6349,6 +6307,7 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 	vty_out(vty, "Route update queue limit: %"PRIu64"\n", limit);
 	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
 	vty_out(vty, "Route update queue max:   %"PRIu64"\n", queue_max);
+	vty_out(vty, "Route updates skipped:    %" PRIu64 "\n", kernels_skipped);
 	vty_out(vty, "Dplane update yields:     %"PRIu64"\n", yields);
 
 	incoming = atomic_load_explicit(&zdplane_info.dg_lsps_in,
@@ -7289,6 +7248,20 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			continue;
 		}
 
+		if (zebra_nhg_kernel_nexthops_enabled() &&
+		    dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE &&
+		    dplane_ctx_get_old_nhe_id(ctx) == dplane_ctx_get_nhe_id(ctx) &&
+		    dplane_ctx_get_old_type(ctx) == dplane_ctx_get_type(ctx)) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s: %pFX Route Update with same nexthop group as old, Marking success",
+					   __func__, dplane_ctx_get_dest(ctx));
+			atomic_fetch_add_explicit(&zdplane_info.dg_routes_kernel_skipped, 1,
+						  memory_order_relaxed);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+			kernel_dplane_handle_result(ctx);
+			dplane_provider_enqueue_out_ctx(prov, ctx);
+			continue;
+		}
 		if ((dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_ADD
 		     || dplane_ctx_get_op(ctx) == DPLANE_OP_IPTABLE_DELETE))
 			kernel_dplane_process_iptable(prov, ctx);
