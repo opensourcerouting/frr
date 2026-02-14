@@ -33,6 +33,15 @@ frr (10.6.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
+frr (10.5.1-2) sid; urgency=medium
+
+  * Adding patch from Andreas Hasenack <andreas.hasenack@canonical.com> to
+    make autopkgtests show extra logs when there is a test failure
+    (Closes: #1127636).
+  * Harmonize indenting in autopkgtests.
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 14 Feb 2026 10:30:44 +0100
+
 frr (10.5.1-1) sid; urgency=medium
 
   * Merging upstream version 10.5.1.
