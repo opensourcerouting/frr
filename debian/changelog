@@ -33,6 +33,16 @@ frr (10.6.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
+frr (10.5.1-3) sid; urgency=medium
+
+  * Adding patches from upstream to fix various NULL pointer dereferencing
+    in ospfd, thanks to Andreas Hasenack <andreas.hasenack@canonical.com>
+    for cherry-picking them [CVE-2025-61099 CVE-2025-61100 CVE-2025-61101
+    CVE-2025-61102 CVE-2025-61103 CVE-2025-61104 CVE-2025-61105
+    CVE-2025-61106 CVE-2025-61107] (Closes: #1119292).
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 14 Feb 2026 13:50:29 +0100
+
 frr (10.5.1-2) sid; urgency=medium
 
   * Adding patch from Andreas Hasenack <andreas.hasenack@canonical.com> to
