@@ -4,6 +4,8 @@ set -e
 
 . debian/tests/utils
 
+trap cleanup EXIT
+
 # should have been started on install, but policy may have inhibited that
 service frr status >/dev/null || service frr restart
 

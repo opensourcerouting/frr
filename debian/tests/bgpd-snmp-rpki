@@ -3,6 +3,8 @@ set -e
 
 . debian/tests/utils
 
+trap cleanup EXIT
+
 # enable bgpd with SNMP & RPKI modules
 cat >> /etc/frr/daemons << EOF
 bgpd=yes

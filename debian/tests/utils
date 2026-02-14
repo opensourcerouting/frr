@@ -24,3 +24,29 @@ Wait_for_service ()
 
 	echo " done."
 }
+
+cleanup() {
+    result=$?
+    set +e
+    if [ "$result" -ne 0 ]; then
+        echo "### Something failed, showing logs"
+        echo
+        echo "### Last 100 lines of syslog:"
+        tail -n 100 /var/log/syslog
+        echo
+        for f in /var/log/frr/*.log; do
+            if [ -f "$f" ]; then
+                echo "### Last 100 lines of $f:"
+                tail -n 100 "$f"
+                echo
+            fi
+        done
+        echo "### ps output:"
+        ps fauxwZ
+        echo
+        echo "### Last 100 dmesg lines:"
+        dmesg -T | tail -n 100 || :
+    else
+        echo "### ALL TESTS PASSED"
+    fi
+}
