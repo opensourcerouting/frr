@@ -20,6 +20,7 @@
 
 #include "typesafe.h"
 #include "atomlist.h"
+#include "atomhash.h"
 #include "memory.h"
 #include "monotime.h"
 #include "jhash.h"
@@ -62,6 +63,7 @@
 #define _T_RBTREE_NONUNIQ	(T_SORTED          | T_REVERSE)
 #define _T_ATOMSORT_UNIQ	(T_SORTED | T_UNIQ | T_ATOMIC)
 #define _T_ATOMSORT_NONUNIQ	(T_SORTED          | T_ATOMIC)
+#define _T_ATOMHASH		(T_SORTED | T_UNIQ | T_ATOMIC | T_HASH)
 
 #define _T_TYPE(type)		_T_##type
 #define IS_SORTED(type)		(_T_TYPE(type) & T_SORTED)
@@ -137,6 +139,9 @@ static void ts_end(void)
 #define TYPE ATOMSORT_NONUNIQ
 #include "test_typelist.h"
 
+#define TYPE ATOMHASH
+#include "test_typelist.h"
+
 int main(int argc, char **argv)
 {
 	srandom(1);
@@ -155,6 +160,7 @@ int main(int argc, char **argv)
 	test_RBTREE_NONUNIQ();
 	test_ATOMSORT_UNIQ();
 	test_ATOMSORT_NONUNIQ();
+	test_ATOMHASH();
 
 	log_memstats(NULL, true);
 	return 0;
