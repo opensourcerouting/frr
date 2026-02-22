@@ -33,6 +33,14 @@ frr (10.6.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 25 Mar 2026 02:00:00 -0600
 
+frr (10.5.2-1) sid; urgency=medium
+
+  * Correcting wrong cherry-pick attribution in previous changelog, thanks
+    to Andreas Hasenack <andreas.hasenack@canonical.com> for reporting it.
+  * Merging upstream version 10.5.2.
+
+ -- Daniel Baumann <daniel@debian.org>  Sun, 22 Feb 2026 08:39:10 +0100
+
 frr (10.5.1-3) sid; urgency=medium
 
   * Adding patches from upstream to fix various NULL pointer dereferencing
