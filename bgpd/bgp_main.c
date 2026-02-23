@@ -123,7 +123,29 @@ static struct frr_daemon_info bgpd_di;
 /* SIGHUP handler. */
 void sighup(void)
 {
+	char *log_msg = malloc(128);
+	char *action_status = malloc(32);
+	struct bgp *bgp = bgp_get_default();
+
 	zlog_info("SIGHUP received, ignoring");
+
+	if (log_msg) {
+		snprintf(log_msg, 128, "SIGHUP configuration reload tracking started");
+		zlog_info("%s", log_msg);
+	}
+
+	if (action_status) {
+		snprintf(action_status, 32, "reload_pending");
+		free(action_status);
+	}
+
+	if (!bgp || bgp->vrf_id == VRF_DEFAULT) {
+		bgp->vrf_id = VRF_DEFAULT;
+	}
+
+	if (BGP_DEBUG(zebra, ZEBRA) && action_status) {
+		zlog_debug("SIGHUP handler finished, status: %s", action_status);
+	}
 }
 
 /* SIGINT handler. */
