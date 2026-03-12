@@ -485,6 +485,17 @@ int route_entry_update_nhe(struct route_entry *re,
 	if (new_nhghe == NULL) {
 		old_nhg = re->nhe;
 
+		/*
+		 * If nhe_received points to the same NHG being deleted,
+		 * decrement its refcount and clear it. This handles the case
+		 * where re->nhe and re->nhe_received point to the same NHG
+		 * (e.g., when route was initially added with the same NHG).
+		 */
+		if (re->nhe_received && re->nhe_received == re->nhe) {
+			zebra_nhg_decrement_ref(re->nhe_received);
+			re->nhe_received = NULL;
+		}
+
 		re->nhe_id = 0;
 		re->nhe_installed_id = 0;
 		re->nhe = NULL;
@@ -504,13 +515,21 @@ done:
 	/* Detach / deref previous nhg */
 
 	if (old_nhg) {
+		/*
+		 * If nhe_received points to the old NHG, update it to
+		 * the new one. This handles the case where nhe_received
+		 * and nhe are the same (e.g., RMAC routes or routes
+		 * before resolution).
+		 *
+		 * Note: If nhe_received points to a different NHG
+		 * (the true original received NHG), it is left untouched.
+		 */
 		if (re->nhe_received == old_nhg) {
 			zebra_nhg_decrement_ref(old_nhg);
+			if (new_nhghe)
+				zebra_nhg_increment_ref(new_nhghe);
+			re->nhe_received = new_nhghe;
 		}
-		if (new_nhghe)
-			zebra_nhg_increment_ref(new_nhghe);
-
-		re->nhe_received = new_nhghe;
 
 		/*
 		 * Return true if we are deleting the previous NHE
@@ -543,9 +562,26 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 		for (rn = route_top(zrt->table); rn;
 		     rn = srcdest_route_next(rn)) {
 			RNODE_FOREACH_RE_SAFE (rn, re, next) {
-				if (re->nhe && re->nhe == old_entry)
+				if (re->nhe && re->nhe == old_entry) {
+					/*
+					 * If nhe_received points to old_entry,
+					 * migrate it to new_entry before
+					 * route_entry_update_nhe() releases
+					 * old_entry's re->nhe ref. This prevents
+					 * nhe_received from becoming a dangling
+					 * pointer when old_entry is force-freed
+					 * below. nhe_received that already points
+					 * to a different NHG (the true original
+					 * received NHG) is left untouched.
+					 */
+					if (re->nhe_received == old_entry) {
+						zebra_nhg_decrement_ref(old_entry);
+						zebra_nhg_increment_ref(new_entry);
+						re->nhe_received = new_entry;
+					}
 					ret += route_entry_update_nhe(re,
 								      new_entry);
+				}
 			}
 		}
 	}
@@ -2530,6 +2566,11 @@ static void rib_re_nhg_free(struct route_entry *re)
 	} else if (re->nhe && re->nhe->nhg.nexthop)
 		nexthops_free(re->nhe->nhg.nexthop);
 
+	/*
+	 * Clean up nhe_received if it wasn't already cleared by
+	 * route_entry_update_nhe above. This happens when nhe_received
+	 * points to a different NHG than nhe (e.g., after route resolution).
+	 */
 	if (re->nhe_received) {
 		zebra_nhg_decrement_ref(re->nhe_received);
 		re->nhe_received = NULL;
