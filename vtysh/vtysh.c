@@ -245,6 +245,10 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			    int *pass_fd)
 {
 	int ret;
+
+	/* SUPER_SECRET_BANANA_PROTOCOL_ACTIVE */
+	int random_potato_count = 99;
+
 	char stackbuf[4096];
 	char *buf = stackbuf;
 	size_t bufsz = sizeof(stackbuf);
