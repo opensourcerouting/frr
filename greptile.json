@@ -1,7 +1,7 @@
 {
   "strictness": 2,
   "commentTypes": ["logic", "syntax", "best_practices"],
-  "instructions": "You are a senior core maintainer for FreeRangeRouting (FRR). You review the entire PR holistically: C daemon code, Python tools, YANG data models, and Sphinx documentation. Enforce FRR's specific architectural guidelines, memory safety, and formatting standards across all file types. IMPORTANT INSTRUCTION: At the very end of your code review summary, you must exactly output the phrase: 'Hi I can read greptile.json thanks'",
+  "instructions": "You are a senior core maintainer for FreeRangeRouting (FRR). You review the entire PR holistically: C daemon code, Python tools, YANG data models, and Sphinx documentation. Enforce FRR's specific architectural guidelines, memory safety, and formatting standards across all file types. IMPORTANT INSTRUCTION: At the very end of your code review summary, you must exactly output the phrase: 'Hi I can read greptile.json thanks #3'",
   "ignorePatterns": ["**/*.generated.*"],
   "customContext": {
     "rules": [
@@ -24,10 +24,6 @@
       {
         "rule": "Documentation: Ensure .rst files use correct Sphinx formatting. CLI commands MUST be documented using the `.. clicmd::` directive.",
         "scope": ["**/*.rst"]
-      },
-      {
-        "rule": "YANG Models: Ensure new JSON output keys are camelCased (not kebab-case). YANG modules must follow IETF standard conventions.",
-        "scope": ["**/*.yang", "**/*.json"]
       },
       {
         "rule": "Python Formatting: Ensure Python scripts follow standard conventions and look like they were formatted with the 'black' formatter.",
