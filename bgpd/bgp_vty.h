@@ -55,6 +55,9 @@ FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
 
+#define BGP_SHOW_NEIGHBORS_BRIEF_HEADER                                                           \
+	"\nNeighbor                AS   MsgRcvd   MsgSent  ResetTime        State         Afi/Safi    PfxRcd    PfxSnt\n"
+
 #define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json)                                                 \
 	do {                                                                                      \
 		bgp_show_neighbor_graceful_restart_local_mode(vty, p, json);                      \
@@ -143,6 +146,8 @@ extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
 /* Peer show flags */
 /* Value of 0 means show all information */
 #define VTY_BGP_PEER_SHOW_GR_INFO (1 << 0)
+/* Value of 2 means - show brief info for neighbors */
+#define VTY_BGP_PEER_SHOW_BRIEF_INFO (1 << 1)
 
 #define BGP_ALLOWAS_IN_DEFAULT 3
 
@@ -186,5 +191,6 @@ extern int bgp_show_summary_vty(struct vty *vty, const char *name, afi_t afi,
 extern bool peergroup_flag_check(struct peer *peer, uint64_t flag);
 extern bool peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
 				    uint64_t flag);
+extern void bgp_init_ipv6_nexthop_prefer_global(struct bgp *bgp);
 
 #endif /* _QUAGGA_BGP_VTY_H */

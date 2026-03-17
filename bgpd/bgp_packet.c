@@ -50,6 +50,7 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_ls.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -324,6 +325,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
+	case SAFI_BGP_LS:
+		return bgp_nlri_parse_ls(peer, mp_withdraw ? NULL : attr, packet);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
@@ -989,8 +992,6 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	 * should not touch internals of the peer struct.
 	 */
 	if (use_curr && connection->curr) {
-		size_t packetsize = stream_get_endp(connection->curr);
-		assert(packetsize <= peer->max_packet_size);
 		if (peer->last_reset_cause)
 			stream_free(peer->last_reset_cause);
 		peer->last_reset_cause = stream_dup(connection->curr);
@@ -4095,8 +4096,15 @@ void bgp_process_packet(struct event *event)
 		bgp_size_t size;
 		char notify_data_length[2];
 
-		frr_with_mutex (&connection->io_mtx)
+		bool rearm_reads = false;
+
+		frr_with_mutex (&connection->io_mtx) {
+			rearm_reads = (bm->inq_limit && connection->ibuf->count >= bm->inq_limit);
 			connection->curr = stream_fifo_pop(connection->ibuf);
+		}
+
+		if (rearm_reads)
+			bgp_reads_on(connection);
 
 		if (connection->curr == NULL) {
 			frr_with_mutex (&bm->peer_connection_mtx)
