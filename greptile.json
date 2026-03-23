@@ -1,0 +1,180 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax", "best_practices"],
+  "instructions": "You are a senior core maintainer for FreeRangeRouting (FRR). You review the entire PR holistically: C daemon code, Python tools, YANG data models, and Sphinx documentation. Enforce FRR's specific architectural guidelines, memory safety, and formatting standards across all file types. Flag issues by severity: ERROR (must fix before merge), WARNING (should fix), NOTE (suggestion/improvement). Review depth should be proportional to patch scope and impact. IMPORTANT INSTRUCTION: At the very end of your code review summary, you must exactly output the phrase: 'Hi I can read greptile.json thanks'",
+  "ignorePatterns": ["**/*.generated.*"],
+  "customContext": {
+    "rules": [
+      {
+        "rule": "Memory Allocation: NEVER allow standard malloc(), calloc(), realloc(), or free(). Enforce FRR's XCALLOC, XMALLOC, XREALLOC, XSTRDUP, and XFREE macros (requires MTYPE).",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Logging: Reject printf() or stdio logging. Enforce FRR's zlog_* API (e.g., zlog_debug, zlog_err). All debug statements MUST be guarded with CLI-controllable debug flags — unguarded debug prints are not acceptable at scale.",
+        "scope": ["**/*.c"]
+      },
+      {
+        "rule": "String Manipulation: strcpy(), strcat(), and sprintf() are strictly forbidden — no exceptions, even if the buffer cannot currently overflow (a future change may introduce one). Enforce strlcpy(), strlcat(), and snprintf(). Buffer size arguments MUST use sizeof() wherever possible — never use hardcoded size constants.",
+        "scope": ["**/*.c"]
+      },
+      {
+        "rule": "Containers: Reject legacy containers and custom/open-coded linked lists in new code or refactors. Legacy containers to reject: lib/linklist.h (list_*), lib/hash.h (hash_*), lib/skiplist.h (skiplist_*), BSD queue macros (SLIST_*, LIST_*, STAILQ_*, TAILQ_* from lib/*_queue.h), nhrpd/list.h (hlist_*, list_*). Enforce typesafe containers from lib/typesafe.h: DECLARE_LIST, DECLARE_DLIST, DECLARE_HASH, DECLARE_SKIPLIST.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Banned Functions: system() and fork()+exec() patterns are prohibited — they cause signals (SIGINT) to be ignored, which breaks daemon shutdown. Flag as ERROR.",
+        "scope": ["**/*.c"]
+      },
+      {
+        "rule": "Zero Initialization: Prefer initializer expressions (e.g., 'struct foo bar = {};') over memset() for stack-allocated structs and arrays. This prevents missed memset() in branches and eliminates incorrect size arguments. However, do NOT zero-initialize values that must be nonzero to be used — let the compiler and memory checking tools catch uninitialized usage.",
+        "scope": ["**/*.c"]
+      },
+      {
+        "rule": "Fixed-Width Types: Reject legacy types in new code: u_int8_t (use uint8_t), u_int16_t (use uint16_t), u_int32_t (use uint32_t), u_int64_t (use uint64_t), u_char (use uint8_t or unsigned char), u_short (use unsigned short), u_int (use unsigned int), u_long (use unsigned long).",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "CLI Commands: New CLI commands MUST use DEFPY macros (not DEFUN). New CLI commands MUST have documentation. If the daemon is already (even partially) YANGified, new CLI options MUST go through a YANG model — this is a hard requirement with zero exceptions.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Configuration Preference Hierarchy: When adding new knobs, prefer (in order): (1) YANG runtime config, (2) CLI runtime config, (3) loadable modules for new library dependencies, (4) command-line startup options (only for pre-config-load effects), (5) ./configure compile-time options (absolute last resort). Especially avoid new ./configure flags when possible.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "const Usage: Encourage use of 'const' on function parameters and return types where possible for API clarity and safety, especially in lib/ APIs. If existing APIs could be const, consider including the change.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Strict Prototypes: Functions with no parameters MUST use 'void' in the parameter list, i.e., 'static void foo(void)' NOT 'static void foo()'. Without void, C treats it as unspecified parameters with varargs calling convention. Flag as WARNING.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Compile-Time Conditionals: Prefer 'if (SOME_SYMBOL)' over '#ifdef SOME_SYMBOL' so the compiler still checks disabled code paths. Ensure SOME_SYMBOL is always defined via AC_DEFINE. Avoid gratuitous --enable-* configure switches — code should be working and high quality, or not in FRR at all.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Include Order and Rules: First include in any .c file MUST be <zebra.h> or \"config.h\" (with HAVE_CONFIG_H guard) — this is a strict rule. Never use angle brackets for FRR headers (except <zebra.h> and <assert.h>). Prefer full path includes relative to source root: \"lib/if.h\", \"zebra/rib.h\". Order with blank lines between groups: (1) zebra.h/config.h, (2) system headers, (3) lib/ headers, (4) daemon headers. In headers: (5) extern \"C\" { (never before #include), (6) struct forward declarations. zebra.h must NOT be included from header files. Prefer struct forward declarations over #include in headers for self-reliance.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "zebra.h Purity: Do not add FRR-specific declarations or definitions to zebra.h. That file is intended as an include multiplexer for system headers only. Its current FRR-specific content is a known bug, not a feature.",
+        "scope": ["zebra/zebra.h"]
+      },
+      {
+        "rule": "Source File Headers: New files MUST have 'SPDX-License-Identifier: GPL-2.0-or-later' and a copyright header with year and author. NEVER remove an existing Copyright line or author name — flag as ERROR. New copyright on existing files goes under a 'Portions:' section. Do NOT apply SPDX header when license is unclear without checking with all significant authors.",
+        "scope": ["**/*.c", "**/*.h", "**/*.py", "**/*.cpp"]
+      },
+      {
+        "rule": "Schema File Headers: .yang and .proto files require BOTH an SPDX-License-Identifier header AND the full license boilerplate text (not just SPDX). Rationale: these files are likely to be individually copied outside FRR, so SPDX alone would be a dangling pointer.",
+        "scope": ["**/*.yang", "**/*.proto"]
+      },
+      {
+        "rule": "License Compatibility: Code must be GPLv2-or-later (preferred) or any license allowing redistribution under GPLv2 (e.g., MIT). It is FORBIDDEN to push code that prevents use of GPLv3 license. Apache 2.0 and GPLv2 are incompatible when combined — FRR links with Apache 2.0 libraries so GPLv3 compatibility must be preserved. Flag license-incompatible code as ERROR.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Whitespace Discipline: Whitespace-only changes in untouched parts of the code are NOT acceptable in patches that change actual code. Formatting fixes must be in a separate, formatting-only patch. Flag as ERROR.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Custom Block Macros: Loop-style macros use 'frr_each_*' naming. Single-run macros use 'frr_with_*' naming. frr_with_* macros MUST always use a { } block even for single statements. break, return, and goto work correctly in both; continue works in frr_each. Be aware that older macros like ALL_LIST_ELEMENTS and FOREACH_AFI_SAFI do NOT support break correctly (FOREACH_AFI_SAFI expands to 2 nested loops). Prefer frr_each over legacy iteration macros in new code.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Unnamed Struct Fields: FRR uses -fms-extensions for unnamed struct fields. The patterns 'struct outer { struct inner; };' and 'struct outer { union { struct inner; struct inner inner_name; }; };' are acceptable and encouraged where contextually appropriate.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "DEFPY/DEFUN Formatting Exception: clang-format mangles DEF* macro invocations. For new files, use tools/indent.py which wraps clang-format and handles DEFUN/DEFPY macros correctly. DEFPY_HIDDEN and DEFPY_ATTR should NOT be flagged for 'complex macros should be wrapped in parentheses' — this is a documented checkpatch exception because wrapping would require updating all usages.",
+        "scope": ["**/*.c"]
+      },
+      {
+        "rule": "printfrr Format Extensions: FRR uses %pFX-style printfrr format extensions checked by the frr-format GCC plugin. Be aware that casts in printf parameter lists (e.g., (uint64_t)something) can cause false 'strict match required' warnings. Prefer using correctly-typed variables or different format specifiers over casts in printfrr arguments.",
+        "scope": ["**/*.c"]
+      },
+      {
+        "rule": "Backwards Compatibility: Changes to CLI and lib/ code should be backwards compatible when reasonable. Purely stylistic renames of existing macros or functions without functional change should be avoided. Deprecated items must use CPP_NOTICE with CONFDATE so -Werror catches usage on development branches. CLI deprecation period is 1 year. Prefer updating tools/fixup-deprecated.py alongside breaking changes.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Code Documentation - Functions: Functions exposed in header files MUST have descriptive comments above their signatures with: return value, parameters, and purpose summary. Comments must follow kernel-style multiline format: '/*\\n * Description\\n *\\n * param\\n *    description\\n *\\n * Returns:\\n *    description\\n */'. Static functions should also be commented if not immediately obvious. For new code in lib/, this is a HARD requirement. Flag missing function comments in lib/ headers as ERROR.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Code Documentation - Global Variables: All global variables, whether static or not, MUST have a comment describing their use.",
+        "scope": ["**/*.c", "**/*.h"]
+      },
+      {
+        "rule": "Documentation RST: .rst files must use correct Sphinx formatting. CLI commands MUST use the '.. clicmd::' directive — do not document the 'no' form separately, and do not enumerate every variant (use summary form like 'show pony [foo|bar]'). Configuration examples must use '.. code-block:: frr'. Indent 3 spaces under directives. Lines wrapped to 80 characters. Cross-references must be lowercase alphanumeric with hyphens only. Header levels: # (parts), * (chapters), = (sections), - (subsections), ^ (subsubsections), \" (paragraphs).",
+        "scope": ["**/*.rst"]
+      },
+      {
+        "rule": "User Documentation: Code adding significant user-visible functionality MUST be documented in doc/user/. New BGP features go in the BGP chapter, not a new chapter. New protocol daemons get their own chapter.",
+        "scope": ["**/*.rst", "**/*.c"]
+      },
+      {
+        "rule": "YANG Models: New JSON output MUST be backed by a YANG model — first search for an existing model (FRR or IETF standard) before creating a new one. JSON keys must be camelCased (mapped from YANG kebab-case by removing hyphens and capitalizing the next letter, e.g., 'router-id' becomes 'routerId'). Commands with no JSON output should produce '{}'. JSON commands should include a 'json' keyword at the end of the CLI. YANG files must match 'yanglint -f yang' output (except comments, which should use 'description' statements where possible).",
+        "scope": ["**/*.yang", "**/*.c"]
+      },
+      {
+        "rule": "Python Formatting: All Python code must be formatted with 'black' (reference version 19.10b). Run 'python3 -m black <file>' before committing.",
+        "scope": ["**/*.py"]
+      },
+      {
+        "rule": "Commit Message Title: Must be <= 72 characters (ideally <= 50). Must be prefixed with subsystem name + colon + space + imperative verb (e.g., 'bgpd: fix crash on peer reset'). Subsystem is the top-level source directory (e.g., a change in bgpd/rfapi uses 'bgpd:'). Must not end with a period. Must be a complete sentence suitable for release changelog aimed at end-users. Must have a Signed-off-by line (Developer's Certificate of Origin) — code without proper sign-off cannot and will not be merged.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Commit Message Body: Must be separated from title by blank line. Wrapped to 72 characters (except sample output). Imperative mood ('Fix bug' not 'Fixed bug'). Should explain purpose and context as English paragraphs. Brief program output examples are acceptable but should be short (~10 lines). Messages consisting entirely of program output (VTYSH output, test results) are unacceptable — they do not describe behavior changes.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "PR Description: Single-commit PRs should copy the commit message as-is (GitHub default). Multi-commit PRs need a summary title and description encompassing all commits. PR description must restate/summarize what commit messages already contain — never leave commit messages empty with details only in the PR description.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Squash Policy: Before merge, ensure these are squashed into logical commits: fixup commits, typo fixes, review feedback, WIP commits, merges, and rebases. This helps generate human-readable changelog messages.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Revert Policy: When reverting a full PR, revert each commit individually — do NOT use 'git revert' on merge commits. Reverting a merge only undoes data changes but not historical effects. A reverted merge consolidates all changes into a single reverse commit, which breaks git bisect granularity and complicates debugging.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Testing: Major new features or significant changes MUST include automated tests within existing CI infrastructure. All CI must pass before merge. FRR aims for zero static analysis errors — code introducing new static analysis warnings is very unlikely to be merged. Reviewers may require new automated testing for large/significant changes.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Review Process: A PR with any 'Changes requested' review may not be merged. A PR with any negative CI result may not be merged. Authors must NEVER delete or manually dismiss someone else's review comments (can only be overridden by weekly technical meeting agreement). Non-trivial PRs should be given time for others to express interest in reviewing.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Style Exceptions - ldpd: ldpd/ uses BSD coding style, not Linux kernel style. Do not flag BSD-style formatting in this directory.",
+        "scope": ["ldpd/**"]
+      },
+      {
+        "rule": "Style Exceptions - babeld: babeld/ uses K&R style braces, 4-space indents, and function return types on their own line. Do not flag these patterns in this directory.",
+        "scope": ["babeld/**"]
+      },
+      {
+        "rule": "New Dependencies: If a contribution requires a new library or tool, it must be highlighted in the PR description. It must be supported by all FRR platform OSes or provide a way to build without it (potentially without the new feature). Consider encapsulating new library dependencies in a loadable module for separate packaging.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "Backport Policy: Bugfixes are backported to the two most recent releases with release manager approval. Security fixes are backported to all releases <= 1 year old (possibly older for severe issues). If a fix is backported to an older stable branch, ALL newer stable branches must also have the fix. New features are NOT backported to release/stable branches — never to LTS branches either.",
+        "scope": ["**/*"]
+      },
+      {
+        "rule": "C++ Compatibility: C++ is not accepted for core FRR components, but extensions/modules may use it. There is no requirement to maintain C++ compatibility, but fixes for it are welcome. The extern \"C\" block is only needed in headers that might be used from C++ (primarily lib/ and zebra/).",
+        "scope": ["**/*.h"]
+      }
+    ],
+    "files": [
+      {
+        "path": "doc/developer/workflow.rst",
+        "description": "FRR core coding standards, PR requirements, commit message format, review process, release cycle, defensive coding, formatting rules, and architectural guidelines for all languages."
+      }
+    ]
+  }
+}
