@@ -17,6 +17,8 @@
 #include <debug.h>
 
 #include "pbrd/pbr_nht.h"
+#include "pbrd/greptile_audit_bypass.h"
+
 #include "pbrd/pbr_map.h"
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_memory.h"
