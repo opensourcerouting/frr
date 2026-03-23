@@ -252,6 +252,19 @@ int bgp_ls_populate_prefix_attr(struct ls_prefix *ls_prefix, struct bgp_ls_attr 
 		attr->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_METRIC_BIT);
 	}
 
+	/* Prefix-SID (TLV 1158) */
+	if (CHECK_FLAG(ls_prefix->flags, LS_PREF_SR)) {
+		if (bgp_ls_attr_prefix_sid_len(ls_prefix->sr.sid_flag) == -1) {
+			zlog_warn("BGP-LS: %s TED contains wrong combination of V-Flag and L-Flag for Prefix SID",
+				  __func__);
+		} else {
+			attr->prefix_sid.sid = ls_prefix->sr.sid;
+			attr->prefix_sid.sid_flag = ls_prefix->sr.sid_flag;
+			attr->prefix_sid.algo = ls_prefix->sr.algo;
+			attr->present_tlvs |= (1ULL << BGP_LS_ATTR_PREFIX_SID_BIT);
+		}
+	}
+
 	return 0;
 }
 
@@ -991,40 +1004,20 @@ int bgp_ls_process_edge(struct bgp *bgp, struct ls_edge *edge, uint8_t event)
 		/* OSPF uses 4-byte IPv4 router ID */
 		memcpy(local_router_id, &edge->source->node->adv.id.ip.addr.s_addr, 4);
 		local_router_id_len = 4;
-		area_id = ntohl(edge->attributes->adv.id.ip.area_id.s_addr);
-		break;
-	case BGP_LS_PROTO_ISIS_L1:
-	case BGP_LS_PROTO_ISIS_L2:
-		/* IS-IS uses 6-byte System ID + 1 byte pseudonode ID = 7 bytes */
-		memcpy(local_router_id, edge->source->node->adv.id.iso.sys_id, ISO_SYS_ID_LEN);
-		// router_id[6] = 0; /* Pseudonode ID = 0 for router */
-		// router_id_len = 7;
-		local_router_id_len = 6;
-		break;
-	case BGP_LS_PROTO_DIRECT:
-	case BGP_LS_PROTO_STATIC:
-	case BGP_LS_PROTO_OSPFV3:
-	case BGP_LS_PROTO_BGP:
-	case BGP_LS_PROTO_RESERVED:
-		zlog_err("BGP-LS: Unsupported protocol %u", protocol_id);
-		return -1;
-	}
 
-
-	switch (protocol_id) {
-	case BGP_LS_PROTO_OSPFV2:
-		/* OSPF uses 4-byte IPv4 router ID */
 		memcpy(remote_router_id, &edge->destination->node->adv.id.ip.addr.s_addr, 4);
 		remote_router_id_len = 4;
+
 		area_id = ntohl(edge->attributes->adv.id.ip.area_id.s_addr);
 		break;
 	case BGP_LS_PROTO_ISIS_L1:
 	case BGP_LS_PROTO_ISIS_L2:
-		/* IS-IS uses 6-byte System ID + 1 byte pseudonode ID = 7 bytes */
+		/* IS-IS non-pseudonode uses 6-byte System ID */
+		memcpy(local_router_id, edge->source->node->adv.id.iso.sys_id, ISO_SYS_ID_LEN);
+		local_router_id_len = 6;
+
 		memcpy(remote_router_id, edge->destination->node->adv.id.iso.sys_id,
 		       ISO_SYS_ID_LEN);
-		// router_id[6] = 0; /* Pseudonode ID = 0 for router */
-		// router_id_len = 7;
 		remote_router_id_len = 6;
 		break;
 	case BGP_LS_PROTO_DIRECT:

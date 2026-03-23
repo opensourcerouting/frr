@@ -100,6 +100,7 @@ void bgp_evpn_vtep_ip_to_attr_nh(const struct ipaddr *vtep_ip, struct attr *attr
 		attr->nexthop = vtep_ip->ipaddr_v4;
 		attr->mp_nexthop_global_in = vtep_ip->ipaddr_v4;
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+		bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
 	} else if (IS_IPADDR_V6(vtep_ip)) {
 		IPV6_ADDR_COPY(&attr->mp_nexthop_global, &vtep_ip->ipaddr_v6);
 		attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
@@ -845,9 +846,17 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	memcpy(&esi, pfx, ESI_BYTES);
 	pfx += ESI_BYTES;
 
-
 	/* Get the IP. */
 	ipaddr_len = *pfx++;
+
+	/* Validate */
+	if (psize != 19 + (ipaddr_len / 8)) {
+		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+			 "%u:%s - Rx EVPN Type-4 NLRI with invalid IP address length %d",
+			 peer->bgp->vrf_id, peer->host, ipaddr_len);
+		return -1;
+	}
+
 	if (ipaddr_len == IPV4_MAX_BITLEN) {
 		SET_IPADDR_V4(&vtep_ip);
 		memcpy(&vtep_ip.ipaddr_v4, pfx, IPV4_MAX_BYTELEN);
