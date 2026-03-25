@@ -6,27 +6,39 @@
     },
     {
       "path": "doc/developer/cli.rst",
-      "description": "CLI/DEFPY command definition standards, VTY node architecture, help string conventions, and YANG CLI integration requirements."
+      "description": "CLI/DEFPY command definition standards, VTY node architecture, help string conventions, YANG CLI integration requirements, and *_vty.[ch] organization rules."
     },
     {
       "path": "doc/developer/memtypes.rst",
-      "description": "MTYPE memory tracking system — XMALLOC/XCALLOC/XFREE usage, DECLARE_MTYPE/DEFINE_MTYPE patterns."
+      "description": "MTYPE memory tracking system — XMALLOC/XCALLOC/XFREE usage, DECLARE_MTYPE/DEFINE_MTYPE patterns, XFREE NULL-safety, DEFINE_MTYPE_STATIC preference."
     },
     {
       "path": "doc/developer/lists.rst",
-      "description": "Typesafe container API (DECLARE_LIST, DECLARE_HASH, etc.) — the required replacement for legacy BSD queue macros and lib/linklist.h."
+      "description": "Typesafe container API (DECLARE_LIST, DECLARE_HASH, etc.) — required replacement for legacy BSD queue macros and lib/linklist.h. Hash invariant rules, frr_each iteration, atomic list rwlock requirements."
     },
     {
       "path": "doc/developer/logging.rst",
-      "description": "zlog API usage, printfrr format extensions (%pFX, %pI4, %pSU, etc.), and debug flag conventions."
+      "description": "zlog API usage, printfrr format extensions (%pFX, %pI4, %pSU, etc.), debug flag conventions, assert usage policy (no asserts for input validation), log level guidelines (ERROR/WARNING/INFO/DEBUG semantics)."
     },
     {
       "path": "doc/developer/process-architecture.rst",
-      "description": "FRR daemon architecture — event loop (threadmaster), threading model, and inter-daemon communication patterns."
+      "description": "FRR daemon architecture — event loop (threadmaster/struct event), threading model, frr_pthread, cross-thread scheduling, non-blocking callback requirements."
     },
     {
       "path": "doc/developer/locking.rst",
-      "description": "Locking primitives — frr_with_mutex, frr_mutex_lock_autounlock, and concurrency guidelines."
+      "description": "Locking primitives — frr_with_mutex (requires braces), frr_mutex_lock_autounlock, and concurrency guidelines."
+    },
+    {
+      "path": "doc/developer/rcu.rst",
+      "description": "RCU (Read-Copy-Update) rules — rcu_read_lock continuous hold requirement, rcu_free for delayed deallocation, atomic_load/atomic_store for pointer access, no synchronize_rcu in FRR."
+    },
+    {
+      "path": "doc/developer/hooks.rst",
+      "description": "Hook/callback system — DECLARE_HOOK/DEFINE_HOOK, priority ranges, KOOH reverse-priority hooks, parameter naming restrictions (no 'hook' prefix)."
+    },
+    {
+      "path": "doc/developer/modules.rst",
+      "description": "Loadable module system — FRR_MODULE_SETUP, frr_late_init hook, module:param CLI format, no runtime load/unload, GPL-encumbered licensing."
     },
     {
       "path": "doc/developer/checkpatch.rst",
@@ -34,12 +46,151 @@
     },
     {
       "path": "doc/developer/vtysh.rst",
-      "description": "VTYSH architecture — how CLI commands are extracted, distributed, and executed across daemons.",
+      "description": "VTYSH architecture — how CLI commands are extracted via xref2vtysh.py, DEFSH/DEFUNSH usage, mode synchronization, domain socket protocol.",
       "scope": ["vtysh/**", "**/*_vty.c", "**/*_vty.h"]
+    },
+    {
+      "path": "doc/developer/topotests.rst",
+      "description": "Topotest framework — pytest requirements, test execution as root, FRR installation paths, test result analysis. Cross-reference when evaluating PR test coverage."
+    },
+    {
+      "path": "doc/developer/testing.rst",
+      "description": "Testing infrastructure overview and CI requirements."
+    },
+    {
+      "path": "doc/developer/northbound/architecture.rst",
+      "description": "Northbound architecture — YANG model-driven management, API-agnostic callbacks, configuration transactions (all-or-nothing), libyang dependency, plugin architecture."
+    },
+    {
+      "path": "doc/developer/northbound/retrofitting-configuration-commands.rst",
+      "description": "How to retrofit existing CLI commands to northbound YANG callbacks. Required reading for daemon mgmtd conversion PRs."
+    },
+    {
+      "path": "doc/developer/northbound/operational-data-rpcs-and-notifications.rst",
+      "description": "Operational data callbacks (get_elem, get_next, get_keys, lookup_entry), RPC callback patterns, YANG notifications, list iteration locking requirements."
+    },
+    {
+      "path": "doc/developer/mgmtd-dev.rst",
+      "description": "Management daemon (mgmtd) conversion guide — frontend/backend split, frr_yang_module_info arrays, BE client initialization, XPATH prefix registration."
+    },
+    {
+      "path": "doc/developer/zebra.rst",
+      "description": "ZAPI protocol versions, daemon-zebra communication, dataplane batching, netlink message format, binary encoding."
+    },
+    {
+      "path": "doc/developer/scripting.rst",
+      "description": "Lua 5.3 scripting interface — frrscript API, security (no Lua stdlib), encoder/decoder patterns, memory ownership rules."
+    },
+    {
+      "path": "doc/developer/fuzzing.rst",
+      "description": "Fuzzing infrastructure — libFuzzer and AFL targets, sanitizer flags, LLVMFuzzerTestOneInput entry points."
+    },
+    {
+      "path": "doc/developer/tracing.rst",
+      "description": "LTTng and USDT tracepoint conventions — frr_ provider prefix, frrtrace macro, daemon trace.[ch] file patterns."
+    },
+    {
+      "path": "doc/developer/path-internals-pcep.rst",
+      "description": "PCEP module threading rules — pcep_ctrl_ (main thread only) vs pcep_thread_ (controller thread only), data copying across threads, strict function prefix conventions.",
+      "scope": ["pathd/**"]
+    },
+    {
+      "path": "doc/developer/link-state.rst",
+      "description": "Link State API — TED graph model, ls_node/ls_attributes/ls_prefix structures, mandatory locking during iteration, ZAPI opaque message protocol.",
+      "scope": ["lib/link_state.*", "ospfd/ospf_ext.*", "isisd/isis_te.*"]
     },
     {
       "path": "CONTRIBUTING.md",
       "description": "Top-level contribution guidelines and PR process overview."
+    },
+    {
+      "path": "doc/developer/bgpd.rst",
+      "description": "BGP daemon internals — UPDATE/OPEN/NOTIFICATION parsing, attribute handling, peer state machine, route processing pipeline. Critical reference for BGP packet parsing security review.",
+      "scope": ["bgpd/**"]
+    },
+    {
+      "path": "doc/developer/ospf.rst",
+      "description": "OSPF daemon internals — LSA parsing, Hello/DD packet handling, SPF computation, area/interface state machines. Reference for OSPF packet parsing security review.",
+      "scope": ["ospfd/**", "ospf6d/**"]
+    },
+    {
+      "path": "doc/developer/northbound/advanced-topics.rst",
+      "description": "Northbound advanced patterns — YANG list iteration locking, transaction error handling, candidate config lifecycle, implicit delete semantics."
+    },
+    {
+      "path": "doc/developer/northbound/transactional-cli.rst",
+      "description": "Transactional CLI mode — candidate configuration model, commit/discard semantics, configuration lock behavior. Required context for CLI transaction PRs."
+    },
+    {
+      "path": "doc/developer/topotest-multicast.rst",
+      "description": "Multicast topotest patterns — PIM/IGMP test topology conventions, multicast route validation, MLD test helpers.",
+      "scope": ["tests/topotests/*multicast*", "tests/topotests/*pim*", "pimd/**", "pim6d/**"]
+    },
+    {
+      "path": "doc/developer/static-linking.rst",
+      "description": "Static linking guidelines — when and how to statically link FRR, implications for module loading and library dependencies."
+    },
+    {
+      "path": "doc/developer/grpc.rst",
+      "description": "gRPC northbound interface — enable via --enable-grpc, module loading with -M grpc:<port>, language bindings (Python, C++, Ruby), channel setup, and gNMI/gNOI integration.",
+      "scope": ["grpc/**", "lib/northbound_grpc.*"]
+    },
+    {
+      "path": "doc/developer/ospf-api.rst",
+      "description": "OSPF API for external application access to the LSDB — client library (ospfclient), synchronous/asynchronous operations, LSA origination and retrieval, callback registration.",
+      "scope": ["ospfd/ospf_api*", "ospfclient/**"]
+    },
+    {
+      "path": "doc/developer/zebra-neigh-api.rst",
+      "description": "Zebra Neighbor API — ARP/NDP state tracking via netlink, ZAPI neighbor messages, client daemon subscription model for IPv4/IPv6 neighbor state changes.",
+      "scope": ["zebra/zebra_neigh.*", "lib/zclient.*"]
+    },
+    {
+      "path": "doc/developer/next-hop-tracking.rst",
+      "description": "Next Hop Tracking (NHT) — BGP bestpath optimization via routing table monitoring, recursive route resolution, nexthop registration/notification between BGP and Zebra.",
+      "scope": ["bgpd/bgp_nht.*", "zebra/zebra_rnh.*"]
+    },
+    {
+      "path": "doc/developer/xrefs.rst",
+      "description": "Introspection (xrefs) system — structured access to annotated entities (log messages, thread scheduling calls) in compiled binaries, GNU linker section symbols, xref extraction tools.",
+      "scope": ["lib/xref.*", "lib/zlog.*"]
+    },
+    {
+      "path": "doc/developer/building.rst",
+      "description": "Build system overview — platform-specific build guides index, configure options, dependencies, cross-compilation references.",
+      "scope": ["configure.ac", "Makefile.am", "**/subdir.am"]
+    },
+    {
+      "path": "doc/developer/cspf.rst",
+      "description": "Constrained Shortest Path First (CSPF) algorithms — supports IGP metric, TE metric, delay, and bandwidth constraints for RSVP-TE and SR Flex Algo path computation.",
+      "scope": ["lib/cspf.*", "pathd/**"]
+    },
+    {
+      "path": "doc/developer/fpm.rst",
+      "description": "Forwarding Plane Manager (FPM) module — Zebra plugin for pushing routes to external forwarding planes via Netlink or protobuf encoding over TCP stream.",
+      "scope": ["fpm/**", "zebra/zebra_fpm*"]
+    },
+    {
+      "path": "doc/developer/sbfd.rst",
+      "description": "Seamless BFD (SBFD) developer guide — RFC 7880/7881 implementation, initiator/reflector model, segment routing integration, BFD session negotiation simplification.",
+      "scope": ["bfdd/**"]
+    },
+    {
+      "path": "doc/developer/bgp-typecodes.rst",
+      "description": "BGP UPDATE attribute preprocessor constants — complete mapping of BGP_ATTR_* values to RFC-defined attributes (ORIGIN, AS_PATH, MP_REACH_NLRI, extended communities, etc.).",
+      "scope": ["bgpd/bgp_attr.*"]
+    },
+    {
+      "path": "doc/accords/cli-colors",
+      "description": "Community accord on CLI color/formatting output — colors must be used sparingly, session-level toggle (not per-command), must respect TERM/NO_COLOR env vars, pager compatibility required."
+    },
+    {
+      "path": "doc/accords/integrated-config-wins",
+      "description": "Community accord: split-configuration (zebra.conf, bgpd.conf, etc.) is deprecated. Integrated config is the future. PRs should not add new split-config-only features."
+    },
+    {
+      "path": "doc/accords/frr-service-is-watchfrr",
+      "description": "Community accord: the FRR service unit is watchfrr. Individual daemons must not be exposed as separate service units. Future: watchfrr will auto-start daemons based on config."
     }
   ]
 }

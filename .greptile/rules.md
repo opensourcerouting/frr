@@ -74,6 +74,48 @@ Every PR review MUST follow this structure:
 - Verify JSON is valid — no trailing commas, proper escaping
 - Numeric values should be numbers, not strings
 
+### Packet Parsing & Wire Format Safety (Strict Enforcement)
+
+This is a **high-priority security concern**. Code that parses network packets or protocol messages from peers is the primary attack surface for routing daemons. Apply maximum scrutiny to any code handling wire-format data.
+
+**Mandatory checks for all packet parsing code:**
+- **Bounds checking before every read**: Verify remaining buffer length (e.g., `STREAM_READABLE(s)`, `ntohs(length)`) before extracting any field
+- **Length field validation**: Length fields read from wire data MUST be validated against remaining buffer size before use as allocation sizes or loop bounds
+- **No unsafe pointer arithmetic**: Never advance a pointer into a packet buffer without first verifying the target offset is within bounds
+- **No assumptions about minimum packet size**: Always check, even for "well-known" fixed-size headers — malformed packets are the norm in security testing
+- **Integer overflow checks**: When computing sizes from wire data (e.g., `count * element_size`), check for overflow before allocation or memcpy
+
+**Applies especially to:**
+- BGP UPDATE, OPEN, NOTIFICATION, and CAPABILITY parsing (`bgpd/bgp_packet.c`, `bgpd/bgp_attr.c`, `bgpd/bgp_open.c`)
+- OSPF LSA, Hello, and DD packet parsing (`ospfd/ospf_packet.c`, `ospfd/ospf_lsa.c`)
+- IS-IS TLV and PDU parsing (`isisd/isis_tlvs.c`, `isisd/isis_pdu.c`)
+- Zebra ZAPI message parsing (`lib/zclient.c`, `zebra/zserv.c`)
+- BFD, PIM, LDP, VRRP, and any other protocol message handlers
+- Any code using `stream_get*`, `stream_put*`, `STREAM_READABLE`, or raw buffer pointer manipulation
+
+**Flag as ERROR:**
+- Missing bounds check before `stream_getl`, `stream_getw`, `stream_getc`, or equivalent
+- Using a wire-supplied length to allocate memory without upper-bound validation
+- Pointer arithmetic on packet buffers without prior length verification
+- Missing validation of TLV/attribute length fields before processing TLV body
+
+### RCU (Read-Copy-Update) Safety
+
+Per `doc/developer/rcu.rst`:
+- `rcu_read_lock()` MUST be held **continuously** while accessing RCU-protected data — do not release and re-acquire between pointer dereference steps
+- Never call `rcu_free()` or deallocate RCU-protected memory without proper RCU grace period
+- Use `atomic_load()` / `atomic_store()` for RCU pointer access (FRR does NOT use `rcu_dereference` — that's Linux kernel API)
+- Atomic list operations require `rwlock` — read lock for all accesses (read, add, remove), write lock as sequence point before deallocation
+- `struct event` callbacks are called with RCU depth of 1 — be aware of this when writing event handlers
+
+### Assert Usage (Do NOT Misuse)
+
+Per `doc/developer/logging.rst`:
+- `assert()` is for **pretty crashes only** — development hints and invariant violations that indicate bugs
+- Asserts remain enabled in production — they WILL crash the daemon
+- **NEVER** use assert for input validation, length checking, or security constraints — use ERROR-level logging and proper error handling instead
+- For unhandled internal constraint violations (mismatched pointers, NULL required fields, data corruption), use `zlog_err` or `flog_err`, NOT assert
+
 ### Edge Cases to Always Check
 - What happens when the input is NULL?
 - What happens when a list/table is empty?
@@ -99,19 +141,27 @@ Uses **K&R style braces** with **4-space indents** and function return types on 
 This is a **primary review concern**. For every PR that adds or changes daemon functionality:
 
 1. **Check if the PR includes topotest additions/updates** under `tests/topotests/`
-2. **Evaluate whether the new code paths are adequately covered** by the included tests
-3. If significant new logic is introduced with no test coverage, flag it clearly
+2. **Cross-reference the changed code paths against existing topotests** — examine whether the specific daemon behavior being modified is exercised by any test topology
+3. **Evaluate coverage depth** — a test that merely starts the daemon is insufficient; tests must exercise the specific code paths being changed (e.g., if a PR changes BGP route-map handling, check that the topotest actually applies route-maps and validates the filtered output)
+4. If significant new logic is introduced with no test coverage, flag it clearly
 
 **When to flag:**
 - New features without any topotest
 - Behavior changes without updated test assertions
 - Bug fixes for complex logic without a regression test
+- PR modifies protocol state machine but no test validates the state transitions
 
 **When NOT to flag (avoid spam):**
 - Simple one-line bug fixes (e.g., off-by-one, NULL check)
 - Typo or comment corrections
 - Documentation-only changes
 - Pure refactors that don't change behavior (existing tests should still pass)
+
+**Topotest quality checks (if tests ARE included):**
+- Tests must use `pytest` framework (see `doc/developer/topotests.rst`)
+- Python test code must be formatted with `black`
+- Tests should validate specific outputs, not just "daemon didn't crash"
+- JSON output tests should use `json_cmp` for structured comparison
 
 ## Documentation Checks (Smart, Non-Intrusive)
 
