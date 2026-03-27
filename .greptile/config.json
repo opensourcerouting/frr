@@ -1,5 +1,5 @@
 {
-  "strictness": 1,
+  "strictness": 2,
   "commentTypes": ["logic", "syntax", "best_practices", "security"],
   "triggerOnUpdates": true,
   "statusCheck": true,
