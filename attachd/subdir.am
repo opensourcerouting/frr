@@ -14,6 +14,8 @@ attachd_attachd_SOURCES = \
 	attachd/attachd_iface.c \
 	attachd/attachd_vrf.c \
 	attachd/attachd_zebra.c \
+	\
+	nhrpd/zbuf.c \
 	# end
 
 noinst_HEADERS += \

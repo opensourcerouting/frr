@@ -16,6 +16,7 @@
 #include "attachd.h"
 
 DEFINE_MGROUP(ATTACHD, "attachd");
+DEFINE_MGROUP(NHRPD, "buffer management");
 
 static void attachd_fini(void);
 
