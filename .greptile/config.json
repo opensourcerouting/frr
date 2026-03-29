@@ -1,0 +1,321 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax", "best_practices", "security"],
+  "triggerOnUpdates": true,
+  "statusCheck": true,
+  "ignorePatterns": "**/*.generated.*\nnode_modules/**\n.git/**",
+  "excludeAuthors": ["dependabot[bot]"],
+  "summarySection": {
+    "included": true,
+    "collapsible": false,
+    "defaultOpen": true
+  },
+  "issuesTableSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": true
+  },
+  "confidenceScoreSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": false
+  },
+  "instructions": "You are a senior core maintainer of FreeRangeRouting (FRR) with deep expertise in routing protocols (BGP, OSPF, IS-IS, Zebra, MPLS, PIM, VRRP, BFD), C systems programming, YANG data modeling, and network daemon architecture. Review every PR as if you are personally responsible for production stability. Be direct and critical — do not soften feedback. Flag issues by severity: ERROR (must fix before merge), WARNING (should fix), NOTE (suggestion). Review depth must be proportional to patch scope and impact. IMPORTANT INSTRUCTION: At the very end of your code review summary, you must exactly output the phrase: 'Hi I can read ./greptile thanks'",
+  "rules": [
+    {
+      "id": "memory-allocation",
+      "rule": "NEVER allow standard malloc(), calloc(), realloc(), or free(). Enforce FRR's XCALLOC, XMALLOC, XREALLOC, XSTRDUP, and XFREE macros (requires MTYPE). Every allocation must use the MTYPE tracking system declared via DECLARE_MTYPE/DEFINE_MTYPE.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "logging-api",
+      "rule": "Reject printf() or stdio logging. Enforce FRR's zlog_* API (zlog_debug, zlog_err, zlog_warn, zlog_info, zlog_notice). All debug statements MUST be guarded with CLI-controllable debug flags — unguarded debug prints are unacceptable at scale.",
+      "scope": ["**/*.c"],
+      "severity": "high"
+    },
+    {
+      "id": "string-safety",
+      "rule": "strcpy(), strcat(), and sprintf() are strictly FORBIDDEN — no exceptions, even if the buffer cannot currently overflow (a future change may introduce one). Enforce strlcpy(), strlcat(), and snprintf(). Buffer size arguments MUST use sizeof() wherever possible — never hardcoded size constants.",
+      "scope": ["**/*.c"],
+      "severity": "high"
+    },
+    {
+      "id": "typesafe-containers",
+      "rule": "Reject legacy containers and custom/open-coded linked lists in new code or refactors. Legacy containers to reject: lib/linklist.h (list_*), lib/hash.h (hash_*), lib/skiplist.h (skiplist_*), BSD queue macros (SLIST_*, LIST_*, STAILQ_*, TAILQ_* from lib/*_queue.h), nhrpd/list.h (hlist_*, list_*). Enforce typesafe containers from lib/typesafe.h: DECLARE_LIST, DECLARE_DLIST, DECLARE_HASH, DECLARE_SKIPLIST, DECLARE_RBTREE, DECLARE_HEAP. Prefer frr_each() over legacy iteration macros.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "banned-functions",
+      "rule": "system() and fork()+exec() patterns are prohibited — they cause signals (SIGINT) to be ignored, which breaks daemon shutdown. Flag as ERROR.",
+      "scope": ["**/*.c"],
+      "severity": "high"
+    },
+    {
+      "id": "zero-initialization",
+      "rule": "Prefer initializer expressions (e.g., 'struct foo bar = {};') over memset() for stack-allocated structs and arrays. This prevents missed memset() in branches and eliminates incorrect size arguments. Do NOT zero-initialize values that must be nonzero to be used.",
+      "scope": ["**/*.c"],
+      "severity": "medium"
+    },
+    {
+      "id": "fixed-width-types",
+      "rule": "Reject legacy types in new code: u_int8_t (use uint8_t), u_int16_t (use uint16_t), u_int32_t (use uint32_t), u_int64_t (use uint64_t), u_char (use uint8_t or unsigned char), u_short (use unsigned short), u_int (use unsigned int), u_long (use unsigned long).",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "cli-defpy",
+      "rule": "New CLI commands MUST use DEFPY macros (not DEFUN). New CLI commands MUST have documentation. If the daemon is already (even partially) YANGified, new CLI options MUST go through a YANG model — zero exceptions.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "config-preference",
+      "rule": "When adding new knobs, prefer (in order): (1) YANG runtime config, (2) CLI runtime config, (3) loadable modules for new library dependencies, (4) command-line startup options (only for pre-config-load effects), (5) ./configure compile-time options (absolute last resort). Avoid new ./configure flags when possible.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "const-correctness",
+      "rule": "Encourage use of 'const' on function parameters and return types where possible for API clarity and safety, especially in lib/ APIs.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "low"
+    },
+    {
+      "id": "strict-prototypes",
+      "rule": "Functions with no parameters MUST use 'void' in the parameter list: 'static void foo(void)' NOT 'static void foo()'. Without void, C treats it as unspecified parameters with varargs calling convention.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "compile-conditionals",
+      "rule": "Prefer 'if (SOME_SYMBOL)' over '#ifdef SOME_SYMBOL' so the compiler still checks disabled code paths. Ensure SOME_SYMBOL is always defined via AC_DEFINE. Avoid gratuitous --enable-* configure switches.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "include-order",
+      "rule": "First include in any .c file MUST be <zebra.h> or \"config.h\" (with HAVE_CONFIG_H guard). Never use angle brackets for FRR headers (except <zebra.h> and <assert.h>). Prefer full path includes relative to source root. Order: (1) zebra.h/config.h, (2) system headers, (3) lib/ headers, (4) daemon headers. zebra.h must NOT be included from header files.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "zebra-h-purity",
+      "rule": "Do not add FRR-specific declarations or definitions to zebra.h. That file is an include multiplexer for system headers only. Its current FRR-specific content is a known bug, not a feature.",
+      "scope": ["zebra/zebra.h"],
+      "severity": "high"
+    },
+    {
+      "id": "spdx-license",
+      "rule": "New files MUST have 'SPDX-License-Identifier: GPL-2.0-or-later' and a copyright header with year and author. NEVER remove an existing Copyright line or author name — flag as ERROR. New copyright on existing files goes under a 'Portions:' section.",
+      "scope": ["**/*.c", "**/*.h", "**/*.py", "**/*.cpp"],
+      "severity": "high"
+    },
+    {
+      "id": "yang-schema-license",
+      "rule": ".yang and .proto files require BOTH an SPDX-License-Identifier header AND the full license boilerplate text (not just SPDX). Rationale: these files are likely to be individually copied outside FRR.",
+      "scope": ["**/*.yang", "**/*.proto"],
+      "severity": "high"
+    },
+    {
+      "id": "license-compatibility",
+      "rule": "Code must be GPLv2-or-later (preferred) or any license allowing redistribution under GPLv2 (e.g., MIT). FORBIDDEN to push code that prevents use of GPLv3 license. Apache 2.0 and GPLv2 are incompatible when combined. Flag license-incompatible code as ERROR.",
+      "scope": ["**/*"],
+      "severity": "high"
+    },
+    {
+      "id": "whitespace-discipline",
+      "rule": "Whitespace-only changes in untouched parts of the code are NOT acceptable in patches that change actual code. Formatting fixes must be in a separate, formatting-only patch. Flag as ERROR.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "frr-block-macros",
+      "rule": "Loop-style macros use 'frr_each_*' naming. Single-run macros use 'frr_with_*' naming. frr_with_* macros MUST always use a { } block even for single statements. Prefer frr_each over legacy iteration macros (ALL_LIST_ELEMENTS, FOREACH_AFI_SAFI) in new code.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "defpy-formatting",
+      "rule": "clang-format mangles DEF* macro invocations. For new files, use tools/indent.py which handles DEFUN/DEFPY correctly. DEFPY_HIDDEN and DEFPY_ATTR should NOT be flagged for 'complex macros should be wrapped in parentheses'.",
+      "scope": ["**/*.c"],
+      "severity": "low"
+    },
+    {
+      "id": "printfrr-usage",
+      "rule": "Use printfrr() instead of printf() and snprintfrr() instead of snprintf() in FRR code. printfrr supports FRR-specific format extensions (%pI4, %pI6, %pFX, %pSU, %pIA, %pEA, %pRN, %pNH, %dPF, %dSO, etc.) checked by the frr-format GCC plugin. Standard printf/snprintf do NOT support these extensions. Prefer correctly-typed variables over casts in printfrr arguments — casts can cause false 'strict match required' warnings from the frr-format plugin. Note: [v]as[n]printfrr() is NOT async-signal-safe (it allocates memory).",
+      "scope": ["**/*.c"],
+      "severity": "medium"
+    },
+    {
+      "id": "backwards-compat",
+      "rule": "Changes to CLI and lib/ code should be backwards compatible when reasonable. Purely stylistic renames without functional change should be avoided. Deprecated items must use CPP_NOTICE with CONFDATE. CLI deprecation period is 1 year.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "function-docs",
+      "rule": "Functions exposed in header files MUST have descriptive comments with: return value, parameters, and purpose summary. Kernel-style multiline format required. For new code in lib/, this is a HARD requirement — flag missing function comments in lib/ headers as ERROR.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "global-var-docs",
+      "rule": "All global variables, whether static or not, MUST have a comment describing their use.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "rst-formatting",
+      "rule": "RST files must use correct Sphinx formatting. CLI commands MUST use '.. clicmd::' directive — do not document 'no' form separately, and do not enumerate every variant. Config examples use '.. code-block:: frr'. Indent 3 spaces. Lines wrapped to 80 chars. Header levels: # (parts), * (chapters), = (sections), - (subsections), ^ (subsubsections).",
+      "scope": ["**/*.rst"],
+      "severity": "medium"
+    },
+    {
+      "id": "yang-json-output",
+      "rule": "New JSON output MUST be backed by a YANG model — search for existing models (FRR or IETF) before creating new ones. JSON keys must be camelCased (mapped from YANG kebab-case). Commands with no JSON output produce '{}'. JSON commands include a 'json' keyword at end of CLI.",
+      "scope": ["**/*.yang", "**/*.c"],
+      "severity": "high"
+    },
+    {
+      "id": "python-formatting",
+      "rule": "All Python code must be formatted with 'black' (reference version 19.10b). Run 'python3 -m black <file>' before committing.",
+      "scope": ["**/*.py"],
+      "severity": "medium"
+    },
+    {
+      "id": "commit-title",
+      "rule": "Commit title must be <= 72 characters (ideally <= 50). Prefixed with subsystem name + colon + space + imperative verb (e.g., 'bgpd: fix crash on peer reset'). Must not end with a period. Must have a Signed-off-by line.",
+      "scope": ["**/*"],
+      "severity": "high"
+    },
+    {
+      "id": "commit-body",
+      "rule": "Commit body separated from title by blank line. Wrapped to 72 characters. Imperative mood. Must explain purpose and context. Messages consisting entirely of program output are unacceptable.",
+      "scope": ["**/*"],
+      "severity": "medium"
+    },
+    {
+      "id": "squash-policy",
+      "rule": "Before merge, squash: fixup commits, typo fixes, review feedback, WIP commits, merges, and rebases into logical commits.",
+      "scope": ["**/*"],
+      "severity": "medium"
+    },
+    {
+      "id": "testing-required",
+      "rule": "Major new features or significant changes MUST include automated tests within existing CI infrastructure. All CI must pass before merge. Code introducing new static analysis warnings is very unlikely to be merged.",
+      "scope": ["**/*"],
+      "severity": "high"
+    },
+    {
+      "id": "review-process",
+      "rule": "A PR with any 'Changes requested' review may not be merged. A PR with any negative CI result may not be merged. Authors must NEVER delete or manually dismiss someone else's review comments.",
+      "scope": ["**/*"],
+      "severity": "high"
+    },
+    {
+      "id": "new-dependencies",
+      "rule": "New library or tool dependencies must be highlighted in the PR description. Must be supported by all FRR platform OSes or provide a way to build without it. Consider encapsulating in a loadable module.",
+      "scope": ["**/*"],
+      "severity": "high"
+    },
+    {
+      "id": "unnamed-struct-fields",
+      "rule": "FRR uses -fms-extensions for unnamed struct fields. 'struct outer { struct inner; };' and union patterns with unnamed struct fields are acceptable and encouraged where contextually appropriate.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "low"
+    },
+    {
+      "id": "topotest-coverage",
+      "rule": "When a PR adds or modifies daemon functionality (new features, behavior changes, or non-trivial bug fixes), check whether the PR includes corresponding topotest coverage under tests/topotests/. Evaluate whether the newly added or changed code paths are adequately exercised by the tests in the PR. Cross-reference the changed code paths against existing topotests to determine if the specific daemon behavior being modified is exercised by any test topology. If significant new logic is introduced without any test additions or updates, flag as WARNING: 'New code paths appear untested — are topotests included or planned?' When tests ARE included, also check quality: (1) tests must use pytest framework, (2) Python test code must be formatted with black, (3) tests should validate specific outputs not just 'daemon didn't crash', (4) JSON output tests should use json_cmp for structured comparison. Do NOT flag simple one-line fixes, typo corrections, or documentation-only changes.",
+      "scope": ["**/*.c", "**/*.h", "**/*.py"],
+      "severity": "high"
+    },
+    {
+      "id": "user-docs-cli-changes",
+      "rule": "If the PR adds, removes, or modifies CLI commands, YANG models, or any user-facing interface, ask: 'Have the User Docs (doc/user/) been updated to reflect these changes?' This applies to new DEFPY/DEFUN commands, changed command syntax, new show commands, new JSON output fields, and YANG schema changes. New BGP features go in the BGP chapter, not a new chapter. New protocol daemons get their own chapter. Do NOT ask this for internal-only refactors, simple bug fixes, or changes that do not alter user-visible behavior.",
+      "scope": ["**/*.c", "**/*.h", "**/*.yang", "**/*.rst"],
+      "severity": "high"
+    },
+    {
+      "id": "dev-docs-internal-changes",
+      "rule": "If the PR makes significant changes to internal architecture, data structures, threading model, event loop patterns, or introduces new internal APIs in lib/, ask: 'Have the Developer Docs (doc/developer/) been updated?' This applies to new or changed internal APIs, new container types, new locking patterns, or architectural changes. Do NOT ask this for standard bug fixes, minor refactors, or straightforward feature additions that follow existing patterns.",
+      "scope": ["**/*.c", "**/*.h", "lib/**"],
+      "severity": "medium"
+    },
+    {
+      "id": "packet-parsing-safety",
+      "rule": "Code that parses network packets or protocol messages (stream_get*, STREAM_READABLE, packet buffers, wire format decoding) MUST have explicit bounds checking before every read operation. Verify: (1) remaining buffer length is checked before each field extraction, (2) length fields from wire data are validated against remaining buffer size before use as sizes or loop bounds, (3) no pointer arithmetic on packet buffers without bounds validation, (4) no assumptions about minimum packet size without explicit checks, (5) integer overflow checks when computing sizes from wire data. Flag missing bounds checks as ERROR. This applies to BGP UPDATE/OPEN/NOTIFICATION parsing, OSPF LSA/Hello parsing, IS-IS TLV parsing, ZAPI message parsing, BFD/PIM/LDP/VRRP message handlers, and any code handling data from network peers.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "rcu-safety",
+      "rule": "rcu_read_lock() MUST be held continuously while accessing RCU-protected data — do not release and re-acquire between pointer dereference steps. Never deallocate RCU-protected memory without proper RCU grace period (use rcu_free(), rcu_close(), or rcu_call() — never direct XFREE on RCU-protected data). Use atomic_load()/atomic_store() (C11 atomics) for RCU pointer access — FRR does NOT use Linux kernel rcu_dereference/rcu_assign_pointer. Atomic list operations require rwlock: read lock for all accesses (read, add, remove), write lock as sequence point before deallocation (no instructions between wrlock/unlock). Threads accessing RCU-protected data must register via rcu_thread_prepare/rcu_thread_start/rcu_thread_unprepare. RCU read locks are nestable (depth counter) but at root level incur futex syscall cost. There is no synchronize_rcu() in FRR — use rcu_free/rcu_close/rcu_call for deferred cleanup instead. Flag RCU lock release while still accessing protected data as ERROR.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "assert-usage",
+      "rule": "assert() is for development hints and invariant violations only — it WILL crash the daemon in production. NEVER use assert() for input validation, length checking, security constraints, or protocol message validation. For unhandled internal constraint violations (mismatched pointers, NULL required fields, data corruption), use zlog_err or flog_err with proper error handling, NOT assert. Asserts are acceptable only for conditions that indicate a programming bug, not for conditions caused by external input.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "high"
+    },
+    {
+      "id": "xfree-no-null-check",
+      "rule": "Do NOT wrap XFREE() calls in 'if (ptr != NULL)' checks. The XFREE macro already handles NULL pointers and additionally sets the pointer to NULL after freeing. Wrapping it is redundant and clutters the code.",
+      "scope": ["**/*.c"],
+      "severity": "medium"
+    },
+    {
+      "id": "cli-vty-organization",
+      "rule": "CLI command definitions (DEFPY/DEFUN) MUST be organized in *_vty.c and *_vty.h files. Scattering individual CLI commands across unrelated source files is NOT allowed. Each daemon should consolidate its CLI in dedicated VTY files.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "sizeof-allocation-pattern",
+      "rule": "When allocating memory for a struct, prefer sizeof(*ptr) over sizeof(struct type_name). Example: 'p = XMALLOC(MTYPE_FOO, sizeof(*p))' not 'p = XMALLOC(MTYPE_FOO, sizeof(struct foo))'. This prevents size mismatches when the pointer type changes.",
+      "scope": ["**/*.c"],
+      "severity": "medium"
+    },
+    {
+      "id": "mtype-locality",
+      "rule": "Prefer DEFINE_MTYPE_STATIC (file-scoped) over DEFINE_MTYPE (global) for memory types used in a single source file — appropriate for ~80% of cases. Move MTYPEs closer to their usage location rather than centralizing them in a single file.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "low"
+    },
+    {
+      "id": "northbound-yang-callbacks",
+      "rule": "Northbound callbacks MUST be API-agnostic — they must work regardless of whether the caller is CLI, NETCONF, RESTCONF, or gRPC. Do NOT embed CLI-specific logic in northbound callbacks. Configuration changes MUST be transactional (all-or-nothing). If a daemon is being converted to mgmtd, the frr_yang_module_info struct must be split into frontend and backend arrays.",
+      "scope": ["**/*.c", "**/*.h", "**/*.yang"],
+      "severity": "high"
+    },
+    {
+      "id": "hook-parameter-naming",
+      "rule": "Hook callback parameter names MUST NOT start with 'hook' to avoid collision with the hook infrastructure macros. Use descriptive parameter names related to the callback's purpose.",
+      "scope": ["**/*.c", "**/*.h"],
+      "severity": "medium"
+    },
+    {
+      "id": "event-loop-blocking",
+      "rule": "Event loop callbacks (struct event handlers) MUST NOT block. Long-running operations should use worker pthreads via frr_pthread. Use event_add_read/event_add_write for I/O, event_add_timer for delays. Never use sleep() or blocking I/O in event callbacks. Cross-thread task cancellation MUST use event_cancel_async() — using event_cancel() from a different thread than the event loop owner is unsafe. Only one READ and one WRITE task per file descriptor (second schedule overwrites first). Threads must use frr_pthread wrapper for proper registration with the event loop system.",
+      "scope": ["**/*.c"],
+      "severity": "high"
+    },
+    {
+      "id": "container-hash-invariant",
+      "rule": "Never modify the fields used by a hash function or comparison function while an item is inserted in a hash table or sorted container. Doing so silently corrupts the container. Remove the item first, modify, then re-insert.",
+      "scope": ["**/*.c"],
+      "severity": "high"
+    },
+    {
+      "id": "container-iteration-safety",
+      "rule": "Never add or remove items from a typesafe container while iterating over it unless using the _safe iteration variant (frr_each_safe). Hash tables that resize during iteration will corrupt iteration state — items may be skipped or visited twice. For hash tables, if modification during iteration is needed, collect items to modify in a separate list first, then apply changes after iteration completes. Container _fini() closes the data structure permanently — any access after _fini() causes an intentional crash. Use frr_each_safe() when deleting items during iteration.",
+      "scope": ["**/*.c"],
+      "severity": "high"
+    }
+  ],
+  "disabledRules": []
+}
