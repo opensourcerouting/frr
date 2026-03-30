@@ -18,6 +18,13 @@ frr (10.7.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 14 Jul 2026 02:00:00 -0600
 
+frr (10.6.0-2) sid; urgency=medium
+
+  * Adding note about CVE-2026-5107 to 10.6.0-1 changelog entries (Closes:
+    #1132329).
+
+ -- Daniel Baumann <daniel@debian.org>  Mon, 30 Mar 2026 17:33:28 +0200
+
 frr (10.6.0-1) experimental; urgency=medium
 
   * Merging upstream version 10.6.0:
