@@ -20,7 +20,9 @@ frr (10.7.0-0) unstable; urgency=medium
 
 frr (10.6.0-1) experimental; urgency=medium
 
-  * Merging upstream version 10.6.0.
+  * Merging upstream version 10.6.0:
+    - improve packet parsing for EVPN and ENCAP/VNC [CVE-2026-5107]
+      (Closes: #1132329).
   * Removing CVE-2025-61xxx patches, included upstream.
 
  -- Daniel Baumann <daniel@debian.org>  Mon, 30 Mar 2026 14:15:23 +0200
