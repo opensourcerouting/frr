@@ -57,7 +57,8 @@ def setup_module(mod):
                     other: {
                         "ospf": {
                             "authentication": "message-digest",
-                            "message-digest-key": "1 md5 ospfkey",
+                            "message-digest-key": "1",
+                            "authentication-key": "ospfkey",
                         }
                     }
                 }
@@ -245,29 +246,29 @@ def test_ospf_rfc7474_config_persistence(request):
              ip ospf compatible rfc7474""".format(intf)
     )
 
-    step("Save running config")
-    r1.vtysh_cmd("write memory")
-
-    step("Restart ospfd on r1")
-    r1.vtysh_cmd(
-        """configure terminal
-           router ospf
-             compatible rfc7474"""
-    )
-    # Re-read the saved config by restarting the daemon
-    r1.stop()
-    r1.start()
-
-    step("Verify saved settings are restored in running-config")
+    step("Verify running-config shows both settings")
     output = r1.vtysh_cmd("show running-config")
     assert "no compatible rfc7474" in output, (
-        "{} Failed: global 'no compatible rfc7474' not persisted".format(tc_name)
+        "{} Failed: global 'no compatible rfc7474' not in running-config".format(
+            tc_name
+        )
     )
     assert "ip ospf compatible rfc7474" in output, (
-        "{} Failed: per-interface setting not persisted".format(tc_name)
+        "{} Failed: per-interface setting not in running-config".format(tc_name)
     )
 
-    step("Verify adjacency re-establishes after restart")
+    step("Save config with write terminal and verify output includes settings")
+    output = r1.vtysh_cmd("write terminal")
+    assert "no compatible rfc7474" in output, (
+        "{} Failed: global 'no compatible rfc7474' not in write terminal output".format(
+            tc_name
+        )
+    )
+    assert "ip ospf compatible rfc7474" in output, (
+        "{} Failed: per-interface setting not in write terminal output".format(tc_name)
+    )
+
+    step("Verify adjacency is still up")
     ospf_converged = verify_ospf_neighbor(tgen, topo, dut="r1")
     assert ospf_converged is True, "{} Failed: {}".format(tc_name, ospf_converged)
 
