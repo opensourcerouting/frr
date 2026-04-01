@@ -62,10 +62,10 @@ static bool ospf_auth_seq_strict(struct ospf_interface *oi)
 {
 	/* Per-address override (e.g. "ip ospf compatible rfc7474 10.0.0.1") */
 	if (OSPF_IF_PARAM_CONFIGURED(oi->params, rfc7474_compat))
-		return true;
+		return oi->params->rfc7474_compat != 0;
 	/* Interface-wide override (e.g. "ip ospf compatible rfc7474") */
 	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), rfc7474_compat))
-		return true;
+		return IF_DEF_PARAMS(oi->ifp)->rfc7474_compat != 0;
 	/* Fall back to global setting */
 	return CHECK_FLAG(oi->ospf->config, OSPF_RFC7474_COMPATIBLE);
 }
