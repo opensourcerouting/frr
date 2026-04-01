@@ -54,9 +54,9 @@ const uint8_t ospf_auth_apad[KEYCHAIN_MAX_HASH_SIZE] = {
 static bool ospf_auth_seq_strict(struct ospf_interface *oi)
 {
 	if (OSPF_IF_PARAM_CONFIGURED(oi->params, rfc7474_compat))
-		return !!oi->params->rfc7474_compat;
+		return true;
 	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), rfc7474_compat))
-		return !!IF_DEF_PARAMS(oi->ifp)->rfc7474_compat;
+		return true;
 	return CHECK_FLAG(oi->ospf->config, OSPF_RFC7474_COMPATIBLE);
 }
 
