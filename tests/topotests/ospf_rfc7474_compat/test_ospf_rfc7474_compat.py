@@ -30,7 +30,29 @@ from lib.ospf import verify_ospf_neighbor, config_ospf_interface
 
 pytestmark = [pytest.mark.ospfd]
 
+# Global variables
 topo = None
+"""
+TOPOLOGY:
+    Please view in a fixed-width font such as Courier.
+
+         +--------+                    +--------+
+         |        | r1-r2-eth0         |        |
+         |   R1   +--------------------+   R2   |
+         |        | .1  10.0.0.0/24 .2 |        |
+         +--------+                    +--------+
+     Router-ID: 100.1.1.1          Router-ID: 100.1.1.2
+     Area: 0.0.0.0                 Area: 0.0.0.0
+     Auth: MD5 (key 1)             Auth: MD5 (key 1)
+
+TESTCASES:
+1. Verify adjacency with default strict RFC 7474 mode.
+2. Toggle global strict -> legacy, verify adjacency survives.
+3. Toggle global legacy -> strict, verify adjacency survives.
+4. Set per-interface strict override, verify adjacency survives.
+5. Remove per-interface override, verify adjacency survives.
+6. Verify config persistence via write terminal.
+"""
 
 
 def setup_module(mod):
