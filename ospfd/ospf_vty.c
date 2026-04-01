@@ -9837,35 +9837,15 @@ DEFPY (ip_ospf_compatible_rfc7474,
 		params = ospf_get_if_params(ifp, ip_addr);
 		ospf_if_update_params(ifp, ip_addr);
 	}
-	params->rfc7474_compat = no ? 0 : 1;
-	SET_IF_PARAM(params, rfc7474_compat);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (default_ip_ospf_compatible_rfc7474,
-       default_ip_ospf_compatible_rfc7474_addr_cmd,
-       "default ip ospf compatible rfc7474 [A.B.C.D]$ip_addr",
-       "Set a command to its defaults\n"
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "OSPF compatibility list\n"
-       "Enable strict RFC 7474 sequence number validation\n"
-       "Address of interface\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ospf_if_params *params;
-
-	params = IF_DEF_PARAMS(ifp);
-
-	if (ip_addr.s_addr != INADDR_ANY) {
-		params = ospf_get_if_params(ifp, ip_addr);
-		ospf_if_update_params(ifp, ip_addr);
-	}
-	UNSET_IF_PARAM(params, rfc7474_compat);
-	if (params != IF_DEF_PARAMS(ifp)) {
-		ospf_free_if_params(ifp, ip_addr);
-		ospf_if_update_params(ifp, ip_addr);
+	if (no) {
+		UNSET_IF_PARAM(params, rfc7474_compat);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, ip_addr);
+			ospf_if_update_params(ifp, ip_addr);
+		}
+	} else {
+		params->rfc7474_compat = 1;
+		SET_IF_PARAM(params, rfc7474_compat);
 	}
 
 	return CMD_SUCCESS;
@@ -12459,10 +12439,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* RFC 7474 compatibility print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, rfc7474_compat)) {
-				if (params->rfc7474_compat == 0)
-					vty_out(vty, " no ip ospf compatible rfc7474");
-				else
-					vty_out(vty, " ip ospf compatible rfc7474");
+				vty_out(vty, " ip ospf compatible rfc7474");
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
@@ -13308,7 +13285,6 @@ static void ospf_vty_if_init(void)
 
 	/* "ip ospf compatible rfc7474" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_compatible_rfc7474_addr_cmd);
-	install_element(INTERFACE_NODE, &default_ip_ospf_compatible_rfc7474_addr_cmd);
 
 	/* "ip ospf dead-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_dead_interval_cmd);
