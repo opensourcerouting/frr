@@ -9827,6 +9827,73 @@ DEFUN (no_ip_ospf_mtu_ignore,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_ospf_compatible_rfc7474,
+       ip_ospf_compatible_rfc7474_addr_cmd,
+       "ip ospf compatible rfc7474 [A.B.C.D]",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "OSPF compatibility list\n"
+       "Enable strict RFC 7474 sequence number validation\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int idx_ipv4 = 4;
+	struct in_addr addr;
+	int ret;
+
+	struct ospf_if_params *params;
+	params = IF_DEF_PARAMS(ifp);
+
+	if (argc == 5) {
+		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
+		if (!ret) {
+			vty_out(vty,
+				"Please specify interface address by A.B.C.D\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		params = ospf_get_if_params(ifp, addr);
+		ospf_if_update_params(ifp, addr);
+	}
+	params->rfc7474_compat = 1;
+	SET_IF_PARAM(params, rfc7474_compat);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_ospf_compatible_rfc7474,
+       no_ip_ospf_compatible_rfc7474_addr_cmd,
+       "no ip ospf compatible rfc7474 [A.B.C.D]",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "OSPF compatibility list\n"
+       "Enable strict RFC 7474 sequence number validation\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int idx_ipv4 = 5;
+	struct in_addr addr;
+	int ret;
+
+	struct ospf_if_params *params;
+	params = IF_DEF_PARAMS(ifp);
+
+	if (argc == 6) {
+		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
+		if (!ret) {
+			vty_out(vty,
+				"Please specify interface address by A.B.C.D\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		params = ospf_get_if_params(ifp, addr);
+		ospf_if_update_params(ifp, addr);
+	}
+	params->rfc7474_compat = 0;
+	SET_IF_PARAM(params, rfc7474_compat);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
       "[no] ip ospf capability opaque [A.B.C.D]$ip_addr",
       NO_STR
@@ -12413,6 +12480,20 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* RFC 7474 compatibility print. */
+			if (OSPF_IF_PARAM_CONFIGURED(params, rfc7474_compat)) {
+				if (params->rfc7474_compat == 0)
+					vty_out(vty,
+						" no ip ospf compatible rfc7474");
+				else
+					vty_out(vty,
+						" ip ospf compatible rfc7474");
+				if (params != IF_DEF_PARAMS(ifp) && rn)
+					vty_out(vty, " %pI4",
+						&rn->p.u.prefix4);
+				vty_out(vty, "\n");
+			}
+
 			if (OSPF_IF_PARAM_CONFIGURED(params,
 						     passive_interface)) {
 				vty_out(vty, " %sip ospf passive",
@@ -13254,6 +13335,10 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf mtu-ignore" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_mtu_ignore_addr_cmd);
+
+	/* "ip ospf compatible rfc7474" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_compatible_rfc7474_addr_cmd);
+	install_element(INTERFACE_NODE, &no_ip_ospf_compatible_rfc7474_addr_cmd);
 
 	/* "ip ospf dead-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_dead_interval_cmd);
