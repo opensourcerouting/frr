@@ -148,24 +148,33 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 	return NULL;
 }
 
-static void upstream_channel_oil_detach(struct pim_upstream *up)
+static void upstream_channel_oil_detach(struct pim_instance *pim, struct pim_upstream *up)
 {
 	struct channel_oil *channel_oil = up->channel_oil;
 
-	if (channel_oil) {
-		/* Detaching from channel_oil, channel_oil may exist post del,
-		   but upstream would not keep reference of it
-		 */
-		channel_oil->up = NULL;
-		up->channel_oil = NULL;
+	if (!channel_oil)
+		return;
 
-		/* attempt to delete channel_oil; if channel_oil is being held
-		 * because of other references cleanup info such as "Mute"
-		 * inferred from the parent upstream
-		 */
-		pim_channel_oil_upstream_deref(channel_oil);
-	}
+	/*
+	 * Detach upstream ownership first. If the OIL got deleted as a side
+	 * effect of prior prune paths, skip deref on the stale pointer.
+	 *
+	 * We intentionally compare pointer identity here: pimd runs on a
+	 * single-threaded event loop, so no concurrent ABA re-create of the
+	 * same (S,G) OIL can happen between clearing up->channel_oil and this
+	 * lookup.
+	 */
+	up->channel_oil = NULL;
+	if (pim_find_channel_oil(pim, &up->sg) != channel_oil)
+		return;
 
+	channel_oil->up = NULL;
+
+	/* attempt to delete channel_oil; if channel_oil is being held
+	 * because of other references cleanup info such as "Mute"
+	 * inferred from the parent upstream
+	 */
+	pim_channel_oil_upstream_deref(channel_oil);
 }
 
 static void pim_upstream_timers_stop(struct pim_upstream *up)
@@ -185,16 +194,15 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 {
 	struct listnode *node, *nnode;
 	struct pim_ifchannel *ch;
+	int c_oil_ref_count = up->channel_oil ? up->channel_oil->oil_ref_count : -1;
 #if PIM_IPV == 4
 	bool notify_msdp = false;
 #endif /* PIM_IPV == 4 */
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug(
-			"%s(%s): Delete %s[%s] ref count: %d, flags: %d c_oil ref count %d (Pre decrement)",
-			__func__, name, up->sg_str, pim->vrf->name,
-			up->ref_count, up->flags,
-			up->channel_oil->oil_ref_count);
+		zlog_debug("%s(%s): Delete %s[%s] ref count: %d, flags: %d c_oil ref count %d (Pre decrement)",
+			   __func__, name, up->sg_str, pim->vrf->name, up->ref_count, up->flags,
+			   c_oil_ref_count);
 
 	 assert(up->ref_count > 0);
 
@@ -239,7 +247,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	}
 
 	pim_mroute_del(up->channel_oil, __func__);
-	upstream_channel_oil_detach(up);
+	upstream_channel_oil_detach(pim, up);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
 		pim_ifchannel_delete(ch);
@@ -1620,7 +1628,7 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 {
 	struct pim_instance *pim;
 
-	pim = up->channel_oil->pim;
+	pim = up->pim;
 
 	if (PIM_UPSTREAM_FLAG_TEST_DISABLE_KAT_EXPIRY(up->flags)) {
 		/* if the router is a PIM vxlan encapsulator we prevent expiry
@@ -1799,7 +1807,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 	}
 
 	// AND JoinDesired(S,G) == true
-	if (!pim_upstream_evaluate_join_desired(up->channel_oil->pim, up)) {
+	if (!pim_upstream_evaluate_join_desired(up->pim, up)) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: %s Join is not Desired", __func__,
 				   up->sg_str);
@@ -1893,7 +1901,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 	struct pim_instance *pim;
 	struct pim_upstream *up;
 	up = EVENT_ARG(t);
-	pim = up->channel_oil->pim;
+	pim = up->pim;
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char state_str[PIM_REG_STATE_STR_LEN];
@@ -2370,7 +2378,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 static void pim_upstream_sg_running(void *arg)
 {
 	struct pim_upstream *up = (struct pim_upstream *)arg;
-	struct pim_instance *pim = up->channel_oil->pim;
+	struct pim_instance *pim = up->pim;
 
 	// No packet can have arrived here if this is the case
 	if (!up->channel_oil->installed) {
