@@ -9844,12 +9844,9 @@ DEFPY (ip_ospf_compatible_rfc7474,
 		ospf_if_update_params(ifp, ip_addr);
 	}
 	if (no) {
-		/* Remove override — inherit from global setting */
-		UNSET_IF_PARAM(params, rfc7474_compat);
-		if (params != IF_DEF_PARAMS(ifp)) {
-			ospf_free_if_params(ifp, ip_addr);
-			ospf_if_update_params(ifp, ip_addr);
-		}
+		/* Force legacy (relaxed) validation on this interface/address */
+		params->rfc7474_compat = 0;
+		SET_IF_PARAM(params, rfc7474_compat);
 	} else {
 		/* Force strict RFC 7474 on this interface/address */
 		params->rfc7474_compat = 1;
@@ -12447,7 +12444,8 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* RFC 7474 compatibility print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, rfc7474_compat)) {
-				vty_out(vty, " ip ospf compatible rfc7474");
+				vty_out(vty, " %sip ospf compatible rfc7474",
+					params->rfc7474_compat ? "" : "no ");
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
