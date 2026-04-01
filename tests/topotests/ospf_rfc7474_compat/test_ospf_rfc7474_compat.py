@@ -160,43 +160,13 @@ def test_ospf_rfc7474_global_legacy_to_strict(request):
     write_test_footer(tc_name)
 
 
-def test_ospf_rfc7474_per_interface_strict_to_legacy(request):
-    """Override per-interface from strict to legacy. Adjacency must survive."""
+def test_ospf_rfc7474_per_interface_set_override(request):
+    """Set per-interface strict override. Adjacency must survive."""
     tc_name = request.node.name
     write_test_header(tc_name)
     tgen = get_topogen()
 
-    step("Set per-interface legacy mode on both routers' connected interfaces")
-    for rtr in ["r1", "r2"]:
-        other = "r2" if rtr == "r1" else "r1"
-        intf = topo["routers"][rtr]["links"][other]["interface"]
-        tgen.gears[rtr].vtysh_cmd(
-            """configure terminal
-               interface {}
-                 no ip ospf compatible rfc7474""".format(intf)
-        )
-
-    step("Verify adjacency remains Full with per-interface legacy override")
-    ospf_converged = verify_ospf_neighbor(tgen, topo, dut="r1")
-    assert ospf_converged is True, "{} Failed: {}".format(tc_name, ospf_converged)
-
-    step("Verify running-config shows per-interface setting")
-    r1 = tgen.gears["r1"]
-    output = r1.vtysh_cmd("show running-config")
-    assert "no ip ospf compatible rfc7474" in output, (
-        "{} Failed: per-interface setting not in running-config".format(tc_name)
-    )
-
-    write_test_footer(tc_name)
-
-
-def test_ospf_rfc7474_per_interface_legacy_to_strict(request):
-    """Toggle per-interface from legacy back to strict. Adjacency must survive."""
-    tc_name = request.node.name
-    write_test_header(tc_name)
-    tgen = get_topogen()
-
-    step("Set per-interface strict mode on both routers' connected interfaces")
+    step("Set per-interface strict override on both routers' connected interfaces")
     for rtr in ["r1", "r2"]:
         other = "r2" if rtr == "r1" else "r1"
         intf = topo["routers"][rtr]["links"][other]["interface"]
@@ -206,21 +176,45 @@ def test_ospf_rfc7474_per_interface_legacy_to_strict(request):
                  ip ospf compatible rfc7474""".format(intf)
         )
 
-    step("Verify adjacency remains Full after per-interface switch to strict")
+    step("Verify adjacency remains Full with per-interface override")
     ospf_converged = verify_ospf_neighbor(tgen, topo, dut="r1")
     assert ospf_converged is True, "{} Failed: {}".format(tc_name, ospf_converged)
 
-    step("Verify running-config shows per-interface strict setting")
+    step("Verify running-config shows per-interface setting")
     r1 = tgen.gears["r1"]
     output = r1.vtysh_cmd("show running-config")
     assert "ip ospf compatible rfc7474" in output, (
-        "{} Failed: per-interface strict setting not in running-config".format(tc_name)
+        "{} Failed: per-interface setting not in running-config".format(tc_name)
     )
-    # The 'no' form should not be present anymore
-    assert "no ip ospf compatible rfc7474" not in output, (
-        "{} Failed: legacy per-interface setting still in running-config".format(
-            tc_name
+
+    write_test_footer(tc_name)
+
+
+def test_ospf_rfc7474_per_interface_remove_override(request):
+    """Remove per-interface override (inherit from global). Adjacency must survive."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    step("Remove per-interface override on both routers' connected interfaces")
+    for rtr in ["r1", "r2"]:
+        other = "r2" if rtr == "r1" else "r1"
+        intf = topo["routers"][rtr]["links"][other]["interface"]
+        tgen.gears[rtr].vtysh_cmd(
+            """configure terminal
+               interface {}
+                 no ip ospf compatible rfc7474""".format(intf)
         )
+
+    step("Verify adjacency remains Full after removing per-interface override")
+    ospf_converged = verify_ospf_neighbor(tgen, topo, dut="r1")
+    assert ospf_converged is True, "{} Failed: {}".format(tc_name, ospf_converged)
+
+    step("Verify running-config no longer shows per-interface setting")
+    r1 = tgen.gears["r1"]
+    output = r1.vtysh_cmd("show running-config")
+    assert "ip ospf compatible rfc7474" not in output, (
+        "{} Failed: per-interface setting still in running-config".format(tc_name)
     )
 
     write_test_footer(tc_name)
@@ -232,40 +226,28 @@ def test_ospf_rfc7474_config_persistence(request):
     write_test_header(tc_name)
     tgen = get_topogen()
 
-    step("Set global legacy and per-interface strict on r1")
+    step("Set global legacy on r1")
     r1 = tgen.gears["r1"]
-    intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
     r1.vtysh_cmd(
         """configure terminal
            router ospf
              no compatible rfc7474"""
     )
-    r1.vtysh_cmd(
-        """configure terminal
-           interface {}
-             ip ospf compatible rfc7474""".format(intf)
-    )
 
-    step("Verify running-config shows both settings")
+    step("Verify running-config shows the setting")
     output = r1.vtysh_cmd("show running-config")
     assert "no compatible rfc7474" in output, (
         "{} Failed: global 'no compatible rfc7474' not in running-config".format(
             tc_name
         )
     )
-    assert "ip ospf compatible rfc7474" in output, (
-        "{} Failed: per-interface setting not in running-config".format(tc_name)
-    )
 
-    step("Save config with write terminal and verify output includes settings")
+    step("Save config with write terminal and verify output includes setting")
     output = r1.vtysh_cmd("write terminal")
     assert "no compatible rfc7474" in output, (
         "{} Failed: global 'no compatible rfc7474' not in write terminal output".format(
             tc_name
         )
-    )
-    assert "ip ospf compatible rfc7474" in output, (
-        "{} Failed: per-interface setting not in write terminal output".format(tc_name)
     )
 
     step("Verify adjacency is still up")
