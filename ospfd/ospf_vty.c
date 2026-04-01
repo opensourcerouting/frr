@@ -9894,6 +9894,43 @@ DEFUN (no_ip_ospf_compatible_rfc7474,
 	return CMD_SUCCESS;
 }
 
+DEFUN (default_ip_ospf_compatible_rfc7474,
+       default_ip_ospf_compatible_rfc7474_addr_cmd,
+       "default ip ospf compatible rfc7474 [A.B.C.D]",
+       "Set a command to its defaults\n"
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "OSPF compatibility list\n"
+       "Enable strict RFC 7474 sequence number validation\n"
+       "Address of interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int idx_ipv4 = 5;
+	struct in_addr addr;
+	int ret;
+
+	struct ospf_if_params *params;
+	params = IF_DEF_PARAMS(ifp);
+
+	if (argc == 6) {
+		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
+		if (!ret) {
+			vty_out(vty,
+				"Please specify interface address by A.B.C.D\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		params = ospf_get_if_params(ifp, addr);
+		ospf_if_update_params(ifp, addr);
+	}
+	UNSET_IF_PARAM(params, rfc7474_compat);
+	if (params != IF_DEF_PARAMS(ifp)) {
+		ospf_free_if_params(ifp, addr);
+		ospf_if_update_params(ifp, addr);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(ip_ospf_capability_opaque, ip_ospf_capability_opaque_addr_cmd,
       "[no] ip ospf capability opaque [A.B.C.D]$ip_addr",
       NO_STR
@@ -13339,6 +13376,7 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf compatible rfc7474" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_compatible_rfc7474_addr_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_compatible_rfc7474_addr_cmd);
+	install_element(INTERFACE_NODE, &default_ip_ospf_compatible_rfc7474_addr_cmd);
 
 	/* "ip ospf dead-interval" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_dead_interval_cmd);

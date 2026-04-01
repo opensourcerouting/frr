@@ -724,9 +724,13 @@ Interfaces
 .. clicmd:: no ip ospf compatible rfc7474 [A.B.C.D]
 
    Override the global :clicmd:`compatible rfc7474` setting for this
-   interface. When set, the per-interface value takes precedence over
-   the global setting. The optional address ``A.B.C.D`` scopes the
+   interface. The positive form forces strict mode; the ``no`` form forces
+   legacy mode. In both cases the per-interface value takes precedence
+   over the global setting. The optional address ``A.B.C.D`` scopes the
    override to a specific address on multi-address interfaces.
+
+   Use ``default ip ospf compatible rfc7474`` to remove the per-interface
+   override and return to inheriting the global setting.
 
 .. clicmd:: ip ospf cost (1-65535)
 

@@ -11,7 +11,6 @@ disrupt OSPF adjacencies.
 
 import os
 import sys
-import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
