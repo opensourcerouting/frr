@@ -9831,6 +9831,12 @@ DEFPY (ip_ospf_compatible_rfc7474,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf_if_params *params;
 
+	/*
+	 * Without A.B.C.D: apply to the interface default params,
+	 * affecting all addresses on this interface.
+	 * With A.B.C.D: apply to per-address params, scoping the
+	 * override to a single address on multi-address interfaces.
+	 */
 	params = IF_DEF_PARAMS(ifp);
 
 	if (ip_addr.s_addr != INADDR_ANY) {
@@ -9838,12 +9844,14 @@ DEFPY (ip_ospf_compatible_rfc7474,
 		ospf_if_update_params(ifp, ip_addr);
 	}
 	if (no) {
+		/* Remove override — inherit from global setting */
 		UNSET_IF_PARAM(params, rfc7474_compat);
 		if (params != IF_DEF_PARAMS(ifp)) {
 			ospf_free_if_params(ifp, ip_addr);
 			ospf_if_update_params(ifp, ip_addr);
 		}
 	} else {
+		/* Force strict RFC 7474 on this interface/address */
 		params->rfc7474_compat = 1;
 		SET_IF_PARAM(params, rfc7474_compat);
 	}
