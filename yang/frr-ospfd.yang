@@ -438,6 +438,16 @@ module frr-ospfd {
         "Compatible with RFC 1583.";
     }
 
+    leaf compatible-rfc7474 {
+      type boolean;
+      default "true";
+      description
+        "Compatible with RFC 7474. When enabled, strictly increasing
+         sequence numbers are required for cryptographic authentication.
+         Disable for interoperability with implementations that may
+         reuse sequence numbers.";
+    }
+
     leaf default-metric {
       type uint32 {
         range "0..16777214";
@@ -1083,6 +1093,14 @@ module frr-ospfd {
       type boolean;
       description
         "Disable MTU mismatch detection on this interface.";
+    }
+
+    leaf compatible-rfc7474 {
+      type boolean;
+      description
+        "Override global RFC 7474 sequence number validation setting
+         for this interface. When enabled, strictly increasing sequence
+         numbers are required for cryptographic authentication.";
     }
 
     leaf priority {
