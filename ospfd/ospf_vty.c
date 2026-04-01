@@ -2243,6 +2243,31 @@ DEFUN (no_ospf_compatible_rfc1583,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ospf_compatible_rfc7474,
+       ospf_compatible_rfc7474_cmd,
+       "compatible rfc7474",
+       "OSPF compatibility list\n"
+       "compatible with RFC 7474\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	SET_FLAG(ospf->config, OSPF_RFC7474_COMPATIBLE);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_compatible_rfc7474,
+       no_ospf_compatible_rfc7474_cmd,
+       "no compatible rfc7474",
+       NO_STR
+       "OSPF compatibility list\n"
+       "compatible with RFC 7474\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	UNSET_FLAG(ospf->config, OSPF_RFC7474_COMPATIBLE);
+	return CMD_SUCCESS;
+}
+
 ALIAS(ospf_compatible_rfc1583, ospf_rfc1583_flag_cmd,
       "ospf rfc1583compatibility",
       "OSPF specific commands\n"
@@ -12990,6 +13015,11 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (CHECK_FLAG(ospf->config, OSPF_RFC1583_COMPATIBLE))
 		vty_out(vty, " compatible rfc1583\n");
 
+	/* RFC7474 compatibility flag -- only write when disabled
+	 * since enabled is the default. */
+	if (!CHECK_FLAG(ospf->config, OSPF_RFC7474_COMPATIBLE))
+		vty_out(vty, " no compatible rfc7474\n");
+
 	/* auto-cost reference-bandwidth configuration.  */
 	if (ospf->ref_bandwidth != OSPF_DEFAULT_REF_BANDWIDTH) {
 		vty_out(vty,
@@ -13698,6 +13728,10 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_ospf_compatible_rfc1583_cmd);
 	install_element(OSPF_NODE, &ospf_rfc1583_flag_cmd);
 	install_element(OSPF_NODE, &no_ospf_rfc1583_flag_cmd);
+
+	/* "compatible rfc7474" commands. */
+	install_element(OSPF_NODE, &ospf_compatible_rfc7474_cmd);
+	install_element(OSPF_NODE, &no_ospf_compatible_rfc7474_cmd);
 
 	/* "ospf send-extra-data zebra" commands. */
 	install_element(OSPF_NODE, &ospf_send_extra_data_cmd);
