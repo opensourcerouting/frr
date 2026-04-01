@@ -50,13 +50,23 @@ const uint8_t ospf_auth_apad[KEYCHAIN_MAX_HASH_SIZE] = {
 /*
  * Resolve whether strict RFC 7474 sequence number validation is active.
  * Per-interface setting overrides global; global defaults to strict.
+ *
+ * Resolution order:
+ *  1. Per-address params (oi->params) — set when the operator specified
+ *     an A.B.C.D address with "ip ospf compatible rfc7474 A.B.C.D".
+ *  2. Interface default params (IF_DEF_PARAMS) — set when the operator
+ *     used "ip ospf compatible rfc7474" without an address.
+ *  3. Global OSPF instance flag — "compatible rfc7474" under router ospf.
  */
 static bool ospf_auth_seq_strict(struct ospf_interface *oi)
 {
+	/* Per-address override (e.g. "ip ospf compatible rfc7474 10.0.0.1") */
 	if (OSPF_IF_PARAM_CONFIGURED(oi->params, rfc7474_compat))
 		return true;
+	/* Interface-wide override (e.g. "ip ospf compatible rfc7474") */
 	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp), rfc7474_compat))
 		return true;
+	/* Fall back to global setting */
 	return CHECK_FLAG(oi->ospf->config, OSPF_RFC7474_COMPATIBLE);
 }
 
