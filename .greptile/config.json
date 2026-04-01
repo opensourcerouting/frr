@@ -103,7 +103,7 @@
     {
       "id": "zebra-h-purity",
       "rule": "Do not add FRR-specific declarations or definitions to zebra.h. That file is an include multiplexer for system headers only. Its current FRR-specific content is a known bug, not a feature.",
-      "scope": ["zebra/zebra.h"],
+      "scope": ["lib/zebra.h"],
       "severity": "high"
     },
     {
@@ -228,7 +228,7 @@
     },
     {
       "id": "topotest-coverage",
-      "rule": "When a PR adds or modifies daemon functionality (new features, behavior changes, or non-trivial bug fixes), check whether the PR includes corresponding topotest coverage under tests/topotests/. Evaluate whether the newly added or changed code paths are adequately exercised by the tests in the PR. Cross-reference the changed code paths against existing topotests to determine if the specific daemon behavior being modified is exercised by any test topology. If significant new logic is introduced without any test additions or updates, flag as WARNING: 'New code paths appear untested — are topotests included or planned?' When tests ARE included, also check quality: (1) tests must use pytest framework, (2) Python test code must be formatted with black, (3) tests should validate specific outputs not just 'daemon didn't crash', (4) JSON output tests should use json_cmp for structured comparison. Do NOT flag simple one-line fixes, typo corrections, or documentation-only changes.",
+      "rule": "When a PR adds or modifies daemon functionality (new features, behavior changes, or non-trivial bug fixes), check whether the PR includes corresponding topotest coverage under tests/topotests/. Evaluate whether the newly added or changed code paths are adequately exercised by the tests in the PR. Cross-reference the changed code paths against existing topotests to determine if the specific daemon behavior being modified is exercised by any test topology. If significant new logic is introduced without any test additions or updates, flag as ERROR: 'New code paths appear untested — are topotests included or planned?' When tests ARE included, also check quality: (1) tests must use pytest framework, (2) Python test code must be formatted with black, (3) tests should validate specific outputs not just 'daemon didn't crash', (4) JSON output tests should use json_cmp for structured comparison. Do NOT flag simple one-line fixes, typo corrections, or documentation-only changes.",
       "scope": ["**/*.c", "**/*.h", "**/*.py"],
       "severity": "high"
     },
