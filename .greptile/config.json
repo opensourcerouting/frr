@@ -31,13 +31,13 @@
     {
       "id": "logging-api",
       "rule": "Reject printf() or stdio logging. Enforce FRR's zlog_* API (zlog_debug, zlog_err, zlog_warn, zlog_info, zlog_notice). All debug statements MUST be guarded with CLI-controllable debug flags — unguarded debug prints are unacceptable at scale.",
-      "scope": ["**/*.c", "**/*.cpp"],
+      "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
       "severity": "high"
     },
     {
       "id": "string-safety",
       "rule": "strcpy(), strcat(), and sprintf() are strictly FORBIDDEN — no exceptions, even if the buffer cannot currently overflow (a future change may introduce one). Enforce strlcpy(), strlcat(), and snprintf(). Buffer size arguments MUST use sizeof() wherever possible — never hardcoded size constants.",
-      "scope": ["**/*.c", "**/*.cpp"],
+      "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
       "severity": "high"
     },
     {
@@ -49,7 +49,7 @@
     {
       "id": "banned-functions",
       "rule": "system() and fork()+exec() patterns are prohibited — they cause signals (SIGINT) to be ignored, which breaks daemon shutdown. Flag as ERROR.",
-      "scope": ["**/*.c", "**/*.cpp"],
+      "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
       "severity": "high"
     },
     {
