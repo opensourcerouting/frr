@@ -318,7 +318,7 @@
     },
     {
       "id": "mandatory-topotest",
-      "rule": "PRIORITY 2 CHECK — RUN THIS IMMEDIATELY AFTER PRIORITY 1. If any .c or .h file (with the exception of files under tests/) is modified with new features or behavior changes, and there are NO changes to any file under tests/topotests/, you MUST flag this as P0 severity with label 'P0': 'No topotest coverage for new feature code. Topotests are mandatory for new features per FRR policy. This blocks merge — no exceptions.' This is the most critical check and MUST appear before all other findings. Do NOT flag for simple one-line bug fixes, typo corrections, documentation-only changes, or pure refactors that do not change behavior.",
+      "rule": "PRIORITY 2 CHECK — RUN THIS IMMEDIATELY AFTER PRIORITY 1. If any .c, .h, or .yang file (with the exception of files under tests/) is modified with new features or behavior changes, and there are NO changes to any file under tests/topotests/, you MUST flag this as P0 severity with label 'P0': 'No topotest coverage for new feature code. Topotests are mandatory for new features per FRR policy. This blocks merge — no exceptions.' This is the most critical check and MUST appear before all other findings. Do NOT flag for simple one-line bug fixes, typo corrections, documentation-only changes, or pure refactors that do not change behavior.",
       "scope": ["**/*.c", "**/*.h", "**/*.yang"],
       "severity": "high"
     }
