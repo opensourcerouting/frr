@@ -2089,8 +2089,8 @@ static enum bgp_attr_parse_ret bgp_attr_aspath_check(struct peer *const peer,
 
 	/* First AS check for EBGP. */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_ENFORCE_FIRST_AS)) {
-		if (peer->sort == BGP_PEER_EBGP
-		    && !aspath_firstas_check(attr->aspath, peer->as)) {
+		if (peer->sort == BGP_PEER_EBGP && !aspath_firstas_check(attr->aspath, peer->as) &&
+		    peer->as != peer->bgp->confed_id) {
 			flog_err(EC_BGP_ATTR_FIRST_AS,
 				 "%s incorrect first AS (must be %u)",
 				 peer->host, peer->as);
