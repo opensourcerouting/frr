@@ -1856,6 +1856,17 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_get(&adj->sid, s, IPV6_MAX_BYTELEN);
 				subsubtlv_len = stream_getc(s);
 
+				if (subsubtlv_len >
+				    subtlv_len - ISIS_SUBTLV_SRV6_ENDX_SID_SIZE) {
+					TLV_SIZE_MISMATCH(log, indent,
+							  "SRv6 End.X SID subsubtlvs");
+					XFREE(MTYPE_ISIS_SUBTLV, adj);
+					stream_forward_getp(
+						s,
+						subtlv_len - ISIS_SUBTLV_SRV6_ENDX_SID_SIZE);
+					break;
+				}
+
 				adj->subsubtlvs = isis_alloc_subsubtlvs(
 					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
 
@@ -1863,6 +1874,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
 						subsubtlv_len, s, log, adj->subsubtlvs, indent + 4,
 						&unpacked_known_tlvs)) {
+					isis_free_subsubtlvs(adj->subsubtlvs);
 					XFREE(MTYPE_ISIS_SUBTLV, adj);
 					break;
 				}
@@ -1893,6 +1905,17 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				stream_get(&lan->sid, s, IPV6_MAX_BYTELEN);
 				subsubtlv_len = stream_getc(s);
 
+				if (subsubtlv_len >
+				    subtlv_len - ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE) {
+					TLV_SIZE_MISMATCH(log, indent,
+							  "SRv6 LAN End.X SID subsubtlvs");
+					XFREE(MTYPE_ISIS_SUBTLV, lan);
+					stream_forward_getp(
+						s,
+						subtlv_len - ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE);
+					break;
+				}
+
 				lan->subsubtlvs = isis_alloc_subsubtlvs(
 					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
 
@@ -1900,6 +1923,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
 						subsubtlv_len, s, log, lan->subsubtlvs, indent + 4,
 						&unpacked_known_tlvs)) {
+					isis_free_subsubtlvs(lan->subsubtlvs);
 					XFREE(MTYPE_ISIS_SUBTLV, lan);
 					break;
 				}
