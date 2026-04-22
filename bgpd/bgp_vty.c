@@ -20564,7 +20564,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* Local interface name */
-	if (peer->ifname) {
+	if (peer->ifname && !peer->ifname_in_address) {
 		vty_out(vty, " neighbor %s interface %s\n", addr, peer->ifname);
 	}
 

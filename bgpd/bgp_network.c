@@ -509,6 +509,17 @@ static void bgp_accept(struct event *event)
 	/* Check remote IP address */
 	peer = peer_lookup(bgp, &su);
 
+	if (!peer && su.sa.sa_family == AF_INET6) {
+		/* LL peer may be configured with or without ifname in address;
+		 * this results in differing hash entries
+		 */
+		struct interface *ifp;
+
+		ifp = if_lookup_by_index(su.sin6.sin6_scope_id, bgp->vrf_id);
+		if (ifp)
+			peer = peer_lookup_llaname(bgp, &su, ifp->name);
+	}
+
 	if (!peer) {
 		struct peer *dynamic_peer = peer_lookup_dynamic_neighbor(bgp, &su);
 

@@ -1643,6 +1643,7 @@ struct peer {
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
 	char *ifname;	  /* bind interface name. */
+	bool ifname_in_address; /* fe80::1234%eth0 was used to create peer */
 	char *update_if;
 	union sockunion *update_source;
 

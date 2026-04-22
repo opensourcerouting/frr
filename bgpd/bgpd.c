@@ -1115,8 +1115,13 @@ int peer_cmp(struct peer *p1, struct peer *p2)
 static unsigned int connection_hash_key_make(const void *p)
 {
 	const struct peer_connection *connection = p;
+	const struct peer *peer = connection->peer;
+	uint32_t val;
 
-	return sockunion_hash(&connection->su);
+	val = sockunion_hash(&connection->su);
+	if (peer->ifname_in_address)
+		val = jhash(peer->ifname, strlen(peer->ifname), val);
+	return val;
 }
 
 static bool connection_hash_same(const void *p1, const void *p2)
@@ -1125,9 +1130,18 @@ static bool connection_hash_same(const void *p1, const void *p2)
 	const struct peer_connection *c2 = p2;
 	const struct peer *peer1 = c1->peer;
 	const struct peer *peer2 = c2->peer;
+	const char *ifname1 = peer1->ifname_in_address ? peer1->ifname : NULL;
+	const char *ifname2 = peer2->ifname_in_address ? peer2->ifname : NULL;
 
-	return (sockunion_same(&c1->su, &c2->su) &&
-		peer_is_config_node(peer1) == peer_is_config_node(peer2));
+	if (!sockunion_same(&c1->su, &c2->su))
+		return false;
+	if (peer_is_config_node(peer1) != peer_is_config_node(peer2))
+		return false;
+	if ((ifname1 == NULL) != (ifname2 == NULL))
+		return false;
+	if (ifname1 && strcmp(ifname1, ifname2))
+		return false;
+	return true;
 }
 
 void peer_flag_inherit(struct peer *peer, uint64_t flag)
@@ -1936,6 +1950,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 		peer_dst->ifname =
 			XSTRDUP(MTYPE_BGP_PEER_IFNAME, peer_src->ifname);
 	}
+	peer_dst->ifname_in_address = peer_src->ifname_in_address;
 	peer_dst->ttl = peer_src->ttl;
 	peer_dst->gtsm_hops = peer_src->gtsm_hops;
 }
@@ -2182,7 +2197,6 @@ struct peer *peer_create(union sockunion *su, const char *conf_if, struct bgp *b
 {
 	enum bgp_peer_active active;
 	struct peer *peer;
-	char buf[SU_ADDRSTRLEN];
 	afi_t afi;
 	safi_t safi;
 
@@ -2194,9 +2208,14 @@ struct peer *peer_create(union sockunion *su, const char *conf_if, struct bgp *b
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
 	} else if (su) {
-		sockunion2str(su, buf, SU_ADDRSTRLEN);
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
-		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
+		if (conf_if && conf_if[0]) {
+			peer->host = asprintfrr(MTYPE_BGP_PEER_HOST, "%pSU%%%s", su, conf_if);
+			peer->ifname = XSTRDUP(MTYPE_BGP_PEER_IFNAME, conf_if);
+			peer->ifname_in_address = true;
+		} else {
+			peer->host = asprintfrr(MTYPE_BGP_PEER_HOST, "%pSU", su);
+		}
 	}
 	peer->local_as = local_as;
 	peer->as = remote_as;
@@ -4857,6 +4876,10 @@ struct peer *peer_lookup_llaname(struct bgp *bgp, union sockunion *su, const cha
 	memset(&connection, 0, sizeof(struct peer_connection));
 	memset(&tmp_peer, 0, sizeof(struct peer));
 	tmp_peer.connection = &connection;
+	if (ifname && ifname[0]) {
+		tmp_peer.ifname = (char *)ifname;
+		tmp_peer.ifname_in_address = true;
+	}
 	connection.peer = &tmp_peer;
 
 	/*
