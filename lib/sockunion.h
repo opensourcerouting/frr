@@ -78,6 +78,7 @@ enum connect_result { connect_error, connect_success, connect_in_progress };
 
 /* Prototypes. */
 extern int str2sockunion(const char *str, union sockunion *su);
+extern int str2sockunion_ifname(const char *str, union sockunion *su, char ifname[IFNAMSIZ]);
 extern const char *sockunion2str(const union sockunion *su, char *buf,
 				 size_t len);
 extern int sockunion_cmp(const union sockunion *su1, const union sockunion *su2);

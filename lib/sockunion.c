@@ -33,6 +33,36 @@ const char *inet_sutop(const union sockunion *su, char *str)
 	return str;
 }
 
+int str2sockunion_ifname(const char *str, union sockunion *su, char ifname[IFNAMSIZ])
+{
+	const char *percent;
+	size_t ifnlen, addrlen;
+
+	ifname[0] = '\0';
+	percent = strchr(str, '%');
+	if (!percent)
+		return str2sockunion(str, su);
+
+	if (!strchr(str, ':'))
+		return -1;
+
+	addrlen = percent - str;
+
+	char addr[addrlen + 1];
+	memcpy(addr, str, addrlen);
+	addr[addrlen] = '\0';
+
+	percent++;
+	ifnlen = strlen(percent);
+	if (!*percent || ifnlen >= IFNAMSIZ)
+		return -1;
+
+	memcpy(ifname, percent, ifnlen);
+	ifname[ifnlen] = '\0';
+
+	return str2sockunion(addr, su);
+}
+
 int str2sockunion(const char *str, union sockunion *su)
 {
 	int ret;
