@@ -515,7 +515,7 @@ void bgp_bfd_show_info(struct vty *vty, struct peer *peer, json_object *json_nei
 
 DEFUN (neighbor_bfd,
        neighbor_bfd_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
+       "neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n")
@@ -541,7 +541,7 @@ DEFUN (neighbor_bfd,
 DEFUN(
        neighbor_bfd_param,
        neighbor_bfd_param_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
+       "neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd (2-255) (50-60000) (50-60000)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
@@ -582,7 +582,7 @@ DEFUN(
 DEFUN_HIDDEN(
        neighbor_bfd_param,
        neighbor_bfd_param_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> bfd (2-255) (50-60000) (50-60000)",
+       "neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd (2-255) (50-60000) (50-60000)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enables BFD support\n"
@@ -621,7 +621,7 @@ DEFUN_HIDDEN(
 
 DEFPY (neighbor_bfd_strict,
        neighbor_bfd_strict_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict",
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD>$neighbor bfd strict",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -642,7 +642,7 @@ DEFPY (neighbor_bfd_strict,
 
 DEFPY (neighbor_bfd_strict_hold_time,
        neighbor_bfd_strict_hold_time_cmd,
-       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict hold-time ![(1-4294967295)$hold_time]",
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD>$neighbor bfd strict hold-time ![(1-4294967295)$hold_time]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -679,7 +679,7 @@ DEFPY (neighbor_bfd_strict_hold_time,
 
 DEFUN (neighbor_bfd_check_controlplane_failure,
        neighbor_bfd_check_controlplane_failure_cmd,
-       "[no] neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure",
+       "[no] neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd check-control-plane-failure",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -712,7 +712,7 @@ DEFUN (neighbor_bfd_check_controlplane_failure,
 #if HAVE_BFDD > 0
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd",
+       "no neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -737,7 +737,7 @@ DEFUN (no_neighbor_bfd,
 #if HAVE_BFDD == 0
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd [(2-255) (50-60000) (50-60000)]",
+       "no neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd [(2-255) (50-60000) (50-60000)]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -764,7 +764,7 @@ DEFUN (no_neighbor_bfd,
 
 #if HAVE_BFDD > 0
 DEFUN(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
-      "neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile BFDPROF",
+      "neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd profile BFDPROF",
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
       "BFD integration\n"
@@ -791,7 +791,7 @@ DEFUN(neighbor_bfd_profile, neighbor_bfd_profile_cmd,
 }
 
 DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> bfd profile [BFDPROF]",
+      "no neighbor <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD> bfd profile [BFDPROF]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2

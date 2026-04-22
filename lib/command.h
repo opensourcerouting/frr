@@ -480,7 +480,7 @@ struct cmd_node {
 /* IPv4 only machine should not accept IPv6 address for peer's IP
    address.  So we replace VTY command string like below. */
 #define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
-#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nInterface name or neighbor tag\n"
+#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nNeighbor IPv6 link-local with interface name\nInterface name or neighbor tag\n"
 #define NEIGHBOR_ADDR_STR3 "Neighbor address\nIPv6 address\nInterface name\n"
 
 /* Graceful Restart cli help strings */

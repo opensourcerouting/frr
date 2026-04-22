@@ -2652,6 +2652,7 @@ extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t vrf_id);
 extern struct bgp *bgp_get_evpn(void);
 extern void bgp_set_evpn(struct bgp *bgp);
 extern struct peer *peer_lookup(struct bgp *bgp, union sockunion *su);
+extern struct peer *peer_lookup_llaname(struct bgp *bgp, union sockunion *su, const char *ifname);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *bgp, const char *ifname);
 extern struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname);
 extern void bgp_peer_conf_if_to_su_update(struct peer_connection *connection);
@@ -2787,8 +2788,8 @@ extern void bgp_zebra_suppress_fib_pending_config_retry(void);
 extern int peer_activate(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi);
 
-extern int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
-			   struct peer_group *group, as_t *as);
+extern int peer_group_bind(struct bgp *bgp, union sockunion *su, char ifname[IFNAMSIZ],
+			   struct peer *peer, struct peer_group *group, as_t *as);
 
 extern int peer_flag_set(struct peer *peer, uint64_t flag);
 extern int peer_flag_unset(struct peer *peer, uint64_t flag);

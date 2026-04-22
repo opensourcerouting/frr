@@ -199,11 +199,12 @@ static struct peer *bgp_find_peer(struct vty *vty, const char *peer_str)
 	int ret;
 	union sockunion su;
 	struct peer *peer;
+	char ifname[IFNAMSIZ];
 
 	if (!bgp) {
 		return NULL;
 	}
-	ret = str2sockunion(peer_str, &su);
+	ret = str2sockunion_ifname(peer_str, &su, ifname);
 
 	/* 'swpX' string */
 	if (ret < 0) {
@@ -214,7 +215,7 @@ static struct peer *bgp_find_peer(struct vty *vty, const char *peer_str)
 
 		return peer;
 	} else
-		return peer_lookup(bgp, &su);
+		return peer_lookup_llaname(bgp, &su, ifname);
 }
 
 static void bgp_debug_list_free(struct list *list)
@@ -848,12 +849,13 @@ DEFPY(debug_bgp_neighbor_events_detail,
 
 DEFUN (debug_bgp_neighbor_events_peer,
        debug_bgp_neighbor_events_peer_cmd,
-       "debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
+       "debug bgp neighbor-events <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD>",
        DEBUG_STR
        BGP_STR
        "BGP Neighbor Events\n"
        "BGP neighbor IP address to debug\n"
        "BGP IPv6 neighbor to debug\n"
+       "BGP link-local IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
 	int idx_peer = 3;
@@ -906,13 +908,14 @@ DEFUN (no_debug_bgp_neighbor_events,
 
 DEFUN (no_debug_bgp_neighbor_events_peer,
        no_debug_bgp_neighbor_events_peer_cmd,
-       "no debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
+       "no debug bgp neighbor-events <A.B.C.D|X:X::X:X|X:X::X:X%IF|WORD>",
        NO_STR
        DEBUG_STR
        BGP_STR
        "Neighbor Events\n"
        "BGP neighbor IP address to debug\n"
        "BGP IPv6 neighbor to debug\n"
+       "BGP link-local IPv6 neighbor to debug\n"
        "BGP neighbor on interface to debug\n")
 {
 	int idx_peer = 4;
