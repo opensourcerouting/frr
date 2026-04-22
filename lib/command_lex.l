@@ -33,6 +33,7 @@ IPV4            A\.B\.C\.D
 IPV4_PREFIX     A\.B\.C\.D\/M
 IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
+IPV6_IFACE      X:X::X:X%IF
 MAC             X:X:X:X:X:X
 MAC_PREFIX      X:X:X:X:X:X\/M
 VARIABLE        [A-Z][-_A-Z:0-9]+
@@ -64,6 +65,7 @@ ASNUM           ASNUM
 {IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV4_PREFIX;}
 {IPV6}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6;}
 {IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6_PREFIX;}
+{IPV6_IFACE}    {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6_IFACE;}
 {MAC}           {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC;}
 {MAC_PREFIX}    {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC_PREFIX;}
 {VARIABLE}      {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return VARIABLE;}

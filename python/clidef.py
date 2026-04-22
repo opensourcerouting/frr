@@ -9,9 +9,17 @@ from functools import reduce
 from pprint import pprint
 from string import Template
 from io import StringIO
+from dataclasses import dataclass
 
 # the various handlers generate output C code for a particular type of
 # CLI token, choosing the most useful output C type.
+
+
+@dataclass
+class AddArg:
+    argtype: str
+    suffix: str
+    deref: str = ""
 
 
 class RenderHandler(object):
@@ -27,6 +35,7 @@ class RenderHandler(object):
     drop_str = False
     canfail = True
     canassert = False
+    addargs: list[AddArg] = []
 
 
 class StringHandler(RenderHandler):
@@ -102,8 +111,13 @@ class IPBase(RenderHandler):
     def combine(self, other):
         if type(self) == type(other):
             return other
+        upgrade = IPGenHandler
+        if type(self) in [IP6IfaceHandler, IPGenIfaceHandler]:
+            upgrade = IPGenIfaceHandler
+        if type(other) in [IP6IfaceHandler, IPGenIfaceHandler]:
+            return IPGenIfaceHandler(None)
         if type(other) in [IP4Handler, IP6Handler, IPGenHandler]:
-            return IPGenHandler(None)
+            return upgrade(None)
         return StringHandler(None)
 
 
@@ -119,6 +133,16 @@ class IP6Handler(IPBase):
     code = Template("_fail = !inet_pton(AF_INET6, argv[_i]->arg, &$varname);")
 
 
+class IP6IfaceHandler(IPBase):
+    argtype = "struct in6_addr"
+    addargs = [
+        AddArg("const char *", "_ifname"),
+    ]
+    decl = Template("""struct in6_addr $varname = {};
+char ${varname}_ifname[IFNAMSIZ] = "";""")
+    code = Template("_fail = !inet6_pton_ifname(argv[_i]->arg, &$varname, ${varname}_ifname);")
+
+
 class IPGenHandler(IPBase):
     argtype = "const union sockunion *"
     decl = Template(
@@ -130,6 +154,32 @@ if (argv[_i]->text[0] == 'X') {
 	s__$varname.sa.sa_family = AF_INET6;
 	_fail = !inet_pton(AF_INET6, argv[_i]->arg, &s__$varname.sin6.sin6_addr);
 	$varname = &s__$varname;
+} else {
+	s__$varname.sa.sa_family = AF_INET;
+	_fail = !inet_aton(argv[_i]->arg, &s__$varname.sin.sin_addr);
+	$varname = &s__$varname;
+}"""
+    )
+    canassert = True
+
+
+class IPGenIfaceHandler(IPBase):
+    argtype = "const union sockunion *"
+    addargs = [
+        AddArg("const char *", "_ifname"),
+    ]
+    decl = Template(
+        """union sockunion s__$varname = { .sa.sa_family = AF_UNSPEC }, *$varname = NULL;
+char s__${varname}_ifname[IFNAMSIZ] = "", *${varname}_ifname = NULL;
+"""
+    )
+    code = Template(
+        """\
+if (argv[_i]->text[0] == 'X') {
+	s__$varname.sa.sa_family = AF_INET6;
+	_fail = !inet6_pton_ifname(argv[_i]->arg, &s__$varname.sin6.sin6_addr, s__${varname}_ifname);
+	$varname = &s__$varname;
+    ${varname}_ifname = s__${varname}_ifname[0] ? s__${varname}_ifname : NULL;
 } else {
 	s__$varname.sa.sa_family = AF_INET;
 	_fail = !inet_aton(argv[_i]->arg, &s__$varname.sin.sin_addr);
@@ -156,6 +206,7 @@ handlers = {
     "IPV4_PREFIX_TKN": Prefix4Handler,
     "IPV6_TKN": IP6Handler,
     "IPV6_PREFIX_TKN": Prefix6Handler,
+    "IPV6_IFACE_TKN": IP6IfaceHandler,
     "MAC_TKN": PrefixEthHandler,
     "MAC_PREFIX_TKN": PrefixEthHandler,
     "ASNUM_TKN": AsDotHandler,
@@ -380,6 +431,9 @@ def process_file(fn, ofd, dumpfd, all_defun, macros):
                     )
                 )
                 arglist.append(", %s%s" % (handler.deref, varname))
+                for addarg in handler.addargs:
+                    argdefs.append(",\\\n\t%s %s%s%s" % (addarg.argtype, varname, addarg.suffix, attr))
+                    arglist.append(", %s%s%s" % (addarg.deref, varname, addarg.suffix))
                 if basename in always_args and handler.canassert:
                     argassert.append(
                         """\tif (!%s) {

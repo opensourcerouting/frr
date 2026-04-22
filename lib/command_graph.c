@@ -258,6 +258,7 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 	case IPV4_TKN:
 	case IPV4_PREFIX_TKN:
 	case IPV6_PREFIX_TKN:
+	case IPV6_IFACE_TKN:
 	case IPV6_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
@@ -536,6 +537,7 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 	case IPV4_PREFIX_TKN:
 	case IPV6_TKN:
 	case IPV6_PREFIX_TKN:
+	case IPV6_IFACE_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
 	case END_TKN:

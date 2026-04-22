@@ -43,6 +43,7 @@ enum cmd_token_type {
 	IPV4_PREFIX_TKN, // IPV4 network prefixes
 	IPV6_TKN,        // IPV6 prefixes
 	IPV6_PREFIX_TKN, // IPV6 network prefixes
+	IPV6_IFACE_TKN,  // link-local IPV6 address with %interface
 	MAC_TKN,         // Ethernet address
 	MAC_PREFIX_TKN,  // Ethernet address w/ CIDR mask
 	ASNUM_TKN,       // AS dot format

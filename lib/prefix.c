@@ -1332,6 +1332,32 @@ int netmask_str2prefix_str(const char *net_str, const char *mask_str,
 	return 1;
 }
 
+bool inet6_pton_ifname(const char *input, struct in6_addr *out, char ifname[IFNAMSIZ])
+{
+	char *percent = strchr(input, '%');
+	size_t addrlen = percent ? (size_t)(percent - input) : strlen(input);
+	char addr[addrlen + 1];
+	size_t ifnlen;
+
+	memcpy(addr, input, addrlen);
+	addr[addrlen] = '\0';
+
+	if (!inet_pton(AF_INET6, addr, out))
+		return false;
+	if (!percent) {
+		ifname[0] = '\0';
+		return true;
+	}
+
+	percent++;
+	ifnlen = strlen(percent);
+	if (!ifnlen || ifnlen >= IFNAMSIZ)
+		return false;
+	memcpy(ifname, percent, ifnlen);
+	ifname[ifnlen] = '\0';
+	return true;
+}
+
 /* converts to internal representation of mac address
  * returns 1 on success, 0 otherwise
  * format accepted: AA:BB:CC:DD:EE:FF
