@@ -24,13 +24,13 @@
   "rules": [
     {
       "id": "memory-allocation",
-      "rule": "NEVER allow standard malloc(), calloc(), realloc(), or free(). Enforce FRR's XCALLOC, XMALLOC, XREALLOC, XSTRDUP, and XFREE macros (requires MTYPE). Every allocation must use the MTYPE tracking system declared via DECLARE_MTYPE/DEFINE_MTYPE.",
+      "rule": "NEVER allow standard malloc(), calloc(), realloc(), or free(). Enforce FRR's XCALLOC, XMALLOC, XREALLOC, XSTRDUP, and XFREE macros (requires MTYPE). Every allocation must use the MTYPE tracking system declared via DECLARE_MTYPE/DEFINE_MTYPE. Prefer DEFINE_MTYPE_STATIC for module-private types.",
       "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
       "severity": "high"
     },
     {
       "id": "logging-api",
-      "rule": "Reject printf() or stdio logging. Enforce FRR's zlog_* API (zlog_debug, zlog_err, zlog_warn, zlog_info, zlog_notice). All debug statements MUST be guarded with CLI-controllable debug flags — unguarded debug prints are unacceptable at scale.",
+      "rule": "Reject printf() or stdio logging. Enforce FRR's zlog_* API (zlog_debug, zlog_err, zlog_warn, zlog_info, zlog_notice) and structured error macros flog_err(), flog_warn(), flog_err_sys() (which require an EC_* error-code argument). All debug statements MUST be guarded with CLI-controllable debug flags — unguarded debug prints are unacceptable at scale.",
       "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
       "severity": "high"
     },
