@@ -1,6 +1,6 @@
 {
   "strictness": 2,
-  "commentTypes": ["logic", "syntax", "best_practices", "security"],
+  "commentTypes": ["logic", "syntax", "style"],
   "triggerOnUpdates": true,
   "statusCheck": true,
   "ignorePatterns": ["**/*.generated.*", "**/*.pb.cc", "**/*.pb.h", "**/*.grpc.pb.cc", "**/*.grpc.pb.h", ".git/**"],
@@ -26,7 +26,7 @@
       "id": "memory-allocation",
       "rule": "NEVER allow standard malloc(), calloc(), realloc(), or free(). Enforce FRR's XCALLOC, XMALLOC, XREALLOC, XSTRDUP, and XFREE macros (requires MTYPE). Every allocation must use the MTYPE tracking system declared via DECLARE_MTYPE/DEFINE_MTYPE. Prefer DEFINE_MTYPE_STATIC for module-private types.",
       "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
-      "severity": "high"
+      "severity": "critical"
     },
     {
       "id": "logging-api",
