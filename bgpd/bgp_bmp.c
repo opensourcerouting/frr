@@ -8,7 +8,7 @@
 
 #include "log.h"
 #include "stream.h"
-#include "sockunion.h"
+#include "sockopt.h"
 #include "command.h"
 #include "prefix.h"
 #include "frrevent.h"

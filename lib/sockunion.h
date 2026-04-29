@@ -93,13 +93,8 @@ extern union sockunion *sockunion_str2su(const char *str);
 extern int sockunion_accept(int sock, union sockunion *su);
 extern int sockunion_sizeof(const union sockunion *su);
 extern int sockunion_stream_socket(union sockunion *su);
-extern int sockopt_reuseaddr(int sock);
-extern int sockopt_reuseport(int sock);
-extern int sockopt_v6only(int family, int sock);
 extern int sockunion_bind(int sock, union sockunion *su, unsigned short port,
 			  union sockunion *su_addr);
-extern int sockopt_ttl(int family, int sock, int ttl);
-extern int sockopt_minttl(int family, int sock, int minttl);
 extern int sockunion_socket(const union sockunion *su);
 extern const char *inet_sutop(const union sockunion *su, char *str);
 extern enum connect_result sockunion_connect(int fd, const union sockunion *su, unsigned short port);

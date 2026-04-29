@@ -20,8 +20,8 @@
 #include "log.h"
 #include "frrevent.h"
 #include "hash.h"
-#include "sockunion.h" /* for inet_aton() */
 #include "buffer.h"
+#include "lib/sockopt.h"
 
 #include <sys/types.h>
 

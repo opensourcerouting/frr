@@ -27,6 +27,7 @@
 #include "lib/printfrr.h"
 #include "lib/stream.h"
 #include "lib/frrevent.h"
+#include "lib/sockopt.h"
 
 #include "bfd.h"
 #include "bfddp_packet.h"

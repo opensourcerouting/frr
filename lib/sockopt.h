@@ -178,6 +178,12 @@ extern int setsockopt_tcp_keepalive(int sock, uint16_t keepalive_idle,
  */
 extern void sockopt_ip_transparent(int sock);
 
+extern int sockopt_reuseaddr(int sock);
+extern int sockopt_reuseport(int sock);
+extern int sockopt_v6only(int family, int sock);
+extern int sockopt_ttl(int family, int sock, int ttl);
+extern int sockopt_minttl(int family, int sock, int minttl);
+
 #ifdef __cplusplus
 }
 #endif

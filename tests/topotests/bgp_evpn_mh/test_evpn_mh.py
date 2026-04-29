@@ -24,7 +24,7 @@ import json
 import platform
 from functools import partial
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.pimd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -860,7 +860,9 @@ def test_evpn_vtep_change():
     # 4. Verify new VTEP appears and old VTEP is removed
     test_fn = partial(check_remote_es_vtep_present, dut, esi, secondary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
-    assertmsg = f"torm11: secondary VTEP {secondary_vtep} not found in ES {esi} after switch"
+    assertmsg = (
+        f"torm11: secondary VTEP {secondary_vtep} not found in ES {esi} after switch"
+    )
     assert result is None, assertmsg
 
     test_fn = partial(check_remote_es_vtep_absent, dut, esi, primary_vtep)

@@ -37,7 +37,7 @@ from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.ospfd]
 
 
 def build_topo(tgen):

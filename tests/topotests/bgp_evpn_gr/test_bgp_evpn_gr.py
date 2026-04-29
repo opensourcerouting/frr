@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: ISC
 #
 # Reference topology from bgp_evpn_overlay_index_gateway/test_bgp_evpn_overlay_index_gateway.py:
-# 
+#
 #          +--------+ BGP     +--------+ BGP  +--------+      +--------+
 #     SN1  |        | IPv4/v6 |        | EVPN |        |      |        |
 #   =======+ Host1  +---------+   PE1  +------+   PE2  +------+  Host2 +
 #          |        |         |        |      |        |      |        |
 #          +--------+         +--------+      +--------+      +--------+
-# 
+#
 # Host1 is connected to PE1 and Host2 is connected to PE2.
 # Host1 and PE1 have IPv4/v6 BGP sessions.
 # PE1 and PE2 have an EVPN session.
@@ -23,7 +23,7 @@ import time
 import functools
 import pytest
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -38,6 +38,7 @@ from lib.common_config import (
     start_router_daemons,
 )
 
+
 def build_topo(tgen):
     # Create PE and host routers
     for name in ["PE1", "PE2", "host1", "host2"]:
@@ -46,6 +47,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["PE1"], tgen.gears["PE2"], "PE1-eth0", "PE2-eth0")
     tgen.add_link(tgen.gears["PE1"], tgen.gears["host1"], "PE1-eth1", "host1-eth0")
     tgen.add_link(tgen.gears["PE2"], tgen.gears["host2"], "PE2-eth1", "host2-eth0")
+
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
@@ -68,7 +70,9 @@ def setup_module(mod):
         bridge_ipv6 = f"fd00:50:1::{suf}/48"
         pe.cmd_raises("ip link add vrf-blue type vrf table 10")
         pe.cmd_raises("ip link set dev vrf-blue up")
-        pe.cmd_raises(f"ip link add vxlan100 type vxlan id 100 dstport 4789 local {vtep_ip}")
+        pe.cmd_raises(
+            f"ip link add vxlan100 type vxlan id 100 dstport 4789 local {vtep_ip}"
+        )
         pe.cmd_raises("ip link add name br100 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan100 master br100")
         pe.cmd_raises(f"ip link set dev {name}-eth1 master br100")
@@ -78,7 +82,9 @@ def setup_module(mod):
         pe.cmd_raises(f"ip link set up dev {name}-eth1")
         pe.cmd_raises("ip link set dev br100 master vrf-blue")
         pe.cmd_raises(f"ip -6 addr add {bridge_ipv6} dev br100")
-        pe.cmd_raises(f"ip link add vxlan1000 type vxlan id 1000 dstport 4789 local {vtep_ip}")
+        pe.cmd_raises(
+            f"ip link add vxlan1000 type vxlan id 1000 dstport 4789 local {vtep_ip}"
+        )
         pe.cmd_raises("ip link add name br1000 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan1000 master br1000")
         pe.cmd_raises("ip link set up dev br1000")
@@ -111,7 +117,9 @@ def _evpn_peer_established(router: TopoRouter, neighbor_ip: str) -> bool:
     if neighbor_ip not in peers:
         logger.info(f"Neighbor {neighbor_ip} not found in BGP summary")
         return False
-    logger.info(f"Neighbor {neighbor_ip} found in BGP summary with state: {peers[neighbor_ip].get('state')}")
+    logger.info(
+        f"Neighbor {neighbor_ip} found in BGP summary with state: {peers[neighbor_ip].get('state')}"
+    )
     return peers[neighbor_ip].get("state") == "Established"
 
 
@@ -215,7 +223,9 @@ def _evpn_remote_type_paths_stale(router: TopoRouter, route_type: int) -> bool:
     return found_remote and found_stale
 
 
-def _evpn_routes_with_stale_only_for_rd(router: TopoRouter, rd: str, route_type: int) -> bool:
+def _evpn_routes_with_stale_only_for_rd(
+    router: TopoRouter, rd: str, route_type: int
+) -> bool:
     """
     Verify that all paths whose RD matches the input RD and route_type are marked as stale.
     Succeeds only if at least one matching path is found and all such paths are stale.
@@ -247,12 +257,15 @@ def _evpn_routes_with_stale_only_for_rd(router: TopoRouter, rd: str, route_type:
                     found_matching_path = True
                     logger.info(f"Checking prefix: {prefix} path: {p}")
                     if not bool(p.get("stale")):
-                        logger.info(f"Checking prefix: {prefix} path: {p} is not stale, returning False")
+                        logger.info(
+                            f"Checking prefix: {prefix} path: {p} is not stale, returning False"
+                        )
                         return False
     if not found_matching_path:
         logger.info(f"No matching path found for RD: {rd} and route type: {route_type}")
         return False
     return True
+
 
 def _vrf_has_kernel_routes(router: TopoRouter, vrf_name: str, prefixes):
     if isinstance(prefixes, str):
@@ -314,7 +327,7 @@ def fetch_vni_rd_from_pe2(pe2: TopoRouter, vni: int):
             output = json.loads(output)
         if "rd" in output:
             logger.info(f"RD for VNI {vni} found: {output.get('rd')}")
-            return output.get("rd") 
+            return output.get("rd")
     except Exception as e:
         logger.info(f"Failed to fetch RD from PE2 VNI {vni}: {e}")
     return None
@@ -449,13 +462,23 @@ def test_bgp_evpn_gr_stale_and_recovery():
     assert result, "No remote EVPN type-5 routes seen on PE2"
 
     # Kernel VRF routes imported (type-5): verify PE2 has host1, PE1 has host2
-    logger.info("STEP 5: Verify type-5 routes are installed into kernel VRF on both PEs")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["172.31.0.21"])
+    logger.info(
+        "STEP 5: Verify type-5 routes are installed into kernel VRF on both PEs"
+    )
+    test_func = functools.partial(
+        _vrf_has_kernel_routes, pe2, "vrf-blue", ["172.31.0.21"]
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, "Type-5 prefix 172.31.0.21/32 not installed in PE2 kernel VRF vrf-blue"
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
+    assert (
+        result
+    ), "Type-5 prefix 172.31.0.21/32 not installed in PE2 kernel VRF vrf-blue"
+    test_func = functools.partial(
+        _vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"]
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, "Type-5 prefix 172.31.0.22/32 not installed in PE1 kernel VRF vrf-blue"
+    assert (
+        result
+    ), "Type-5 prefix 172.31.0.22/32 not installed in PE1 kernel VRF vrf-blue"
 
     # Ensure type-2 routes exist on both PEs
     logger.info("STEP 6: Verify remote EVPN type-2 routes exist on both PEs")
@@ -468,15 +491,21 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # Ensure type-2 are installed as extern_learn in FDB (remote MACs)
     logger.info("STEP 7: Verify remote MACs are extern_learn in FDB (type-2)")
-    test_func = functools.partial(_bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62")
+    test_func = functools.partial(
+        _bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62"
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "Remote MAC (host2) not extern_learn in PE1 FDB for vxlan100"
-    test_func = functools.partial(_bridge_has_extern_learn, pe2, "vxlan100", "1a:2b:3c:4d:5e:61")
+    test_func = functools.partial(
+        _bridge_has_extern_learn, pe2, "vxlan100", "1a:2b:3c:4d:5e:61"
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "Remote MAC (host1) not extern_learn in PE2 FDB for vxlan100"
 
     # Verify that remote MACs on PE1 are installed as extern_learn in kernel's ip_neigh table
-    logger.info("STEP 7b: Verify remote MACs are extern_learn in PE1 kernel's ip_neigh table")
+    logger.info(
+        "STEP 7b: Verify remote MACs are extern_learn in PE1 kernel's ip_neigh table"
+    )
 
     # For PE1, check host2's MAC (remote side)
     test_func = functools.partial(_ip_neigh_has_extern_learn, pe1, "1a:2b:3c:4d:5e:62")
@@ -500,43 +529,55 @@ def test_bgp_evpn_gr_stale_and_recovery():
     # PE1 should retain only PE2-originated EVPN routes as stale during GR (type-2 and type-5), not local
     # Verify only type-5 routes from PE2's RD are stale
     logger.info("STEP 9: Check PE1 retains ONLY PE2-originated type-5 routes as stale")
-    test_func = functools.partial(_evpn_routes_with_stale_only_for_rd, pe1, rd=pe2_rd_vni_1000, route_type=5)
-    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, (
-        "PE1 did not retain ONLY PE2-originated EVPN type-5 routes as stale during PE2 restart"
+    test_func = functools.partial(
+        _evpn_routes_with_stale_only_for_rd, pe1, rd=pe2_rd_vni_1000, route_type=5
     )
-    
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert (
+        result
+    ), "PE1 did not retain ONLY PE2-originated EVPN type-5 routes as stale during PE2 restart"
+
     logger.info(f"PE2 RD for VNI 100: {pe2_rd_vni_100}")
     # Verify only type-2 routes from PE2's RD are stale
     logger.info("STEP 10: Check PE1 retains ONLY PE2-originated type-2 routes as stale")
-    test_func = functools.partial(_evpn_routes_with_stale_only_for_rd, pe1, rd=pe2_rd_vni_100, route_type=2)
-    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, (
-        "PE1 did not retain ONLY PE2-originated EVPN type-2 routes as stale during PE2 restart"
+    test_func = functools.partial(
+        _evpn_routes_with_stale_only_for_rd, pe1, rd=pe2_rd_vni_100, route_type=2
     )
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert (
+        result
+    ), "PE1 did not retain ONLY PE2-originated EVPN type-2 routes as stale during PE2 restart"
 
     # Also generic check for any stale presence
-    logger.info("STEP 11: Confirm PE1 shows some EVPN routes as stale during PE2 restart")
+    logger.info(
+        "STEP 11: Confirm PE1 shows some EVPN routes as stale during PE2 restart"
+    )
     test_func = functools.partial(_evpn_has_any_stale, pe1)
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "PE1 did not retain EVPN routes as stale during PE2 restart"
 
     # Verify PE1 kernel still has routes learned from PE2 in vrf-blue (type-5 retained)
     logger.info("STEP 12: Verify PE1 kernel retains type-5 routes from PE2 during GR")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
+    test_func = functools.partial(
+        _vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"]
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "PE1 kernel VRF routes learned from PE2 disappeared during GR"
 
     # Verify PE1 FDB retains extern learned MAC from PE2 (type-2 retained)
     logger.info("STEP 13: Verify PE1 FDB retains extern_learn MAC from PE2 during GR")
-    test_func = functools.partial(_bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62")
+    test_func = functools.partial(
+        _bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62"
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "PE1 FDB extern_learn entry from PE2 disappeared during GR"
 
     # Verify PE1 kernel still has routes learned from PE2 in vrf-blue (type-5 retained)
     test_func = functools.partial(_ip_neigh_has_extern_learn, pe1, "1a:2b:3c:4d:5e:62")
     result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
-    assert result, "PE1 kernel ip_neigh table extern_learn entry from PE2 disappeared during GR"
+    assert (
+        result
+    ), "PE1 kernel ip_neigh table extern_learn entry from PE2 disappeared during GR"
 
     # Bring bgpd back on PE2
     logger.info("STEP 14: Restart bgpd on PE2 to recover session")
@@ -573,13 +614,15 @@ def test_bgp_evpn_gr_stale_and_recovery():
     test_func = functools.partial(_gr_r_bit_set, pe1, "10.0.1.2")
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "EVPN GR R-bit not set on PE1 neighbor view after PE2 restart"
-    
+
     test_func = functools.partial(_evpn_f_bit_set, pe1, "10.0.1.2")
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "EVPN AF F-bit not set on PE1 neighbor view during PE2 restart"
 
     # After session recovery, stale flags should be cleared for type-2 and type-5 on PE1
-    logger.info("STEP 17: Ensure remote EVPN type-5 and type-2 remain active after recovery")
+    logger.info(
+        "STEP 17: Ensure remote EVPN type-5 and type-2 remain active after recovery"
+    )
     test_func = functools.partial(_evpn_has_remote_route_type, pe1, 5)
     result, _ = topotest.run_and_expect(test_func, True, count=120, wait=2)
     assert result, "Remote EVPN type-5 routes disappeared on PE1 after PE2 recovered"
@@ -589,13 +632,17 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # After bgpd recovery on PE2, verify PE1 kernel still has routes learned from PE2
     logger.info("STEP 18: Verify PE1 kernel still has routes from PE2 after recovery")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
+    test_func = functools.partial(
+        _vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"]
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=120, wait=2)
     assert result, "PE1 kernel VRF routes learned from PE2 disappeared after recovery"
 
     # And verify PE1 FDB still has extern_learn entry from PE2
     logger.info("STEP 19: Verify PE1 FDB retains extern_learn MAC after recovery")
-    test_func = functools.partial(_bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62")
+    test_func = functools.partial(
+        _bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62"
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=120, wait=2)
     assert result, "PE1 FDB extern_learn entry from PE2 disappeared after recovery"
 
@@ -652,12 +699,16 @@ def test_bgp_evpn_gr_stale_cleanup_on_timeout():
     assert result, "No remote EVPN type-5 routes on PE1"
 
     logger.info("STEP 4: Verify kernel VRF has type-5 route on PE1 prior to GR")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
+    test_func = functools.partial(
+        _vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"]
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "Missing kernel VRF routes on PE1 prior to GR"
 
     logger.info("STEP 5: Verify extern_learn MAC is present on PE1 prior to GR")
-    test_func = functools.partial(_bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62")
+    test_func = functools.partial(
+        _bridge_has_extern_learn, pe1, "vxlan100", "1a:2b:3c:4d:5e:62"
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "Missing extern_learn MAC on PE1 prior to GR"
 
@@ -675,10 +726,16 @@ def test_bgp_evpn_gr_stale_cleanup_on_timeout():
     result, _ = topotest.run_and_expect(test_func, True, count=160, wait=1)
     assert result, "VRF kernel routes on PE1 not cleaned after GR stalepath-time expiry"
 
-    logger.info("STEP 9: Verify FDB extern_learn MAC learned from PE2 is cleaned on PE1")
-    test_func = functools.partial(_bridge_extern_absent, pe1, "vxlan100", "1a:2b:3c:4d:5e:62")
+    logger.info(
+        "STEP 9: Verify FDB extern_learn MAC learned from PE2 is cleaned on PE1"
+    )
+    test_func = functools.partial(
+        _bridge_extern_absent, pe1, "vxlan100", "1a:2b:3c:4d:5e:62"
+    )
     result, _ = topotest.run_and_expect(test_func, True, count=160, wait=1)
-    assert result, "FDB extern_learn MAC on PE1 not cleaned after GR stalepath-time expiry"
+    assert (
+        result
+    ), "FDB extern_learn MAC on PE1 not cleaned after GR stalepath-time expiry"
 
     # Restore bgpd on PE2 for subsequent tests
     logger.info("STEP 10: Restart bgpd on PE2 for subsequent tests")

@@ -43,7 +43,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import step
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.ospf6d]
+pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.ospf6d]
 
 
 def build_topo(tgen):
@@ -168,7 +168,8 @@ def setup_module(mod):
     router_list = tgen.routers()
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra_v6_vtep.conf".format(rname))
+            TopoRouter.RD_ZEBRA,
+            os.path.join(CWD, "{}/zebra_v6_vtep.conf".format(rname)),
         )
         router.load_config(
             TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospfd6.conf".format(rname))
