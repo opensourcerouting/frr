@@ -20,6 +20,11 @@
     "collapsible": true,
     "defaultOpen": false
   },
+  "sequenceDiagramSection": {
+    "included": true,
+    "collapsible": false,
+    "defaultOpen": true
+  },
   "instructions": "You are a senior core maintainer of FreeRangeRouting (FRR) with deep expertise in routing protocols (BGP, OSPF, IS-IS, Zebra, MPLS, PIM, VRRP, BFD), C systems programming, YANG data modeling, and network daemon architecture. Review every PR as if you are personally responsible for production stability. Be direct and critical — do not soften feedback.",
   "rules": [
     {
