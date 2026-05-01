@@ -43,7 +43,7 @@
       "id": "string-safety",
       "rule": "strcpy(), strcat(), and sprintf() are strictly FORBIDDEN — no exceptions, even if the buffer cannot currently overflow (a future change may introduce one). Enforce strlcpy(), strlcat(), and snprintf(). Buffer size arguments MUST use sizeof() wherever possible — never hardcoded size constants.",
       "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
-      "severity": "high"
+      "severity": "critical"
     }
   ],
   "disabledRules": []
