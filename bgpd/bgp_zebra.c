@@ -1491,11 +1491,11 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 
 		if (((mpinfo->attr->srv6_l3service &&
 		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3service->sid)) ||
-		     (mpinfo->attr->srv6_vpn && !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
+		     (bgp_attr_get_srv6_vpn(mpinfo->attr) && !sid_zero_ipv6(&bgp_attr_get_srv6_vpn(mpinfo->attr)->sid))) &&
 		    !is_evpn) {
 			struct in6_addr *sid_tmp = mpinfo->attr->srv6_l3service
 							   ? (&mpinfo->attr->srv6_l3service->sid)
-							   : (&mpinfo->attr->srv6_vpn->sid);
+							   : (&bgp_attr_get_srv6_vpn(mpinfo->attr)->sid);
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
@@ -2534,7 +2534,7 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
 
 			if ((pi->attr->srv6_l3service &&
 			     !sid_zero_ipv6(&pi->attr->srv6_l3service->sid)) ||
-			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid)))
+			    (bgp_attr_get_srv6_vpn(pi->attr) && !sid_zero_ipv6(&bgp_attr_get_srv6_vpn(pi->attr)->sid)))
 				bgp_zebra_route_install(dest, pi, bgp, add, NULL, false);
 		}
 	}

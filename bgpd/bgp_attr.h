@@ -742,6 +742,18 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 #endif
 }
 
+static inline struct bgp_attr_srv6_vpn *
+bgp_attr_get_srv6_vpn(const struct attr *attr)
+{
+	return attr->srv6_vpn;
+}
+
+static inline void bgp_attr_set_srv6_vpn(struct attr *attr,
+					 struct bgp_attr_srv6_vpn *vpn)
+{
+	attr->srv6_vpn = vpn;
+}
+
 extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);
 extern void evpn_overlay_free(struct bgp_route_evpn *bre);
 extern struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre);
