@@ -987,6 +987,11 @@ static void transit_finish(void)
 	hash_clean_and_free(&transit_hash, (void (*)(void *))transit_free);
 }
 
+struct attr_extra *bgp_attr_extra_alloc(void)
+{
+	return XCALLOC(MTYPE_ATTR_EXTRA, sizeof(struct attr_extra));
+}
+
 /* Attribute hash routines. */
 static struct hash *attrhash;
 
@@ -1127,7 +1132,10 @@ static void attrhash_init(void)
  */
 static void attr_vfree(void *attr)
 {
-	XFREE(MTYPE_ATTR, attr);
+	struct attr *a = attr;
+
+	XFREE(MTYPE_ATTR_EXTRA, a->extra);
+	XFREE(MTYPE_ATTR, a);
 }
 
 static void attrhash_finish(void)
@@ -1235,6 +1243,12 @@ static void *bgp_attr_hash_alloc(void *p)
 	if (vnc_subtlvs)
 		bgp_attr_set_vnc_subtlvs(val, NULL);
 #endif
+
+	/*
+	 * Transfer ownership of extra to the interned attr.
+	 * bgp_attr_flush() on val with extra NULL is a no-op for extra fields.
+	 */
+	val->extra = NULL;
 
 	attr->refcnt = 0;
 	return attr;
@@ -1603,6 +1617,8 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_attr_set_evpn_overlay(attr, NULL);
 
 	bgp_ls_attr_unintern(&attr->ls_attr);
+
+	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
 
 /* Clear cached intern_attr if it points to the attr that is being uninterned */
@@ -1634,6 +1650,12 @@ void bgp_attr_unintern(struct attr **pattr)
 		assert(ret != NULL);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
+	} else {
+		/*
+		 * attr still lives in the hash; extra block belongs to it.
+		 * Set tmp.extra to NULL so unintern_sub does not free it.
+		 */
+		tmp.extra = NULL;
 	}
 
 	bgp_attr_unintern_sub(&tmp);
@@ -1717,6 +1739,8 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_nhc_free(nhc);
 		bgp_attr_set_nhc(attr, NULL);
 	}
+
+	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and

@@ -133,6 +133,12 @@ struct bgp_attr_srv6_vpn {
 	struct in6_addr sid;
 };
 
+/* Optional feature-specific attributes, NULL on standard internet routes. */
+struct attr_extra {
+};
+
+extern struct attr_extra *bgp_attr_extra_alloc(void);
+
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -334,6 +340,9 @@ struct attr {
 
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
+
+	/* Optional feature-specific attributes. NULL on standard internet routes. */
+	struct attr_extra *extra;
 };
 
 /* rmap_change_flags definition */
