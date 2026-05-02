@@ -1052,6 +1052,7 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 	MIX3(attr->bh_type, attr->otc, bgp_attr_get_aigp_metric(attr));
+	MIX(bgp_attr_get_link_bw(attr));
 	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
 	MIX(attr->encap_tunneltype);
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
@@ -1088,6 +1089,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    bgp_attr_get_cluster(attr1) == bgp_attr_get_cluster(attr2) &&
 		    bgp_attr_get_transit(attr1) == bgp_attr_get_transit(attr2) &&
 		    bgp_attr_get_aigp_metric(attr1) == bgp_attr_get_aigp_metric(attr2) &&
+		    bgp_attr_get_link_bw(attr1) == bgp_attr_get_link_bw(attr2) &&
 		    attr1->rmap_table_id == attr2->rmap_table_id &&
 		    (attr1->encap_tunneltype == attr2->encap_tunneltype) &&
 		    encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
