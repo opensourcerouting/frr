@@ -138,6 +138,9 @@ struct attr_extra {
 	/* Link bandwidth value, if any. */
 	uint64_t link_bw;
 
+	/* SRv6 VPN SID */
+	struct bgp_attr_srv6_vpn *srv6_vpn;
+
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
 };
@@ -291,9 +294,6 @@ struct attr {
 
 	/* rmap set table */
 	uint32_t rmap_table_id;
-
-	/* SRv6 VPN SID */
-	struct bgp_attr_srv6_vpn *srv6_vpn;
 
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_l3service *srv6_l3service;
@@ -745,13 +745,17 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 static inline struct bgp_attr_srv6_vpn *
 bgp_attr_get_srv6_vpn(const struct attr *attr)
 {
-	return attr->srv6_vpn;
+	return attr->extra ? attr->extra->srv6_vpn : NULL;
 }
 
 static inline void bgp_attr_set_srv6_vpn(struct attr *attr,
 					 struct bgp_attr_srv6_vpn *vpn)
 {
-	attr->srv6_vpn = vpn;
+	if (!vpn && !attr->extra)
+		return;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+	attr->extra->srv6_vpn = vpn;
 }
 
 extern bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo);

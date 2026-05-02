@@ -1669,8 +1669,10 @@ void bgp_attr_unintern(struct attr **pattr)
 		 * at the end of unintern_sub is a no-op, but first unintern
 		 * the extra sub-components manually.
 		 */
-		if (attr->extra)
+		if (attr->extra) {
+			srv6_vpn_unintern(&attr->extra->srv6_vpn);
 			bgp_ls_attr_unintern(&attr->extra->ls_attr);
+		}
 		tmp.extra = NULL;
 	}
 
