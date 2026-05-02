@@ -1677,6 +1677,7 @@ void bgp_attr_unintern(struct attr **pattr)
 		if (attr->extra) {
 			srv6_l3service_unintern(&attr->extra->srv6_l3service);
 			srv6_vpn_unintern(&attr->extra->srv6_vpn);
+			bgp_nhc_unintern(&attr->extra->nhc);
 			bgp_ls_attr_unintern(&attr->extra->ls_attr);
 		}
 		tmp.extra = NULL;

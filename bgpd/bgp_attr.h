@@ -144,6 +144,9 @@ struct attr_extra {
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_l3service *srv6_l3service;
 
+	/* Next-hop characteristics */
+	struct bgp_nhc *nhc;
+
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
 };
@@ -336,9 +339,6 @@ struct attr {
 
 	/* AIGP Metric */
 	uint64_t aigp_metric;
-
-	/* Next-hop characteristics */
-	struct bgp_nhc *nhc;
 
 	/* Optional feature-specific attributes. NULL on standard internet routes. */
 	struct attr_extra *extra;
@@ -621,17 +621,21 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 
 static inline struct bgp_nhc *bgp_attr_get_nhc(const struct attr *attr)
 {
-	return attr->nhc;
+	return attr->extra ? attr->extra->nhc : NULL;
 }
 
 static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 {
-	attr->nhc = bnc;
-
-	if (bnc)
+	if (bnc) {
+		if (!attr->extra)
+			attr->extra = bgp_attr_extra_alloc();
+		attr->extra->nhc = bnc;
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
-	else
+	} else {
+		if (attr->extra)
+			attr->extra->nhc = NULL;
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC));
+	}
 }
 
 #define AIGP_TRANSMIT_ALLOWED(peer)                                                                \
