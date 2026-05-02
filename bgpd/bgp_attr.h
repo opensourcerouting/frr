@@ -135,6 +135,9 @@ struct bgp_attr_srv6_vpn {
 
 /* Optional feature-specific attributes, NULL on standard internet routes. */
 struct attr_extra {
+	/* Link bandwidth value, if any. */
+	uint64_t link_bw;
+
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
 };
@@ -315,9 +318,6 @@ struct attr {
 
 	/* EVPN local router-mac */
 	struct ethaddr rmac;
-
-	/* Link bandwidth value, if any. */
-	uint64_t link_bw;
 
 	/* EVPN ES */
 	esi_t esi;
@@ -651,12 +651,16 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 
 static inline uint64_t bgp_attr_get_link_bw(const struct attr *attr)
 {
-	return attr->link_bw;
+	return attr->extra ? attr->extra->link_bw : 0;
 }
 
 static inline void bgp_attr_set_link_bw(struct attr *attr, uint64_t link_bw)
 {
-	attr->link_bw = link_bw;
+	if (!link_bw && !attr->extra)
+		return;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+	attr->extra->link_bw = link_bw;
 }
 
 static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
