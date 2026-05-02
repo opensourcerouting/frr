@@ -742,6 +742,18 @@ bgp_attr_set_vnc_subtlvs(struct attr *attr,
 #endif
 }
 
+static inline struct bgp_attr_srv6_l3service *
+bgp_attr_get_srv6_l3service(const struct attr *attr)
+{
+	return attr->srv6_l3service;
+}
+
+static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
+					       struct bgp_attr_srv6_l3service *l3)
+{
+	attr->srv6_l3service = l3;
+}
+
 static inline struct bgp_attr_srv6_vpn *
 bgp_attr_get_srv6_vpn(const struct attr *attr)
 {

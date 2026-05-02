@@ -1035,8 +1035,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(transit_hash_key_make(bgp_attr_get_transit(attr)));
 	if (attr->encap_subtlvs)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
-	if (attr->srv6_l3service)
-		MIX(srv6_l3service_hash_key_make(attr->srv6_l3service));
+	if (bgp_attr_get_srv6_l3service(attr))
+		MIX(srv6_l3service_hash_key_make(bgp_attr_get_srv6_l3service(attr)));
 	if (bgp_attr_get_evpn_overlay(attr))
 		MIX(evpn_overlay_hash_key_make(bgp_attr_get_evpn_overlay(attr)));
 	if (bgp_attr_get_srv6_vpn(attr))
@@ -1106,7 +1106,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->nh_ifindex == attr2->nh_ifindex &&
 		    attr1->nh_lla_ifindex == attr2->nh_lla_ifindex &&
 		    attr1->nh_flags == attr2->nh_flags && attr1->distance == attr2->distance &&
-		    srv6_l3service_same(attr1->srv6_l3service, attr2->srv6_l3service) &&
+		    srv6_l3service_same(bgp_attr_get_srv6_l3service(attr1), bgp_attr_get_srv6_l3service(attr2)) &&
 		    srv6_vpn_same(bgp_attr_get_srv6_vpn(attr1), bgp_attr_get_srv6_vpn(attr2)) &&
 		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
@@ -1162,8 +1162,8 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 	if (summary)
 		return;
 
-	if (attr->srv6_l3service)
-		sid = &attr->srv6_l3service->sid;
+	if (bgp_attr_get_srv6_l3service(attr))
+		sid = &bgp_attr_get_srv6_l3service(attr)->sid;
 	else if (bgp_attr_get_srv6_vpn(attr))
 		sid = &bgp_attr_get_srv6_vpn(attr)->sid;
 
@@ -1340,11 +1340,11 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			bre->refcnt++;
 	}
 
-	if (attr->srv6_l3service) {
-		if (!attr->srv6_l3service->refcnt)
-			attr->srv6_l3service = bgp_attr_srv6_l3service_intern(attr->srv6_l3service);
+	if (bgp_attr_get_srv6_l3service(attr)) {
+		if (!bgp_attr_get_srv6_l3service(attr)->refcnt)
+			bgp_attr_set_srv6_l3service(attr, bgp_attr_srv6_l3service_intern(bgp_attr_get_srv6_l3service(attr)));
 		else
-			attr->srv6_l3service->refcnt++;
+			bgp_attr_get_srv6_l3service(attr)->refcnt++;
 	}
 	if (bgp_attr_get_srv6_vpn(attr)) {
 		if (!bgp_attr_get_srv6_vpn(attr)->refcnt)
@@ -1609,7 +1609,12 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_attr_set_vnc_subtlvs(attr, NULL);
 #endif
 
-	srv6_l3service_unintern(&attr->srv6_l3service);
+	{
+		struct bgp_attr_srv6_l3service *l3 = bgp_attr_get_srv6_l3service(attr);
+
+		srv6_l3service_unintern(&l3);
+		bgp_attr_set_srv6_l3service(attr, l3);
+	}
 	{
 		struct bgp_attr_srv6_vpn *vpn = bgp_attr_get_srv6_vpn(attr);
 
@@ -1729,9 +1734,9 @@ void bgp_attr_flush(struct attr *attr)
 		encap_free(attr->encap_subtlvs);
 		attr->encap_subtlvs = NULL;
 	}
-	if (attr->srv6_l3service && !attr->srv6_l3service->refcnt) {
-		bgp_attr_srv6_l3service_free(attr->srv6_l3service);
-		attr->srv6_l3service = NULL;
+	if (bgp_attr_get_srv6_l3service(attr) && !bgp_attr_get_srv6_l3service(attr)->refcnt) {
+		bgp_attr_srv6_l3service_free(bgp_attr_get_srv6_l3service(attr));
+		bgp_attr_set_srv6_l3service(attr, NULL);
 	}
 	if (bgp_attr_get_srv6_vpn(attr) && !bgp_attr_get_srv6_vpn(attr)->refcnt) {
 		srv6_vpn_free(bgp_attr_get_srv6_vpn(attr));
@@ -3425,12 +3430,12 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 				transposition_offset);
 		}
 
-		attr->srv6_l3service->loc_block_len = loc_block_len;
-		attr->srv6_l3service->loc_node_len = loc_node_len;
-		attr->srv6_l3service->func_len = func_len;
-		attr->srv6_l3service->arg_len = arg_len;
-		attr->srv6_l3service->transposition_len = transposition_len;
-		attr->srv6_l3service->transposition_offset = transposition_offset;
+		bgp_attr_get_srv6_l3service(attr)->loc_block_len = loc_block_len;
+		bgp_attr_get_srv6_l3service(attr)->loc_node_len = loc_node_len;
+		bgp_attr_get_srv6_l3service(attr)->func_len = func_len;
+		bgp_attr_get_srv6_l3service(attr)->arg_len = arg_len;
+		bgp_attr_get_srv6_l3service(attr)->transposition_len = transposition_len;
+		bgp_attr_get_srv6_l3service(attr)->transposition_offset = transposition_offset;
 	}
 
 	else {
@@ -3503,23 +3508,22 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 				endpoint_behavior);
 
 		/* Configure from Info */
-		if (attr->srv6_l3service) {
+		if (bgp_attr_get_srv6_l3service(attr)) {
 			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
 				 "Prefix SID SRv6 L3 Service field repeated");
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
 		}
-		attr->srv6_l3service = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
-					       sizeof(struct bgp_attr_srv6_l3service));
-		sid_copy(&attr->srv6_l3service->sid, &ipv6_sid);
-		attr->srv6_l3service->sid_flags = sid_flags;
-		attr->srv6_l3service->endpoint_behavior = endpoint_behavior;
-		attr->srv6_l3service->loc_block_len = 0;
-		attr->srv6_l3service->loc_node_len = 0;
-		attr->srv6_l3service->func_len = 0;
-		attr->srv6_l3service->arg_len = 0;
-		attr->srv6_l3service->transposition_len = 0;
-		attr->srv6_l3service->transposition_offset = 0;
+		{
+			struct bgp_attr_srv6_l3service *l3 =
+				XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
+					sizeof(struct bgp_attr_srv6_l3service));
+
+			sid_copy(&l3->sid, &ipv6_sid);
+			l3->sid_flags = sid_flags;
+			l3->endpoint_behavior = endpoint_behavior;
+			bgp_attr_set_srv6_l3service(attr, l3);
+		}
 
 		// Sub-Sub-TLV found
 		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
@@ -3529,7 +3533,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 				return err;
 		}
 
-		attr->srv6_l3service = bgp_attr_srv6_l3service_intern(attr->srv6_l3service);
+		bgp_attr_set_srv6_l3service(attr, bgp_attr_srv6_l3service_intern(bgp_attr_get_srv6_l3service(attr)));
 	}
 
 	/* Placeholder code for unsupported type */
@@ -5647,13 +5651,13 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if ((afi == AFI_IP || afi == AFI_IP6)) {
 		struct bgp_attr_srv6_l3service *srv6_l3service = NULL;
 
-		if (safi == SAFI_MPLS_VPN && attr->srv6_l3service)
-			srv6_l3service = attr->srv6_l3service;
+		if (safi == SAFI_MPLS_VPN && bgp_attr_get_srv6_l3service(attr))
+			srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 		else if (peer_af_flag_check(peer, afi, safi,
 					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
 			 peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6)) {
-			if (attr->srv6_l3service)
-				srv6_l3service = attr->srv6_l3service;
+			if (bgp_attr_get_srv6_l3service(attr))
+				srv6_l3service = bgp_attr_get_srv6_l3service(attr);
 			else
 				srv6_l3service = srv6_unicast;
 		}

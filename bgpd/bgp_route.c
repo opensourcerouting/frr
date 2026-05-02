@@ -2432,7 +2432,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	if (safi == SAFI_UNICAST &&
 	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
-	    (!pi->attr->srv6_l3service && !dest->srv6_unicast)) {
+	    (!bgp_attr_get_srv6_l3service(pi->attr) && !dest->srv6_unicast)) {
 		return false;
 	}
 
@@ -2873,13 +2873,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (safi == SAFI_MPLS_VPN) {
 		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
 		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) &&
-		    !pi->attr->srv6_l3service && !bgp_attr_get_srv6_vpn(pi->attr))
+		    !bgp_attr_get_srv6_l3service(pi->attr) && !bgp_attr_get_srv6_vpn(pi->attr))
 			/* MPLS update not advertised if SRv6 is autorised, but not MPLS */
 			return false;
 
 		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) &&
 		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
-		    (pi->attr->srv6_l3service || bgp_attr_get_srv6_vpn(pi->attr)))
+		    (bgp_attr_get_srv6_l3service(pi->attr) || bgp_attr_get_srv6_vpn(pi->attr)))
 			/* SRv6 update not advertised if MPLS is autorised, but not SRv6 */
 			return false;
 	}
@@ -5654,7 +5654,7 @@ void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer, struct bgp
 				bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
 			if (safi == SAFI_MPLS_VPN && pi->peer &&
 			    pi->peer->bgp->peer_self != pi->peer) {
-				if (pi->attr->srv6_l3service || bgp_attr_get_srv6_vpn(pi->attr)) {
+				if (bgp_attr_get_srv6_l3service(pi->attr) || bgp_attr_get_srv6_vpn(pi->attr)) {
 					if (peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
 								    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
 					    !peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
@@ -13233,11 +13233,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Remote SID */
-	if ((path->attr->srv6_l3service || bgp_attr_get_srv6_vpn(path->attr)) && safi != SAFI_EVPN) {
+	if ((bgp_attr_get_srv6_l3service(path->attr) || bgp_attr_get_srv6_vpn(path->attr)) && safi != SAFI_EVPN) {
 		json_object *json_sid_attr;
 		mpls_label_t label_sid = 0;
-		struct in6_addr *sid_tmp = path->attr->srv6_l3service
-						   ? (&path->attr->srv6_l3service->sid)
+		struct in6_addr *sid_tmp = bgp_attr_get_srv6_l3service(path->attr)
+						   ? (&bgp_attr_get_srv6_l3service(path->attr)->sid)
 						   : (&bgp_attr_get_srv6_vpn(path->attr)->sid);
 		struct in6_addr sid_transposed = {};
 
@@ -13250,40 +13250,40 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				label_sid = decode_label(&path->extra->labels->label[0]);
 			IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
 			transpose_sid(&sid_transposed, label_sid,
-				      path->attr->srv6_l3service->transposition_offset,
-				      path->attr->srv6_l3service->transposition_len,
+				      bgp_attr_get_srv6_l3service(path->attr)->transposition_offset,
+				      bgp_attr_get_srv6_l3service(path->attr)->transposition_len,
 				      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
 						&sid_transposed);
 			json_object_string_addf(json_path, "remoteSid", "%pI6",
 						sid_tmp);
-			if (path->attr->srv6_l3service) {
+			if (bgp_attr_get_srv6_l3service(path->attr)) {
 				json_sid_attr = json_object_new_object();
 				json_object_object_add(json_path, "remoteSidStructure",
 						       json_sid_attr);
 				json_object_int_add(json_sid_attr, "locatorBlockLen",
-						    path->attr->srv6_l3service->loc_block_len);
+						    bgp_attr_get_srv6_l3service(path->attr)->loc_block_len);
 				json_object_int_add(json_sid_attr, "locatorNodeLen",
-						    path->attr->srv6_l3service->loc_node_len);
+						    bgp_attr_get_srv6_l3service(path->attr)->loc_node_len);
 				json_object_int_add(json_sid_attr, "functionLen",
-						    path->attr->srv6_l3service->func_len);
+						    bgp_attr_get_srv6_l3service(path->attr)->func_len);
 				json_object_int_add(json_sid_attr, "argumentLen",
-						    path->attr->srv6_l3service->arg_len);
+						    bgp_attr_get_srv6_l3service(path->attr)->arg_len);
 				json_object_int_add(json_sid_attr, "transpositionLen",
-						    path->attr->srv6_l3service->transposition_len);
+						    bgp_attr_get_srv6_l3service(path->attr)->transposition_len);
 				json_object_int_add(json_sid_attr, "transpositionOffset",
-						    path->attr->srv6_l3service->transposition_offset);
+						    bgp_attr_get_srv6_l3service(path->attr)->transposition_offset);
 			}
 		} else {
 			vty_out(vty, "      Remote SID: %pI6", sid_tmp);
-			if (path->attr->srv6_l3service) {
+			if (bgp_attr_get_srv6_l3service(path->attr)) {
 				vty_out(vty, ", sid structure=[%u %u %u %u %u %u]",
-					path->attr->srv6_l3service->loc_block_len,
-					path->attr->srv6_l3service->loc_node_len,
-					path->attr->srv6_l3service->func_len,
-					path->attr->srv6_l3service->arg_len,
-					path->attr->srv6_l3service->transposition_len,
-					path->attr->srv6_l3service->transposition_offset);
+					bgp_attr_get_srv6_l3service(path->attr)->loc_block_len,
+					bgp_attr_get_srv6_l3service(path->attr)->loc_node_len,
+					bgp_attr_get_srv6_l3service(path->attr)->func_len,
+					bgp_attr_get_srv6_l3service(path->attr)->arg_len,
+					bgp_attr_get_srv6_l3service(path->attr)->transposition_len,
+					bgp_attr_get_srv6_l3service(path->attr)->transposition_offset);
 			}
 			vty_out(vty, "\n");
 		}
