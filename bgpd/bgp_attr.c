@@ -1765,6 +1765,13 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_attr_set_nhc(attr, NULL);
 	}
 
+	{
+		struct bgp_ls_attr *ls = bgp_attr_get_ls_attr(attr);
+
+		bgp_ls_attr_unintern(&ls);
+		bgp_attr_set_ls_attr(attr, ls);
+	}
+
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 }
 
