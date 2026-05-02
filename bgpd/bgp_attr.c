@@ -1675,6 +1675,7 @@ void bgp_attr_unintern(struct attr **pattr)
 		 * the extra sub-components manually.
 		 */
 		if (attr->extra) {
+			srv6_l3service_unintern(&attr->extra->srv6_l3service);
 			srv6_vpn_unintern(&attr->extra->srv6_vpn);
 			bgp_ls_attr_unintern(&attr->extra->ls_attr);
 		}
