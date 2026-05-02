@@ -649,6 +649,16 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
+static inline uint64_t bgp_attr_get_link_bw(const struct attr *attr)
+{
+	return attr->link_bw;
+}
+
+static inline void bgp_attr_set_link_bw(struct attr *attr, uint64_t link_bw)
+{
+	attr->link_bw = link_bw;
+}
+
 static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
 {
 	return attr->extra ? attr->extra->ls_attr : NULL;
