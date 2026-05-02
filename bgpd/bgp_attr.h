@@ -138,6 +138,9 @@ struct attr_extra {
 	/* Link bandwidth value, if any. */
 	uint64_t link_bw;
 
+	/* AIGP Metric */
+	uint64_t aigp_metric;
+
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
 
@@ -336,9 +339,6 @@ struct attr {
 
 	/* OTC value if set */
 	uint32_t otc;
-
-	/* AIGP Metric */
-	uint64_t aigp_metric;
 
 	/* Optional feature-specific attributes. NULL on standard internet routes. */
 	struct attr_extra *extra;
@@ -644,12 +644,16 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
-	return attr->aigp_metric;
+	return attr->extra ? attr->extra->aigp_metric : 0;
 }
 
 static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 {
-	attr->aigp_metric = aigp;
+	if (!aigp && !attr->extra)
+		return;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+	attr->extra->aigp_metric = aigp;
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
