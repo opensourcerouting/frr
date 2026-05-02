@@ -135,6 +135,8 @@ struct bgp_attr_srv6_vpn {
 
 /* Optional feature-specific attributes, NULL on standard internet routes. */
 struct attr_extra {
+	/* For BGP-LS Attribute (RFC 9552) */
+	struct bgp_ls_attr *ls_attr;
 };
 
 extern struct attr_extra *bgp_attr_extra_alloc(void);
@@ -337,9 +339,6 @@ struct attr {
 
 	/* Next-hop characteristics */
 	struct bgp_nhc *nhc;
-
-	/* For BGP-LS Attribute (RFC 9552) */
-	struct bgp_ls_attr *ls_attr;
 
 	/* Optional feature-specific attributes. NULL on standard internet routes. */
 	struct attr_extra *extra;
@@ -652,13 +651,17 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 
 static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
 {
-	return attr->ls_attr;
+	return attr->extra ? attr->extra->ls_attr : NULL;
 }
 
 static inline void bgp_attr_set_ls_attr(struct attr *attr,
 					struct bgp_ls_attr *ls)
 {
-	attr->ls_attr = ls;
+	if (!ls && !attr->extra)
+		return;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+	attr->extra->ls_attr = ls;
 }
 
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)

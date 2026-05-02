@@ -1657,9 +1657,15 @@ void bgp_attr_unintern(struct attr **pattr)
 		*pattr = NULL;
 	} else {
 		/*
-		 * attr still lives in the hash; extra block belongs to it.
-		 * Set tmp.extra to NULL so unintern_sub does not free it.
+		 * attr still lives in the hash; the extra block belongs to it.
+		 * bgp_attr_unintern_sub() must unintern the sub-components
+		 * within extra (decrement their refcounts) but must NOT free
+		 * the extra block itself.  Set tmp.extra to NULL so the XFREE
+		 * at the end of unintern_sub is a no-op, but first unintern
+		 * the extra sub-components manually.
 		 */
+		if (attr->extra)
+			bgp_ls_attr_unintern(&attr->extra->ls_attr);
 		tmp.extra = NULL;
 	}
 
