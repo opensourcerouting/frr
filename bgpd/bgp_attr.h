@@ -650,6 +650,17 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
+static inline struct bgp_ls_attr *bgp_attr_get_ls_attr(const struct attr *attr)
+{
+	return attr->ls_attr;
+}
+
+static inline void bgp_attr_set_ls_attr(struct attr *attr,
+					struct bgp_ls_attr *ls)
+{
+	attr->ls_attr = ls;
+}
+
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
 {
 	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
