@@ -172,6 +172,11 @@ extern ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid);
 extern void ns_disable(struct ns *ns);
 extern struct ns *ns_get_default(void);
 
+struct privsep_op;
+
+extern int psep_netns_socket(int domain, int type, int protocol, ns_id_t ns_id);
+extern const struct privsep_op _psep_netns_socket;
+
 #ifdef __cplusplus
 }
 #endif

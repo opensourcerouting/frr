@@ -26,6 +26,8 @@
 #include "vrf.h"
 #include "lib_errors.h"
 
+#include "lib/privsep_core.h"
+
 DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context");
 DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name");
 
@@ -602,4 +604,70 @@ ns_id_t ns_id_get_absolute(ns_id_t ns_id_reference, ns_id_t link_nsid)
 struct ns *ns_get_default(void)
 {
 	return default_ns;
+}
+
+/* netns_socket()
+ *
+ * in_fds: netns
+ * out_fds: newly created socket
+ */
+struct ps_in_netns_socket {
+	unsigned flags;
+
+	int domain, type, protocol;
+};
+
+#ifdef __linux__
+#include <linux/capability.h>
+#endif
+
+DEFINE_PRIVSEP_CALL_NOOUT(netns_socket, struct ps_in_netns_socket, 1, 1,
+			  (CAP_NET_RAW, CAP_SYS_ADMIN, ));
+
+static int init_netns_fd = -1;
+
+__attribute__((constructor(700))) static void setup_init_netns_fd(void)
+{
+	init_netns_fd = open(NS_DEFAULT_NAME, O_RDONLY);
+}
+
+static inline int privsep_impl_netns_socket(const struct ps_in_netns_socket *in,
+					    const int in_fds[1], int out_fds[1])
+{
+	int ns_fd = in_fds[0];
+	int ret;
+
+	if ((ret = setns(ns_fd, CLONE_NEWNET)) < 0)
+		return ret;
+	ret = socket(in->domain, in->type, in->protocol);
+	if (setns(init_netns_fd, CLONE_NEWNET) < 0) {
+		/* ?!?!?!?! */
+	}
+	if (ret < 0)
+		return ret;
+
+	out_fds[0] = ret;
+	return 0;
+}
+
+int psep_netns_socket(int domain, int type, int protocol, ns_id_t ns_id)
+{
+	struct ns *ns = ns_lookup(ns_id);
+	int out_fd[1], rv;
+
+	if (!ns || !ns_is_enabled(ns)) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (!have_netns() || ns_id == NS_DEFAULT)
+		return socket(domain, type, protocol);
+
+	rv = privsep_netns_socket(
+		&(struct ps_in_netns_socket){
+			.domain = domain,
+			.type = type,
+			.protocol = protocol,
+		},
+		&ns->fd, out_fd);
+	return rv ? -1 : out_fd[0];
 }

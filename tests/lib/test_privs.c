@@ -11,6 +11,9 @@
 #include "memory.h"
 #include "lib_vty.h"
 
+#include "lib/privsep_core.h"
+#include "lib/ns.h"
+
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN, ZCAP_DAC_OVERRIDE,
 };
@@ -94,6 +97,13 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	lib_cmd_init();
 	zprivs_preinit(&test_privs);
+
+	privsep_need(&_psep_extra_socket);
+	privsep_need(&_psep_netns_socket);
+
+	int logfd = -1;
+	privsep_fork(&logfd, argv);
+
 	zprivs_init(&test_privs);
 
 #define PRIV_STATE()                                                           \
@@ -119,6 +129,14 @@ int main(int argc, char **argv)
 	printf("%s\n", PRIV_STATE());
 	zprivs_get_ids(&ids);
 
+	//int netns_fd = open("/run/netns/test", O_RDONLY);
+	struct ns *ns = ns_get_created(NULL, "/run/netns/test", NS_UNKNOWN);
+	ns_enable(ns, NULL);
+	printf("ns = %p\n", ns);
+	int extra_sock = psep_netns_socket(AF_INET6, SOCK_STREAM, 0, ns->ns_id);
+	printf("extra_socket = %d\n", extra_sock);
+
 	printf("terminating\n");
+	pause();
 	return 0;
 }
