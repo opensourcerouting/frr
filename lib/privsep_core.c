@@ -167,7 +167,7 @@ int privsep_call(const struct privsep_op *op, const void *input, void *output, c
 	rxlen = recvmsg(fd, mh, 0);
 
 	zlog_info("privsep call to %s result %d/%d", op->opname, rxhdr.opcode, rxhdr.operr);
-	if (rxhdr.operr) {
+	if (rxhdr.opcode < 0) {
 		assertf(rxlen == sizeof(struct ps_message), "%zd", rxlen);
 		errno = rxhdr.operr;
 		return rxhdr.opcode;
@@ -309,6 +309,7 @@ static void privsep_exec(int fd, const struct privsep_op *op, struct msghdr *mh)
 		if (!privsep_send(fd, &outhdr, NULL, 0, NULL, 0))
 			privsep_fault("failed to send call error result");
 	} else {
+		outhdr.operr = 0;
 		if (!privsep_send(fd, &outhdr, payload, op->out_size, out_fds, op->n_out_fds))
 			privsep_fault("failed to send call result");
 	}
