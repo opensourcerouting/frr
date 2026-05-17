@@ -212,6 +212,7 @@ static void privsep_fault(const char *msg)
 {
 	_zlog_ecref(0, LOG_CRIT, "privilege separation fault: %s (errno: %m), aborting", msg);
 
+#if 0
 	for (int i = 0; i < 5; i++) {
 		if (kill(ps_child, SIGABRT))
 			if (errno == ESRCH)
@@ -221,12 +222,14 @@ static void privsep_fault(const char *msg)
 		sleep(1);
 	}
 	kill(ps_child, SIGKILL);
+#endif
 
 	exit(121);
 }
 
 static void privsep_close(int fd)
 {
+	exit(0);
 	/* TODO */
 }
 
@@ -433,14 +436,14 @@ void privsep_fork(int *log_sock)
 		zlog_err("failed to fork() for privilege separation: %m");
 		exit(120);
 	}
-	if (rv == 0) {
+	if (rv > 0) {
 		pthread_setspecific(ps_fd_key, (void *)(intptr_t)ps_fd);
 		close(ps_poll[0].fd);
 		XFREE(MTYPE_PRIVSEP_POLL, ps_poll);
 		return;
 	}
 
-	ps_child = rv;
+	ps_child = 1;
 	close(ps_fd);
 
 #ifdef __linux__
@@ -452,8 +455,8 @@ void privsep_fork(int *log_sock)
 	 *
 	 * maybe we just exit instead and leave it to crash?
 	 */
-	capng_update(CAPNG_ADD, CAPNG_PERMITTED, CAP_KILL);
-	capng_update(CAPNG_ADD, CAPNG_EFFECTIVE, CAP_KILL);
+//	capng_update(CAPNG_ADD, CAPNG_PERMITTED, CAP_KILL);
+//	capng_update(CAPNG_ADD, CAPNG_EFFECTIVE, CAP_KILL);
 
 	for (size_t i = 0; i < array_size(privsep_ops); i++) {
 		if (!privsep_ops[i])
