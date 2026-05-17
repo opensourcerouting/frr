@@ -37,7 +37,7 @@ DEFINE_MTYPE(BFDD, BFDD_CLIENT_NOTIFICATION, "BFD client notification data");
 struct event_loop *master;
 
 /* BFDd privileges */
-static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
+static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW};
 
 /* BFD daemon information. */
 static struct frr_daemon_info bfdd_di;

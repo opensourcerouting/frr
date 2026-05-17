@@ -100,11 +100,10 @@ const struct option longopts[] = {
 	{ 0 }
 };
 
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN,
-				  ZCAP_NET_RAW,
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN, ZCAP_NET_RAW,
 #ifdef HAVE_DPDK
 				  ZCAP_IPC_LOCK,  ZCAP_READ_SEARCH,
-				  ZCAP_SYS_RAWIO
+				  ZCAP_SYS_RAWIO, ZCAP_SYS_ADMIN,
 #endif
 };
 

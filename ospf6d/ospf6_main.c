@@ -48,7 +48,7 @@
  */
 
 /* ospf6d privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
 
 struct zebra_privs_t ospf6d_privs = {
 #if defined(FRR_USER)

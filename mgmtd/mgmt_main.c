@@ -35,7 +35,7 @@ static void mgmt_exit(int);
 
 /* privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW,
-					 ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN};
+					 ZCAP_NET_ADMIN};
 
 struct zebra_privs_t mgmt_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)

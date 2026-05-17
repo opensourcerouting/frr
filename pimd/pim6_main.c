@@ -29,7 +29,6 @@
 #include "pim_zlookup.h"
 
 zebra_capabilities_t _caps_p[] = {
-	ZCAP_SYS_ADMIN,
 	ZCAP_NET_ADMIN,
 	ZCAP_NET_RAW,
 	ZCAP_BIND,

@@ -34,7 +34,7 @@
 static struct option longopts[] = {{0}};
 
 /* ripd privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
 
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 

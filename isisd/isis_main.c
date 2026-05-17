@@ -65,7 +65,7 @@
 #define ISISD_COMPAT_STATE_NAME "%s/isid-restart.json", frr_runstatedir
 
 /* isisd privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
 
 struct zebra_privs_t isisd_privs = {
 #if defined(FRR_USER)

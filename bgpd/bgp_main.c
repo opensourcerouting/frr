@@ -103,7 +103,7 @@ static struct frr_signal_t bgp_signals[] = {
 
 /* privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_NET_RAW,
-					 ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN};
+					 ZCAP_NET_ADMIN};
 
 struct zebra_privs_t bgpd_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
