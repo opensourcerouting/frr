@@ -149,6 +149,7 @@ int privsep_call(const struct privsep_op *op, const void *input, void *output, c
 	bool ok;
 	ssize_t rxlen;
 
+	zlog_info("privsep call to %s", op->opname);
 	assertf(ps_child == -1, "attempting to make privsep call from privsep process");
 	fd = privsep_fd_get();
 
@@ -165,6 +166,7 @@ int privsep_call(const struct privsep_op *op, const void *input, void *output, c
 	}
 	rxlen = recvmsg(fd, mh, 0);
 
+	zlog_info("privsep call to %s result %d/%d", op->opname, rxhdr.opcode, rxhdr.operr);
 	if (rxhdr.operr) {
 		assertf(rxlen == sizeof(struct ps_message), "%zd", rxlen);
 		errno = rxhdr.operr;
