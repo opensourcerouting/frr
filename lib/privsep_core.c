@@ -276,10 +276,8 @@ static void privsep_exec(int fd, const struct privsep_op *op, struct msghdr *mh)
 	int ret;
 	int in_fds[op->n_in_fds];
 	int out_fds[op->n_out_fds];
-	struct {
-		struct ps_message hdr;
-		char payload[op->out_size];
-	} outbuf;
+	struct ps_message outhdr;
+	char *payload = alloca(op->out_size);
 	struct ps_message *inbuf = mh->msg_iov->iov_base;
 	struct cmsghdr *cmsg = CMSG_FIRSTHDR(mh);
 
@@ -298,18 +296,18 @@ static void privsep_exec(int fd, const struct privsep_op *op, struct msghdr *mh)
 	}
 
 	errno = 0;
-	memset(&outbuf, 0, sizeof(outbuf));
+	memset(payload, 0, op->out_size);
 	for (size_t i = 0; i < op->n_out_fds; i++)
 		out_fds[i] = -1;
 
-	ret = op->impl(inbuf->payload, outbuf.payload, in_fds, out_fds);
-	outbuf.hdr.opcode = ret;
+	ret = op->impl(inbuf->payload, payload, in_fds, out_fds);
+	outhdr.opcode = ret;
 	if (ret < 0) {
-		outbuf.hdr.operr = errno;
-		if (!privsep_send(fd, NULL, &outbuf, sizeof(outbuf.hdr), NULL, 0))
+		outhdr.operr = errno;
+		if (!privsep_send(fd, &outhdr, NULL, 0, NULL, 0))
 			privsep_fault("failed to send call error result");
 	} else {
-		if (!privsep_send(fd, NULL, &outbuf, sizeof(outbuf.hdr), out_fds, op->n_out_fds))
+		if (!privsep_send(fd, &outhdr, payload, op->out_size, out_fds, op->n_out_fds))
 			privsep_fault("failed to send call result");
 	}
 
