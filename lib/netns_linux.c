@@ -556,6 +556,7 @@ int ns_switchback_to_initial(void)
 	return 1;
 }
 
+#if 0
 /* Create a socket for the NS. */
 int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 {
@@ -580,6 +581,7 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 
 	return ret;
 }
+#endif
 
 /* if relative link_nsid matches default netns,
  * then return default absolute netns value

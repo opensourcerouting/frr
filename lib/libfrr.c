@@ -37,6 +37,8 @@
 #include "frrscript.h"
 #include "systemd.h"
 #include "json.h"
+#include "lib/privsep_core.h"
+#include "lib/ns.h"
 
 #include "lib/config_paths.h"
 
@@ -764,6 +766,11 @@ struct event_loop *frr_init(void)
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s.db", frr_libstatedir, di->name,
 		 p_instance);
 #endif
+
+	privsep_need(&_psep_extra_socket);
+	privsep_need(&_psep_netns_socket);
+	int dummy_fd;
+	privsep_fork(&dummy_fd);
 
 	zprivs_preinit(di->privs);
 	zprivs_get_ids(&ids);

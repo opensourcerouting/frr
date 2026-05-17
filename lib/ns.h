@@ -104,7 +104,11 @@ extern void ns_init_management(ns_id_t ns_id, ns_id_t internal_ns_idx);
 
 /* Create a socket serving for the given NS
  */
+#ifdef __linux__
+#define ns_socket psep_netns_socket
+#else
 int ns_socket(int domain, int type, int protocol, ns_id_t ns_id);
+#endif
 
 /* return the path of the NETNS */
 extern char *ns_netns_pathname(struct vty *vty, const char *name);

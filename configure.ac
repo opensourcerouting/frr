@@ -2594,6 +2594,12 @@ if test "$enable_capabilities" != "no"; then
     fi
     ;;
   esac
+
+  PKG_CHECK_MODULES([LIBCAPNG], [libcap-ng], [
+    AC_DEFINE([HAVE_LIBCAPNG], [1], [have libcap-ng])
+    LIBCAP="${LIBCAP} ${LIBCAPNG_LIBS}"
+  ], [
+  ])
 else
   case "$host_os" in
   linux*)

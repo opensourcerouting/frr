@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 	privsep_need(&_psep_netns_socket);
 
 	int logfd = -1;
-	privsep_fork(&logfd, argv);
+	privsep_fork(&logfd);
 
 	zprivs_init(&test_privs);
 

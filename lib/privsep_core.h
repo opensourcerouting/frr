@@ -20,8 +20,10 @@ struct privsep_op {
 
 	int (*impl)(const void *input, void *output, const int in_fds[], int out_fds[]);
 
-	const char *opname;
+#ifdef __linux__
 	const unsigned *capabilities;
+#endif
+	const char *opname;
 
 	/* these two may optionally be used to perform additional setup,
 	 * before the privsep process drops into its main event loop
@@ -55,7 +57,20 @@ extern void privsep_fork(int *log_sock);
  * must be used to give each thread its own socket, otherwise they'll trample on each other
  */
 extern int psep_extra_socket(void);
-extern const struct privsep_op _psep_extra_socket[1];
+extern const struct privsep_op _psep_extra_socket;
+
+#ifdef __linux__
+#define _PRIVSEP_CAPAB_DEFS(name, capabs) \
+	/* ESC strips the () that capabs comes with, ~0U is then the terminator */                \
+	const unsigned _psep_##name##_caps[] = { ESC capabs ~0U };                                \
+	/* end */
+#define _PRIVSEP_CAPAB_FIELD(name) \
+	.capabilities = _psep_##name##_caps,                                              \
+	/* end */
+#else
+#define _PRIVSEP_CAPAB_DEFS(name, capabs) /* nothing */
+#define _PRIVSEP_CAPAB_FIELD(name) /* nothing */
+#endif
 
 /* notes for the following 3 macros:
  *
@@ -80,19 +95,18 @@ extern const struct privsep_op _psep_extra_socket[1];
  * - varargs: other fields to set in struct privsep_op (e.g. .init)
  */
 #define DEFINE_PRIVSEP_CALL_COMMON(name, in_type, out_type, n_in_fds_, n_out_fds_, capabs, ...)   \
-	/* ESC strips the () that capabs comes with, ~0U is then the terminator */                \
-	const unsigned _psep_##name##_caps[] = { ESC capabs ~0U };                                \
-	const struct privsep_op _psep_##name[1] = { {                                             \
+	_PRIVSEP_CAPAB_DEFS(name, capabs)    \
+	const struct privsep_op _psep_##name = {                                             \
 		.opcode = PRIVSEP_##name,                                                         \
 		.in_size = sizeof(in_type),                                                       \
 		.out_size = sizeof(out_type),                                                     \
 		.n_in_fds = n_in_fds_,                                                            \
 		.n_out_fds = n_out_fds_,                                                          \
 		.impl = _psep_##name##_wrap,                                                      \
+		_PRIVSEP_CAPAB_FIELD(name) \
 		.opname = #name,                                                                  \
-		.capabilities = _psep_##name##_caps,                                              \
-		##__VA_ARGS__,                                                                    \
-	} };                                                                                      \
+		##__VA_ARGS__                                                                    \
+	};                                                                                      \
 	MACRO_REQUIRE_SEMICOLON()
 
 /* "full" variant with {data,fd} {in,out}.  cf. variant without data out below. */

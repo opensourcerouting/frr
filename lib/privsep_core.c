@@ -19,7 +19,9 @@
 #include <pthread.h>
 #ifdef __linux__
 #include <linux/capability.h>
+#ifdef HAVE_LIBCAPNG
 #include <cap-ng.h>
+#endif
 #endif
 
 #include "lib/memory.h"
@@ -443,6 +445,7 @@ void privsep_fork(int *log_sock)
 #ifdef __linux__
 	prctl(PR_SET_NAME, "[frr:privsep]");
 
+#ifdef HAVE_LIBCAPNG
 	capng_clear(CAPNG_SELECT_ALL);
 	/* for killing the child process on faults
 	 *
@@ -466,7 +469,8 @@ void privsep_fork(int *log_sock)
 	/* TODO: what user/group to use? */
 	capng_change_id(65534, 65534, CAPNG_DROP_SUPP_GRP);
 	capng_lock();
-#endif
+#endif /* HAVE_LIBCAPNG */
+#endif /* __linux__ */
 
 	privsep_main();
 	exit(0);
