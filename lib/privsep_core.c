@@ -15,9 +15,9 @@
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
-#include <sys/prctl.h>
 #include <pthread.h>
 #ifdef __linux__
+#include <sys/prctl.h>
 #include <linux/capability.h>
 #ifdef HAVE_LIBCAPNG
 #include <cap-ng.h>
