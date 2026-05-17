@@ -13,6 +13,7 @@
 #include <string.h>
 #include <assert.h>
 #include <poll.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <pthread.h>
