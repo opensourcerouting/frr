@@ -698,7 +698,7 @@ struct aspath *aspath_intern(struct aspath *aspath)
    reference count and AS path string is cleared. */
 struct aspath *aspath_dup(struct aspath *aspath)
 {
-	unsigned short buflen = aspath->str_len + 1;
+	size_t buflen = aspath->str_len + 1;
 	struct aspath *new;
 
 	new = XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
