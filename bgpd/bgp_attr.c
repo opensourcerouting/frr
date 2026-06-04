@@ -5324,7 +5324,18 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 
 	/* compute attr length */
 	for (st = subtlvs; st; st = st->next) {
-		attrlenfield += (attrhdrlen + st->length);
+		unsigned int subtlv_hdrlen = attrhdrlen;
+
+		/*
+		 * RFC 9012 Section 2: a Tunnel Encapsulation sub-TLV whose type
+		 * is in the range 128-255 carries a 2-octet length field rather
+		 * than a 1-octet one. The inbound parser already accounts for
+		 * this, so the re-encoder must match.
+		 */
+		if (attrtype == BGP_ATTR_ENCAP && st->type >= 128)
+			subtlv_hdrlen += 1;
+
+		attrlenfield += (subtlv_hdrlen + st->length);
 	}
 
 	if (attrlenfield > 0xffff) {
@@ -5357,7 +5368,14 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 	for (st = subtlvs; st; st = st->next) {
 		if (attrtype == BGP_ATTR_ENCAP) {
 			stream_putc(s, st->type);
-			stream_putc(s, st->length);
+			/*
+			 * RFC 9012 Section 2: sub-TLV types 128-255 use a
+			 * 2-octet length field.
+			 */
+			if (st->type >= 128)
+				stream_putw(s, st->length);
+			else
+				stream_putc(s, st->length);
 #ifdef ENABLE_BGP_VNC
 		} else {
 			stream_putw(s, st->type);
