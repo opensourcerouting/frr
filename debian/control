@@ -5,7 +5,7 @@ Maintainer: Daniel Baumann <daniel@debian.org>
 Uploaders:
  David Lamparter <equinox-debian@diac24.net>,
 Build-Depends:
- debhelper-compat (= 13),
+ debhelper-compat (= 14),
  bison,
  chrpath,
  flex,
