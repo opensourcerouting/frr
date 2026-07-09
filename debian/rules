@@ -54,6 +54,7 @@ override_dh_auto_configure:
 		--with-vtysh-pager=/usr/bin/pager \
 		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr \
 		--with-moduledir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr/modules \
+		--with-pkgconfigdir=/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig \
 		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
 		--disable-dependency-tracking \
 		\
@@ -100,8 +101,6 @@ execute_after_dh_auto_install:
 
 	# drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
-	rm -rf debian/tmp/usr/include
-	rm -f debian/tmp/usr/lib/*/frr/pkgconfig/frr.pc
 	rm -f debian/tmp/usr/lib/frr/ssd
 
 	# drop test-tools files

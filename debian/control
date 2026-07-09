@@ -74,6 +74,21 @@ Description: FRRouting Internet routing protocol suite
  hosts/VMs/containers to the network, advertising network services, LAN
  switching and routing, Internet access routers, and Internet peering.
 
+Package: frr-dev
+Section: devel
+Architecture: linux-any
+Depends:
+ libjson-c-dev,
+ libyang-dev,
+ ${misc:Depends},
+Breaks:
+ frr (<< ${source:Version}~),
+Description: FRRouting Internet routing protocol suite (development files)
+ FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
+ RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
+ .
+ This package adds C headers needed to build out of tree dataplane plugins.
+
 Package: frr-doc
 Section: doc
 Architecture: all
