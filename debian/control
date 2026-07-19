@@ -38,7 +38,7 @@ Build-Depends:
  protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
  python3-dev:native,
  python3-pytest:native <!nocheck>,
- python3-sphinx:native,
+ python3-sphinx:native (>= 9),
  python3:native,
  texinfo,
 Build-Conflicts:
