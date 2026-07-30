@@ -4473,6 +4473,82 @@ This configuration ensures:
    value ``100.64.0.0:777`` will not be imported into a local MAC-VRF (L2VNI)
    or IP-VRF (L3VNI).
 
+.. _bgp-evpn-rmac-conflict:
+
+EVPN Conflicting Router MACs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A VTEP has exactly one Router MAC per L3VNI, advertised in the Router MAC
+extended community of its Route Type 2 and Route Type 5 routes. If two paths
+for the same prefix resolve to the same VTEP but carry *different* Router MACs,
+the advertisements contradict each other and only one of them can be honoured:
+zebra keys its L3VNI neighbour table by VTEP-IP, and the kernel holds a single
+neighbour entry per (SVI, IP). The remaining Router MACs are discarded, and
+routed traffic towards that VTEP may be sent with the wrong inner destination
+MAC and silently dropped by the remote end.
+
+A common cause is a VTEP that was renumbered or restarted, leaving routes in the
+fabric under a Route Distinguisher it no longer uses. Those routes are never
+withdrawn, keep their old Router MAC, and coexist with the VTEP's current
+advertisements.
+
+bgpd reports this condition. It is the only place that sees the whole set of
+paths at once, so it can name the Route Distinguisher each conflicting Router
+MAC came from:
+
+.. code-block:: console
+
+   VRF vrf1: prefix 10.0.0.0/24 resolves to VTEP 10.1.1.1 with conflicting
+   Router MACs: aa:bb:cc:00:00:02 (RD 10.1.1.9:1002, selected) and
+   aa:bb:cc:00:00:01 (RD 10.1.1.1:1001). Only one can be programmed; traffic
+   to this VTEP may use the wrong destination MAC.
+
+The message is issued as ``EC_BGP_EVPN_RMAC_CONFLICT`` and is rate limited: a
+single fabric-wide inconsistency affects every prefix of every affected L3VNI,
+so each distinct conflict is reported at most once every five minutes.
+
+Note that zebra also warns about conflicting Router MACs, but only when an
+already-installed Router MAC is *overwritten*. When the conflict is present the
+first time a VTEP is learned, a single Router MAC is installed, nothing is
+overwritten, and only the bgpd message appears.
+
+.. clicmd:: bgp evpn rmac-conflict prefer-selected
+
+   By default all conflicting Router MACs are handed to zebra and whichever is
+   programmed last wins. Because that depends on the order in which nexthops are
+   processed, the same fabric inconsistency can resolve differently on different
+   routers, and differently again after a restart - which is why restarting a
+   router can appear to fix the problem without changing anything.
+
+   With this command, nexthops that share a VTEP are made to agree on one Router
+   MAC, so the outcome follows best-path selection instead of processing order.
+   Where the selected path's Route Distinguisher does not embed its own nexthop
+   but a contradicting path's does, the latter is preferred: in a fabric where
+   each VTEP derives its RD from its loopback, that is the path the VTEP is
+   currently originating rather than one left behind under an RD it has stopped
+   using.
+
+   Only paths that agree on the VNI are affected. Paths that disagree on the VNI
+   are reported but left alone, because forcing one Router MAC onto another VNI's
+   nexthop would build an encapsulation the remote end rejects.
+
+   This changes what is programmed, so it is disabled by default. EVPN
+   configuration conventionally lives in the default instance, and configuring
+   this there applies it to all VRFs; a VRF instance may also set it for itself.
+
+   Enabling it is a mitigation, not a repair. It picks deterministically between
+   advertisements that contradict each other; it cannot tell which Router MAC is
+   genuinely current. Stale routes should still be removed from the fabric, and
+   configuring a single shared system MAC on all L3VNI SVIs of each VTEP avoids
+   the conflict entirely.
+
+   Example:
+
+   .. code-block:: frr
+
+      router bgp 64496
+       bgp evpn rmac-conflict prefer-selected
+
 .. _bgp-evpn-mh:
 
 EVPN Multihoming
