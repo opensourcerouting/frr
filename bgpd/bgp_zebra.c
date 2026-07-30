@@ -1391,6 +1391,119 @@ static void bgp_zebra_evpn_path_rd(struct bgp *bgp, struct bgp_path_info *pi, ch
  * Diagnostic only - path selection and what is handed to zebra are unchanged.
  */
 /*
+ * True if the path's route distinguisher is a Type 1 RD whose IP equals the
+ * path's own nexthop.
+ *
+ * This is a heuristic, not an invariant: an RD need not embed an IP at all, and
+ * for the ones that do the IP is administrative - it legitimately differs from
+ * the nexthop wherever something rewrites the nexthop (next-hop-self, DCI
+ * re-origination, route servers).  It is therefore only consulted to break a
+ * tie between advertisements that already contradict each other, never to
+ * judge a route on its own.  In the common fabric where each VTEP derives its
+ * RD from its loopback, it distinguishes a VTEP's live routes from routes left
+ * behind under an RD it no longer uses.
+ */
+static bool bgp_zebra_evpn_rd_matches_nexthop(struct bgp_path_info *pi)
+{
+	struct bgp_path_info *parent_pi;
+	const struct prefix_rd *prd;
+	struct bgp_dest *dest;
+
+	if (!pi->extra || !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
+		return false;
+
+	parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
+	if (!is_pi_family_evpn(parent_pi))
+		return false;
+
+	dest = parent_pi->net;
+	if (!dest || !dest->pdest)
+		return false;
+
+	prd = (const struct prefix_rd *)bgp_dest_get_prefix(dest->pdest);
+
+	/* Type 1 RD: 2-byte type, 4-byte IP, 2-byte number. */
+	if (decode_rd_type(prd->val) != RD_TYPE_IP)
+		return false;
+
+	return memcmp(&prd->val[2], &pi->attr->nexthop, sizeof(struct in_addr)) == 0;
+}
+
+/*
+ * The knob is stored per instance but EVPN configuration conventionally lives in
+ * the default instance, and a fabric would otherwise have to repeat it in every
+ * VRF.  Setting it on the default instance therefore applies everywhere, and a
+ * VRF instance can still set it for itself.
+ */
+static bool bgp_zebra_evpn_rmac_prefer_selected(struct bgp *bgp)
+{
+	struct bgp *bgp_default;
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED))
+		return true;
+
+	bgp_default = bgp_get_default();
+
+	return bgp_default &&
+	       CHECK_FLAG(bgp_default->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED);
+}
+
+/*
+ * Choose which of the conflicting Router MACs to enforce.
+ *
+ * The default is the selected path's, which is already deterministic.  When the
+ * selected path's RD does not embed its own nexthop but a contradicting path's
+ * does, prefer that one: in a fabric where each VTEP derives its RD from its
+ * loopback, that is the path the VTEP is currently originating, and the other
+ * is a leftover under an RD it has stopped using.
+ *
+ * Returns the RMAC to program, and applies it to the selected path's nexthop so
+ * that bgp_zebra_evpn_rmac_normalize() propagates it to the rest of the group.
+ */
+static void bgp_zebra_evpn_rmac_prefer(struct bgp_path_info *info, struct zapi_route *api,
+				       unsigned int nexthop_num, const struct ethaddr **enforced)
+{
+	const struct ethaddr *prefer = NULL;
+	struct bgp_dest *dest = info->net;
+	struct bgp_path_info *pi;
+	unsigned int i;
+
+	if (!dest || bgp_zebra_evpn_rd_matches_nexthop(info))
+		return; /* selected path already looks authoritative */
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (pi == info || !CHECK_FLAG(pi->flags, BGP_PATH_VALID))
+			continue;
+		if (is_zero_mac(&pi->attr->rmac))
+			continue;
+		if (pi->attr->nexthop.s_addr != info->attr->nexthop.s_addr)
+			continue;
+		if (memcmp(&pi->attr->rmac, &info->attr->rmac, ETH_ALEN) == 0)
+			continue;
+		if (bgp_zebra_evpn_rd_matches_nexthop(pi)) {
+			prefer = &pi->attr->rmac;
+			break;
+		}
+	}
+
+	if (!prefer)
+		return;
+
+	/* Stamp the selected path's nexthop; normalisation spreads it. */
+	for (i = 0; i < nexthop_num; i++) {
+		struct zapi_nexthop *nh = &api->nexthops[i];
+
+		if (!CHECK_FLAG(nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
+			continue;
+		if (memcmp(&nh->gate.ipv4, &info->attr->nexthop, sizeof(struct in_addr)) != 0)
+			continue;
+		nh->rmac = *prefer;
+		*enforced = prefer;
+		break;
+	}
+}
+
+/*
  * Enforce a single Router MAC per VTEP among the nexthops handed to zebra.
  *
  * Nexthops are appended in multipath order, so the first member of a group is
@@ -1456,8 +1569,12 @@ static void bgp_zebra_evpn_rmac_conflict_check(struct bgp_path_info *info, const
 	/* Enforcement is a forwarding action; it must not depend on being able to
 	 * resolve the paths for reporting.
 	 */
-	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED) &&
-	    bgp_zebra_evpn_rmac_normalize(api, nexthop_num, &enforced) && enforced)
+	if (bgp_zebra_evpn_rmac_prefer_selected(bgp)) {
+		bgp_zebra_evpn_rmac_prefer(info, api, nexthop_num, &enforced);
+		bgp_zebra_evpn_rmac_normalize(api, nexthop_num, &enforced);
+	}
+
+	if (enforced)
 		snprintfrr(enforced_buf, sizeof(enforced_buf), " Programming %pEA for all of them.",
 			   enforced);
 
