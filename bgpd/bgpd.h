@@ -774,6 +774,11 @@ struct bgp {
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW (1ULL << 45)
 #define BGP_FLAG_USE_RECURSIVE_WEIGHT (1ULL << 46)
+/* When several EVPN paths give one VTEP conflicting Router MACs, program the
+ * selected path's RMAC for all of them instead of letting the last one written
+ * win.
+ */
+#define BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED (1ULL << 47)
 
 /* Use current (imported) path's attributes instead of source path's attributes
  * for bestpath comparison of imported paths.

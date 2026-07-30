@@ -1390,11 +1390,76 @@ static void bgp_zebra_evpn_path_rd(struct bgp *bgp, struct bgp_path_info *pi, ch
  *
  * Diagnostic only - path selection and what is handed to zebra are unchanged.
  */
-static void bgp_zebra_evpn_rmac_conflict_check(struct bgp_path_info *info, const struct prefix *p,
-					       struct bgp *bgp)
+/*
+ * Enforce a single Router MAC per VTEP among the nexthops handed to zebra.
+ *
+ * Nexthops are appended in multipath order, so the first member of a group is
+ * the one closest to the selected path.  Adopting its RMAC for the whole group
+ * makes the outcome a function of best-path selection instead of the order in
+ * which zebra happens to process the nexthops.  That does not make the choice
+ * *correct* - both advertisements claim to be the VTEP's RMAC and only one can
+ * be true - but it makes it reproducible, and identical on every router that
+ * sees the same paths.
+ *
+ * Only groups that agree on the VNI label are normalised.  Paths that disagree
+ * on the VNI are a different problem: forcing one RMAC onto another VNI's
+ * nexthop would produce an encapsulation the remote end rejects.  Those are
+ * left alone and only reported.
+ *
+ * Returns the number of nexthops rewritten.
+ */
+static unsigned int bgp_zebra_evpn_rmac_normalize(struct zapi_route *api, unsigned int nexthop_num,
+						  const struct ethaddr **enforced)
 {
+	unsigned int i, j, changed = 0;
+
+	for (i = 0; i < nexthop_num; i++) {
+		struct zapi_nexthop *a = &api->nexthops[i];
+
+		if (!CHECK_FLAG(a->flags, ZAPI_NEXTHOP_FLAG_EVPN) || is_zero_mac(&a->rmac))
+			continue;
+
+		for (j = i + 1; j < nexthop_num; j++) {
+			struct zapi_nexthop *b = &api->nexthops[j];
+
+			if (!CHECK_FLAG(b->flags, ZAPI_NEXTHOP_FLAG_EVPN) || is_zero_mac(&b->rmac))
+				continue;
+			if (a->type != b->type || a->vrf_id != b->vrf_id)
+				continue;
+			if (memcmp(&a->gate, &b->gate, sizeof(a->gate)) != 0)
+				continue;
+			/* Same VNI only - see the comment above. */
+			if (a->label_num != b->label_num ||
+			    (a->label_num && a->labels[0] != b->labels[0]))
+				continue;
+			if (memcmp(&a->rmac, &b->rmac, ETH_ALEN) == 0)
+				continue;
+
+			b->rmac = a->rmac;
+			*enforced = &a->rmac;
+			changed++;
+		}
+	}
+
+	return changed;
+}
+
+static void bgp_zebra_evpn_rmac_conflict_check(struct bgp_path_info *info, const struct prefix *p,
+					       struct bgp *bgp, struct zapi_route *api,
+					       unsigned int nexthop_num)
+{
+	const struct ethaddr *enforced = NULL;
 	struct bgp_path_info *pi, *pj;
 	struct bgp_dest *dest = info->net;
+	char enforced_buf[64] = "";
+
+	/* Enforcement is a forwarding action; it must not depend on being able to
+	 * resolve the paths for reporting.
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED) &&
+	    bgp_zebra_evpn_rmac_normalize(api, nexthop_num, &enforced) && enforced)
+		snprintfrr(enforced_buf, sizeof(enforced_buf), " Programming %pEA for all of them.",
+			   enforced);
 
 	if (!dest)
 		return;
@@ -1429,12 +1494,12 @@ static void bgp_zebra_evpn_rmac_conflict_check(struct bgp_path_info *info, const
 			bgp_zebra_evpn_path_rd(bgp, pj, rd_j, sizeof(rd_j));
 
 			flog_warn(EC_BGP_EVPN_RMAC_CONFLICT,
-				  "%s: prefix %pFX resolves to VTEP %pI4 with conflicting Router MACs: %pEA (RD %s%s) and %pEA (RD %s%s). Only one can be programmed; traffic to this VTEP may use the wrong destination MAC. Further reports for this conflict are suppressed for %u seconds.",
+				  "%s: prefix %pFX resolves to VTEP %pI4 with conflicting Router MACs: %pEA (RD %s%s) and %pEA (RD %s%s). Only one can be programmed; traffic to this VTEP may use the wrong destination MAC.%s Further reports for this conflict are suppressed for %u seconds.",
 				  bgp->name_pretty, p, &pi->attr->nexthop, &pi->attr->rmac, rd_i,
 				  CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) ? ", selected" : "",
 				  &pj->attr->rmac, rd_j,
 				  CHECK_FLAG(pj->flags, BGP_PATH_SELECTED) ? ", selected" : "",
-				  BGP_EVPN_RMAC_CONFLICT_SUPPRESS_S);
+				  enforced_buf, BGP_EVPN_RMAC_CONFLICT_SUPPRESS_S);
 		}
 	}
 }
@@ -1671,7 +1736,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		(*valid_nh_count)++;
 	}
 
-	bgp_zebra_evpn_rmac_conflict_check(info, p, bgp);
+	bgp_zebra_evpn_rmac_conflict_check(info, p, bgp, api, *valid_nh_count);
 }
 
 static void bgp_debug_zebra_nh(struct zapi_route *api)

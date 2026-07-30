@@ -2883,6 +2883,25 @@ DEFUN (no_bgp_coalesce_time,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_evpn_rmac_conflict_prefer_selected,
+       bgp_evpn_rmac_conflict_prefer_selected_cmd,
+       "[no] bgp evpn rmac-conflict prefer-selected",
+       NO_STR
+       BGP_STR
+       "EVPN specific commands\n"
+       "Handling of conflicting Router MACs advertised for one VTEP\n"
+       "Program the selected path's Router MAC rather than the last one received\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_use_underlying_nexthop_weight,
        bgp_use_underlying_nexthop_weight_cmd,
        "[no] use-underlays-nexthop-weight",
@@ -22797,6 +22816,9 @@ int bgp_config_write(struct vty *vty)
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_USE_RECURSIVE_WEIGHT))
 			vty_out(vty, " use-underlays-nexthop-weight\n");
 
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_EVPN_RMAC_CONFLICT_PREFER_SELECTED))
+			vty_out(vty, " bgp evpn rmac-conflict prefer-selected\n");
+
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
@@ -23630,6 +23652,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_coalesce_time_cmd);
 
 	install_element(BGP_NODE, &bgp_use_underlying_nexthop_weight_cmd);
+	install_element(BGP_NODE, &bgp_evpn_rmac_conflict_prefer_selected_cmd);
 
 	/* "nexthop prefer-global" commands */
 	install_element(BGP_IPV6_NODE, &bgp_af_nexthop_prefer_global_cmd);
