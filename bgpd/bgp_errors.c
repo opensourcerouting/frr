@@ -175,6 +175,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Check connectivity to the peer and that it is not overloaded",
 	},
 	{
+		.code = EC_BGP_EVPN_RMAC_CONFLICT,
+		.title = "Conflicting EVPN Router MACs advertised for one VTEP",
+		.description = "Two or more EVPN paths for the same prefix resolve to the same remote VTEP but carry different Router MAC extended communities. A VTEP has a single router MAC per L3VNI, so these advertisements are mutually inconsistent. Zebra keys its L3VNI neighbour table by VTEP IP and the kernel holds one neighbour entry per (SVI, IP), so only one of the RMACs can be programmed; the others are discarded and routed traffic towards that VTEP may be sent with the wrong inner destination MAC and silently dropped.",
+		.suggestion = "Compare the route distinguishers reported in the log message. A common cause is stale routes left in the fabric under a VTEP's previous RD after it was renumbered or restarted and never withdrawn; clear those. Configuring a single shared system MAC on all L3VNI SVIs of each VTEP prevents this class of conflict entirely.",
+	},
+	{
 		.code = END_FERR,
 	}
 };

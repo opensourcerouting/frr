@@ -285,6 +285,100 @@ configure terminal
     )
 
 
+def test_bgpd_rmac_conflict_same_l3vni():
+    """
+    bgpd must report two different Router MACs advertised for one VTEP within
+    a single L3VNI.
+
+    r1's two VRFs have different bridge MACs.  Advertising the same prefix from
+    both, and making vrf-102 export vrf-101's route-target, imports both type-5
+    routes into r2's vrf-101.  r2 then sees one prefix reachable through one
+    VTEP with two contradicting RMACs.  Only one can be programmed and which
+    one wins is decided by best-path selection.
+
+    zebra cannot report this: from its point of view a single RMAC is installed
+    and nothing is overwritten.  bgpd sees both paths, and the RD each came
+    from, so it is the one that warns.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.net["r1"]
+    r1_gear = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # Distinct MACs per VRF, set explicitly so this test does not depend on
+    # whatever the preceding tests left behind.
+    r1.cmd_raises("ip -n vrf-101 link set bridge-101 address 52:54:00:00:aa:01")
+    r1.cmd_raises("ip -n vrf-102 link set bridge-102 address 52:54:00:00:aa:02")
+
+    # Same prefix out of both VRFs, and pull both into r2's vrf-101 by having
+    # vrf-102 export vrf-101's RT.
+    r1_gear.vtysh_cmd(
+        """
+configure terminal
+ router bgp 65000 vrf vrf-101
+  address-family ipv4 unicast
+   network 192.0.2.0/24
+ router bgp 65000 vrf vrf-102
+  address-family ipv4 unicast
+   network 192.0.2.0/24
+  address-family l2vpn evpn
+   route-target export 65000:101
+"""
+    )
+
+    def _check_log():
+        log = r2.net.getLog("log", "bgpd")
+        if not log:
+            return "no bgpd log available"
+        if re.search(r"conflicting Router MACs", log):
+            return None
+        return "RMAC conflict warning not found in bgpd log"
+
+    _, result = topotest.run_and_expect(_check_log, None, count=60, wait=1)
+
+    if result is not None:
+        logger.info("==== r2 show bgp vrf vrf-101 ipv4 192.0.2.0/24 ====")
+        logger.info(r2.vtysh_cmd("show bgp vrf vrf-101 ipv4 192.0.2.0/24", isjson=False))
+        logger.info("==== r2 show evpn rmac vni all ====")
+        logger.info(r2.vtysh_cmd("show evpn rmac vni all", isjson=False))
+        logger.info("==== r2 bgpd log (last 50 lines) ====")
+        for line in (r2.net.getLog("log", "bgpd") or "").splitlines()[-50:]:
+            logger.info(line)
+
+    assert result is None, "Expected the RMAC conflict warning in r2's bgpd log"
+
+    # The value of the warning is that it names both route distinguishers, so
+    # an operator can tell which advertisement is the unexpected one.
+    log = r2.net.getLog("log", "bgpd")
+    warnings = [line for line in log.splitlines() if "conflicting Router MACs" in line]
+    logger.info("bgpd RMAC conflict warnings:\n%s", "\n".join(warnings))
+
+    assert any(
+        "65000:1" in line and "65000:2" in line for line in warnings
+    ), "Warning should name both route distinguishers (65000:1 and 65000:2): {}".format(
+        warnings
+    )
+
+    # One fabric-level inconsistency must not produce one message per prefix.
+    assert len(warnings) <= 2, (
+        "Expected the conflict to be reported once, not per prefix; got %d messages: %s"
+        % (len(warnings), warnings)
+    )
+
+    # Put vrf-102 back so the following test sees the original RT layout.
+    r1_gear.vtysh_cmd(
+        """
+configure terminal
+ router bgp 65000 vrf vrf-102
+  address-family l2vpn evpn
+   no route-target export 65000:101
+"""
+    )
+
+
 def test_shared_mac_no_warning():
     """
     Reconfigure r1 with a SINGLE shared MAC on both bridges, then verify

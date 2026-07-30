@@ -36,6 +36,10 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_mpath.h"
+#include "jhash.h"
+#include "monotime.h"
+
+#include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_nhc.h"
@@ -1289,6 +1293,152 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct bgp_path_info *b
 	return true;
 }
 
+/*
+ * Warning suppression.
+ *
+ * A single fabric-wide RMAC inconsistency affects every prefix of every
+ * affected L3VNI - on the order of a thousand routes in a large fabric - and
+ * the message is identical for all of them.  Keep a small direct-mapped cache
+ * of recently reported conflicts, keyed by VRF, VTEP and the (unordered) pair
+ * of MACs, and report each at most once per suppression interval.  Hash
+ * collisions only cost an occasional extra or skipped message, so the cache
+ * needs no eviction policy, allocation or cleanup.
+ */
+#define BGP_EVPN_RMAC_CONFLICT_SLOTS	  64
+#define BGP_EVPN_RMAC_CONFLICT_SUPPRESS_S 300
+
+static struct {
+	uint32_t key;
+	time_t last;
+} bgp_evpn_rmac_conflict_seen[BGP_EVPN_RMAC_CONFLICT_SLOTS];
+
+static bool bgp_zebra_evpn_rmac_conflict_report(vrf_id_t vrf_id, const struct in_addr *vtep,
+						const struct ethaddr *a, const struct ethaddr *b)
+{
+	const struct ethaddr *lo = a, *hi = b;
+	time_t now = monotime(NULL);
+	uint32_t key;
+	unsigned int slot;
+
+	/* Order-independent, so (a, b) and (b, a) share one entry. */
+	if (memcmp(a, b, ETH_ALEN) > 0) {
+		lo = b;
+		hi = a;
+	}
+
+	key = jhash_2words(vrf_id, vtep->s_addr, 0x5eed1234);
+	key = jhash(lo, ETH_ALEN, key);
+	key = jhash(hi, ETH_ALEN, key);
+	if (!key)
+		key = 1; /* 0 marks an unused slot */
+
+	slot = key % BGP_EVPN_RMAC_CONFLICT_SLOTS;
+
+	if (bgp_evpn_rmac_conflict_seen[slot].key == key &&
+	    now - bgp_evpn_rmac_conflict_seen[slot].last < BGP_EVPN_RMAC_CONFLICT_SUPPRESS_S)
+		return false;
+
+	bgp_evpn_rmac_conflict_seen[slot].key = key;
+	bgp_evpn_rmac_conflict_seen[slot].last = now;
+
+	return true;
+}
+
+/*
+ * Report the route distinguisher an imported EVPN path came from, so that a
+ * conflict message points at the advertisement responsible for it rather than
+ * just at the local VRF prefix.  Returns false if the path is not an imported
+ * EVPN route, in which case nothing is printed.
+ */
+static void bgp_zebra_evpn_path_rd(struct bgp *bgp, struct bgp_path_info *pi, char *buf,
+				   size_t buflen)
+{
+	struct bgp_path_info *parent_pi;
+	struct bgp_dest *dest;
+
+	snprintf(buf, buflen, "unknown");
+
+	if (!pi->extra || !pi->extra->vrfleak || !pi->extra->vrfleak->parent)
+		return;
+
+	parent_pi = (struct bgp_path_info *)pi->extra->vrfleak->parent;
+	if (!is_pi_family_evpn(parent_pi))
+		return;
+
+	dest = parent_pi->net;
+	if (!dest || !dest->pdest)
+		return;
+
+	snprintfrr(buf, buflen, BGP_RD_AS_FORMAT(bgp->asnotation),
+		   (struct prefix_rd *)bgp_dest_get_prefix(dest->pdest));
+}
+
+/*
+ * A remote VTEP has exactly one router MAC per L3VNI.  If several paths for a
+ * prefix resolve to the same VTEP but advertise different Router MAC extended
+ * communities, those advertisements contradict each other and cannot all be
+ * honoured: zebra keys its L3VNI neighbour table by VTEP IP, and the kernel
+ * holds a single neighbour entry per (SVI, IP).  One RMAC gets programmed and
+ * the rest are dropped, so traffic towards that VTEP can leave with the wrong
+ * inner destination MAC and be discarded by the remote end.
+ *
+ * All available paths are examined, not just the ones handed to zebra: the
+ * conflict matters even when a single best path is installed, because which of
+ * the contradicting RMACs wins is then decided by best-path selection rather
+ * than by anything the operator controls.  That is also the case zebra cannot
+ * warn about, since from its point of view nothing was overwritten.
+ *
+ * Diagnostic only - path selection and what is handed to zebra are unchanged.
+ */
+static void bgp_zebra_evpn_rmac_conflict_check(struct bgp_path_info *info, const struct prefix *p,
+					       struct bgp *bgp)
+{
+	struct bgp_path_info *pi, *pj;
+	struct bgp_dest *dest = info->net;
+
+	if (!dest)
+		return;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		char rd_i[RD_ADDRSTRLEN];
+
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) || is_zero_mac(&pi->attr->rmac))
+			continue;
+
+		for (pj = pi->next; pj; pj = pj->next) {
+			char rd_j[RD_ADDRSTRLEN];
+
+			if (!CHECK_FLAG(pj->flags, BGP_PATH_VALID) ||
+			    is_zero_mac(&pj->attr->rmac))
+				continue;
+
+			/* Same VTEP? Compare both v4 and v6 nexthops. */
+			if (pi->attr->nexthop.s_addr != pj->attr->nexthop.s_addr)
+				continue;
+			if (!IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
+					    &pj->attr->mp_nexthop_global))
+				continue;
+			if (memcmp(&pi->attr->rmac, &pj->attr->rmac, ETH_ALEN) == 0)
+				continue;
+
+			if (!bgp_zebra_evpn_rmac_conflict_report(bgp->vrf_id, &pi->attr->nexthop,
+								&pi->attr->rmac, &pj->attr->rmac))
+				continue;
+
+			bgp_zebra_evpn_path_rd(bgp, pi, rd_i, sizeof(rd_i));
+			bgp_zebra_evpn_path_rd(bgp, pj, rd_j, sizeof(rd_j));
+
+			flog_warn(EC_BGP_EVPN_RMAC_CONFLICT,
+				  "%s: prefix %pFX resolves to VTEP %pI4 with conflicting Router MACs: %pEA (RD %s%s) and %pEA (RD %s%s). Only one can be programmed; traffic to this VTEP may use the wrong destination MAC. Further reports for this conflict are suppressed for %u seconds.",
+				  bgp->name_pretty, p, &pi->attr->nexthop, &pi->attr->rmac, rd_i,
+				  CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) ? ", selected" : "",
+				  &pj->attr->rmac, rd_j,
+				  CHECK_FLAG(pj->flags, BGP_PATH_SELECTED) ? ", selected" : "",
+				  BGP_EVPN_RMAC_CONFLICT_SUPPRESS_S);
+		}
+	}
+}
+
 static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const struct prefix *p,
 					     struct bgp *bgp, struct zapi_route *api,
 					     unsigned int *valid_nh_count, afi_t afi, safi_t safi,
@@ -1520,6 +1670,8 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 
 		(*valid_nh_count)++;
 	}
+
+	bgp_zebra_evpn_rmac_conflict_check(info, p, bgp);
 }
 
 static void bgp_debug_zebra_nh(struct zapi_route *api)
