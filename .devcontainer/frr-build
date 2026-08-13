@@ -1,0 +1,148 @@
+#!/bin/bash
+#
+# Copyright (c) 2022-2026 Rafael F. Zalamena
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+usage() {
+  cat <<EOF
+Usage: $0
+  [-h] [--asan] [--help] [--jobs=NUMBER] [--scan-build] [--tsan]
+
+Options:
+  --asan: build FRR with address sanitizer.
+  --help or -h: this help message.
+  --jobs: amount of parallel build jobs (defaults to $jobs).
+  --scan-build: use clang static analyzer (compilation is way slower).
+  --tsan: build FRR with thread sanitizer.
+EOF
+  exit 1
+}
+
+source_dir="/workspaces/frr"
+
+flags=(
+  --localstatedir=/var/run/frr
+  --prefix=/usr
+  --sbindir=/usr/lib/frr
+  --sysconfdir=/etc/frr
+  --enable-configfile-mask=0640
+  --enable-dev-build
+  --enable-doc
+  --enable-doc-html
+  --enable-fpm
+  --enable-group=frr
+  --enable-grpc
+  --enable-logfile-mask=0640
+  --enable-multipath=64
+  --enable-nhrpd
+  --enable-rpki
+  --enable-sharpd
+  --enable-snmp=agentx
+  --enable-user=frr
+  --enable-vty-group=frrvty
+  --with-pkg-git-version
+)
+jobs=$(expr $(nproc))
+scan_build=no
+
+longopts='asan,help,jobs:,scan-build,tsan'
+shortopts='h'
+options=$(getopt -u --longoptions "$longopts" "$shortopts" $*)
+if [ $? -ne 0 ]; then
+  usage
+  exit 1
+fi
+
+set -- $options
+while [ $# -ne 0 ]; do
+  case "$1" in
+    --asan)
+      flags+=(--enable-address-sanitizer);
+      shift
+      ;;
+    --jobs)
+      jobs="$2"
+      shift 2
+      ;;
+    --scan-build)
+      scan_build=yes
+      shift
+      ;;
+    --tsan)
+      flags+=(--enable-thread-sanitizer);
+      shift
+      ;;
+    -h | --help)
+      usage
+      shift
+      ;;
+
+    --) shift ;;
+    *) echo "unhandled argument '$1'" 2>&1 ; exit 1 ;;
+  esac
+done
+
+cd $source_dir
+
+# Bootstrap the configure file
+if [ ! -f configure ]; then
+  echo "=> Running bootstrap ..."
+  ./bootstrap.sh
+fi
+
+# Configure if not configured
+if [ ! -f Makefile ]; then
+  echo "=> Running configure ..."
+  ./configure 'CFLAGS=-O2 -g' 'CXXFLAGS=-g' ${flags[@]}
+fi
+
+# Build
+if [ $scan_build = 'no' ]; then
+  make --jobs=$jobs >/dev/null || exit 1
+else
+  scan-build make --jobs=$jobs >/dev/null || exit 1
+fi
+
+# Install FRR binaries
+sudo make install >/dev/null
+
+# Copy manual part
+if [ ! -d /var/log/frr ]; then
+  sudo install -m 775 -o frr -g frr -d /var/log/frr
+fi
+
+if [ ! -d /etc/frr ]; then
+  sudo install -m 775 -o frr -g frrvty -d /etc/frr
+  sudo install -m 640 -o frr -g frrvty $source_dir/tools/etc/frr/vtysh.conf \
+    /etc/frr/vtysh.conf
+  sudo install -m 640 -o frr -g frr $source_dir/tools/etc/frr/frr.conf \
+    /etc/frr/frr.conf
+  sudo install -m 640 -o frr -g frr $source_dir/tools/etc/frr/daemons \
+    /etc/frr/daemons
+fi
+
+if [ -f $source_dir/tools/frr.service ]; then
+  sudo install -m 644 $source_dir/tools/frr.service \
+    /etc/systemd/system/frr.service
+fi
+
+sync
+
+exit 0
