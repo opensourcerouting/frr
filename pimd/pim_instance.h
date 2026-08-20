@@ -248,4 +248,65 @@ extern struct pim_router *router;
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 void pim_vrf_shutdown(struct pim_instance *pim, bool shutdown);
 
+/*
+ * PIM southbound definitions
+ *
+ * Here will be declared all needed pieces to operate PIM southbound.
+ */
+
+/* Type definitions, used below in the callbacks data structure. */
+typedef void (*pim_mroute_socket_cb)(struct pim_instance *);
+typedef int (*pim_interface_enable_cb)(struct interface *, pim_addr, unsigned char);
+typedef void (*pim_interface_disable_cb)(struct interface *);
+typedef void (*pim_multicast_query_cb)(struct interface *);
+typedef void (*pim_multicast_route_cb)(struct channel_oil *, const char *name);
+typedef void (*pim_multicast_update_counters_cb)(struct channel_oil *);
+
+/* PIM southbound handler callbacks. */
+struct pim_sb_cbs {
+	/*
+	 * This callback is tasked to create the routing socket and set
+	 * `pim->mroute_socket`, `pim->mroute_socket_creation` and
+	 * `pim->event` entries.
+	 */
+	pim_mroute_socket_cb mroute_enable;
+	/*
+	 * This callback is tasked to destroy the routing socket and
+	 * unset `pim->mroute_socket`, `pim->mroute_socket_creation`
+	 * and `pim->event` entries.
+	 */
+	pim_mroute_socket_cb mroute_disable;
+
+	/*
+	 * This callback is tasked to enable multicast in an interface.
+	 *
+	 * You may manipulate
+	 * `((struct pim_interface *)interface->info)->mroute_vif_index`
+	 * to select a different multicast interface index or use the
+	 * already selected index.
+	 */
+	pim_interface_enable_cb interface_enable;
+	/* This callback is tasked to disable multicast in an interface. */
+	pim_interface_disable_cb interface_disable;
+
+
+	/*
+	 * This callback is tasked to renew static IGMP/MLD joins when
+	 * query expires, otherwise they would get removed.
+	 *
+	 * On Linux the kernel sends a report, so its a no-op.
+	 */
+	pim_multicast_query_cb interface_query;
+
+	/* This callback is tasked to install multicast route. */
+	pim_multicast_route_cb mroute_install;
+	/* This callback is tasked to uninstall multicast route. */
+	pim_multicast_route_cb mroute_uninstall;
+
+	/* This callback is tasked to update route counters. */
+	pim_multicast_update_counters_cb mroute_update_counters;
+};
+
+extern struct pim_sb_cbs southbound;
+
 #endif

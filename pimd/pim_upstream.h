@@ -93,7 +93,16 @@ struct prefix_list;
 #define PIM_UPSTREAM_DM_FLAG_MASK_INTERFACE            (1 << 22)
 
 #define PIM_UPSTREAM_DM_FLAG_MASK_PRUNE                (1 << 23)
-
+/*
+ * Set when forwarding plane indicates SPT is desired (i.e. bandwidth/packet
+ * rate exceeded threshold)
+ */
+#define PIM_UPSTREAM_FLAG_MASK_SPT_DESIRED (1 << 22)
+/*
+ * DATA_START flag: it is set when we received a data start for a particular
+ * upstream. Unset when DATA_STOP or new upstream.
+ */
+#define PIM_UPSTREAM_FLAG_MASK_DATA_START (1 << 23)
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 

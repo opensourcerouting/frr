@@ -27,6 +27,13 @@
 #include "pim_mlag.h"
 #include "pim_sock.h"
 
+struct pim_sb_cbs southbound = {
+	.mroute_enable = pim_mroute_socket_enable,
+	.mroute_disable = pim_mroute_socket_disable,
+	.interface_enable = pim_mroute_add_vif,
+	.interface_disable = pim_mroute_del_vif,
+};
+
 static void pim_instance_terminate(struct pim_instance *pim)
 {
 	pim->stopping = true;
@@ -59,7 +66,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 		close(pim->reg_sock);
 	pim->reg_sock = -1;
 
-	pim_mroute_socket_disable(pim);
+	southbound.mroute_disable(pim);
 
 	pim_ssm_terminate(pim);
 
@@ -195,7 +202,7 @@ static int pim_vrf_enable(struct vrf *vrf)
 	if (vrf_bind(vrf->vrf_id, pim->reg_sock, NULL) < 0)
 		zlog_warn("Failed to bind register socket to VRF %s", vrf->name);
 
-	pim_mroute_socket_enable(pim);
+	southbound.mroute_enable(pim);
 
 #if PIM_IPV == 4
 	pim_autorp_enable(pim);

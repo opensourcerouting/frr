@@ -191,3 +191,13 @@ pimd_mtracebis_SOURCES = pimd/mtracebis.c \
 			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \
 			 # end
+
+module_LTLIBRARIES += pimd/pim_southbound.la
+
+pimd_pim_southbound_la_SOURCES = \
+	pimd/pim_southbound_common.c \
+	pimd/pim_southbound.c \
+	# end
+pimd_pim_southbound_la_CFLAGS  = $(AM_CFLAGS) -DPIM_IPV=4
+pimd_pim_southbound_la_LDFLAGS = $(MODULE_LDFLAGS)
+pimd_pim_southbound_la_LIBADD  =

@@ -1109,7 +1109,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		flags = VIFF_USE_IFINDEX;
 #endif
 
-	if (pim_mroute_add_vif(ifp, ifaddr, flags)) {
+	if (southbound.interface_enable(ifp, ifaddr, flags)) {
 		/* pim_mroute_add_vif reported error */
 		return -5;
 	}
@@ -1149,7 +1149,7 @@ int pim_if_del_vif(struct interface *ifp)
 
 	gm_ifp_teardown(ifp);
 
-	pim_mroute_del_vif(ifp);
+	southbound.interface_disable(ifp);
 
 	/*
 	  Update vif_index
