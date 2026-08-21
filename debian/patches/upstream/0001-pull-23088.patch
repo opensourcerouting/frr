@@ -1,0 +1,90 @@
+From ee615b64ee7f31977abaa59cb43db16e086bb1c1 Mon Sep 17 00:00:00 2001
+From: David 'equinox' Lamparter <equinox@opensourcerouting.org>
+Date: Thu, 20 Aug 2026 18:00:12 +0200
+Subject: [PATCH] watchfrr: don't admit to systemd that we restart
+
+As of systemd 259 (98734ac74d16), once you're telling it that you're
+stopping, you're _stopping_, full stop.  systemd will make sure of it.
+
+So, I guess we just shouldn't admit to systemd that we're restarting.
+Use `SIGUSR1` for reload instead, so it just gives systemd a bit of text
+instead.
+
+Fixes: #20430
+References: https://github.com/systemd/systemd/commit/98734ac74d16862302c490e2a5bbc60539b7e6a4
+Signed-off-by: David 'equinox' Lamparter <equinox@opensourcerouting.org>
+(cherry picked from commit 34a9f14d6f846f67c5dfdf80dee5a69d2e8e4028)
+---
+ tools/frrcommon.sh.in |  7 +++++--
+ tools/frrinit.sh.in   |  2 +-
+ watchfrr/watchfrr.c   | 11 +++++++++++
+ 3 files changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/tools/frrcommon.sh.in b/tools/frrcommon.sh.in
+index b9ee1693aab6..80677e5bfb3f 100755
+--- a/tools/frrcommon.sh.in
++++ b/tools/frrcommon.sh.in
+@@ -202,7 +202,10 @@ daemon_stop() {
+ 	is_user_root || exit 1
+ 
+ 	all=false
++	sig=INT
++	# these can't be used at the same time anyway
+ 	[ "$2" = "--reallyall" ] && all=true
++	[ "$2" = "--reload" ] && sig=USR1
+ 
+ 	pidfile="$V_PATH/$daemon${inst:+-$inst}.pid"
+ 	vtyfile="$V_PATH/$daemon${inst:+-$inst}.vty"
+@@ -222,8 +225,8 @@ daemon_stop() {
+ 		debug "kill -6 $pid"
+ 		kill -6 "$pid"
+ 	else
+-		debug "kill -2 $pid"
+-		kill -2 "$pid"
++		debug "kill -$sig $pid"
++		kill -$sig "$pid"
+ 	fi
+ 
+ 	cnt=1200
+diff --git a/tools/frrinit.sh.in b/tools/frrinit.sh.in
+index 4b4fd2a58943..2ab0b3ac6aab 100644
+--- a/tools/frrinit.sh.in
++++ b/tools/frrinit.sh.in
+@@ -89,7 +89,7 @@ reload)
+ 	# NB: This will NOT cause the other daemons to be restarted.
+ 	daemon_list enabled_daemons disabled_daemons
+ 	watchfrr_options="$watchfrr_options $enabled_daemons"
+-	daemon_stop watchfrr && \
++	daemon_stop watchfrr --reload && \
+ 		daemon_start watchfrr
+ 
+ 	# If we disable an arbitrary daemon and do reload,
+diff --git a/watchfrr/watchfrr.c b/watchfrr/watchfrr.c
+index a86d3170919b..6fcdd857ce96 100644
+--- a/watchfrr/watchfrr.c
++++ b/watchfrr/watchfrr.c
+@@ -1031,6 +1031,13 @@ static FRR_NORETURN void sigint(void)
+ 	exit(0);
+ }
+ 
++static FRR_NORETURN void sigusr1(void)
++{
++	zlog_notice("Terminating to handle reload (SIGUSR1)");
++	systemd_send_status("watchfrr restarting to handle changes in daemons");
++	exit(0);
++}
++
+ static int valid_command(const char *cmd)
+ {
+ 	const char *p;
+@@ -1286,6 +1293,10 @@ static struct frr_signal_t watchfrr_signals[] = {
+ 		.signal = SIGCHLD,
+ 		.handler = sigchild,
+ 	},
++	{
++		.signal = SIGUSR1,
++		.handler = sigusr1,
++	},
+ };
+ 
+ /* clang-format off */
