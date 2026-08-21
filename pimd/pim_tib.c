@@ -373,7 +373,7 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 			if (PIM_DEBUG_GRAFT)
 				zlog_debug("%s: Evaluating c_oil for DM graft", __func__);
 
-			if (!pim_addr_cmp(sg.grp, *oil_mcastgrp(c_oil))) {
+			if (!pim_addr_cmp(sg.grp, c_oil->group)) {
 				if (c_oil->up && PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
 					struct interface *ifp =
 						c_oil->up->rpf.source_nexthop.interface;

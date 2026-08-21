@@ -42,6 +42,7 @@ static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif, pim_a
 					     pim_addr source)
 {
 	struct static_route *s_route;
+	struct channel_oif *c_oif;
 
 	s_route = static_route_alloc();
 
@@ -50,11 +51,11 @@ static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif, pim_a
 	s_route->iif = iif;
 	s_route->oif_ttls[oif] = 1;
 	s_route->c_oil.oil_ref_count = 1;
-	*oil_origin(&s_route->c_oil) = source;
-	*oil_mcastgrp(&s_route->c_oil) = group;
-	*oil_incoming_vif(&s_route->c_oil) = iif;
-	oil_if_set(&s_route->c_oil, oif, 1);
-	s_route->c_oil.oif_creation[oif] = pim_time_monotonic_sec();
+	s_route->c_oil.source = source;
+	s_route->c_oil.group = group;
+	s_route->c_oil.iif.ifindex = iif;
+	c_oif = channel_oil_oif_add(&s_route->c_oil, oif, 0);
+	c_oif->creation = pim_time_monotonic_sec();
 
 	return s_route;
 }
@@ -150,6 +151,7 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 				  struct interface *oif, pim_addr group, pim_addr source)
 {
 	struct listnode *node = NULL;
+	struct channel_oif *coif;
 	struct static_route *s_route = NULL;
 	struct static_route *original_s_route = NULL;
 	struct pim_interface *pim_iif = iif->info;
@@ -185,8 +187,8 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 
 			/* Adding a new output interface to an existing route. */
 			s_route->oif_ttls[oif_index] = 1;
-			oil_if_set(&s_route->c_oil, oif_index, 1);
-			s_route->c_oil.oif_creation[oif_index] = pim_time_monotonic_sec();
+			coif = channel_oil_oif_add(&s_route->c_oil, oif_index, 0);
+			coif->creation = pim_time_monotonic_sec();
 			++s_route->c_oil.oil_ref_count;
 			break;
 		}
@@ -268,7 +270,7 @@ static int pim_static_del_install(struct pim_instance *pim, struct interface *ii
 			continue;
 
 		s_route->oif_ttls[oif_index] = 0;
-		oil_if_set(&s_route->c_oil, oif_index, 0);
+		channel_oil_oif_delete(&s_route->c_oil, oif_index, 0);
 		--s_route->c_oil.oil_ref_count;
 
 		/*
@@ -282,13 +284,11 @@ static int pim_static_del_install(struct pim_instance *pim, struct interface *ii
 				  __FILE__, __func__, iif_index, oif_index, &group, &source);
 
 			s_route->oif_ttls[oif_index] = 1;
-			oil_if_set(&s_route->c_oil, oif_index, 1);
+			channel_oil_oif_add(&s_route->c_oil, oif_index, 0);
 			++s_route->c_oil.oil_ref_count;
 
 			return -1;
 		}
-
-		s_route->c_oil.oif_creation[oif_index] = 0;
 
 		if (s_route->c_oil.oil_ref_count <= 0) {
 			listnode_delete(pim->static_routes, s_route);
