@@ -25,6 +25,7 @@
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
 	PIM_SPT_INFINITY,
+	PIM_SPT_THRESH_NEVER = ~0U,
 };
 
 /* stats for updates rxed from the MLAG component during the life of a
@@ -261,6 +262,7 @@ typedef void (*pim_interface_disable_cb)(struct interface *);
 typedef void (*pim_multicast_query_cb)(struct interface *);
 typedef void (*pim_multicast_route_cb)(struct channel_oil *, const char *name);
 typedef void (*pim_multicast_update_counters_cb)(struct channel_oil *);
+typedef void (*pim_channel_oif_update_cb)(struct channel_oil *, uint32_t, uint32_t);
 
 /* PIM southbound handler callbacks. */
 struct pim_sb_cbs {

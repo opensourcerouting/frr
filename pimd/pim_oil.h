@@ -53,6 +53,25 @@ struct channel_counts {
 	unsigned long oldwrong_if;
 };
 
+#ifdef PIM_SOUTHBOUND
+PREDECL_LIST(channel_oif_list);
+
+struct channel_oif {
+	struct channel_oif_list_item entry;
+
+	/** Interface index. */
+        int32_t ifindex;
+        /** Interface flags. \see `PIM_OIF_FLAG_*`. */
+        uint32_t flags;
+};
+DECLARE_LIST(channel_oif_list, struct channel_oif, entry);
+
+extern struct channel_if *channel_oif_find(struct channel_oil *oil, int32_t ifindex);
+extern void channel_oif_add(struct channel_oil *oil, int32_t ifindex, uint32_t flag);
+extern void channel_oif_del(struct channel_oil *oil, int32_t ifindex, uint32_t flag);
+extern void channel_oif_free(struct channel_oil *oil, struct channel_if **oif);
+#endif /* PIM_SOUTHBOUND */
+
 /*
   qpim_channel_oil_list holds a list of struct channel_oil.
 
@@ -99,6 +118,24 @@ struct channel_oil {
 	struct channel_counts cc;
 	struct pim_upstream *up;
 	time_t mroute_creation;
+
+#ifdef PIM_SOUTHBOUND
+        /* NB: filtered oils are still installed into the kernel, but their
+         * oifs are empty.  Otherwise the kernel would keep notifying us about
+         * unexpected traffic from this source.
+         */
+        bool filtered;
+
+	/* only valid on (*,G) entries */
+        uint32_t spt_threshold;
+
+	/** Input interface. */
+        struct channel_oif iif;
+        /** Notification interface. */
+        struct channel_oif notifif;
+        /** Output interfaces. */
+	struct channel_oif_list_head oif_list;
+#endif /* PIM_SOUTHBOUND */
 };
 
 #if PIM_IPV == 4

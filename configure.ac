@@ -862,6 +862,15 @@ AC_ARG_ENABLE([version_build_config],
 AC_ARG_ENABLE([python_runtime],
   AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
+AC_ARG_ENABLE([pim_southbound],
+  AS_HELP_STRING([--enable-pim-southbound], [enable vendor PIM southbound support]))
+
+if test "$enable_pim_southbound" != "no" ; then
+  AC_DEFINE([PIM_SOUTHBOUND], [1], [PIM southbound support])
+fi
+
+AM_CONDITIONAL([PIM_SOUTHBOUND], [test "$enable_pim_southbound" != "no"])
+
 ##
 ## gperftools tcmalloc version, more complete than "minimal"
 ##

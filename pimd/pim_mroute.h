@@ -155,6 +155,49 @@ typedef struct sioc_sg_req6 pim_sioc_sg_req;
   Above: from <linux/mroute.h>
 */
 
+#ifdef PIM_SOUTHBOUND
+
+#define MAXVIFS_VENDOR (4096)
+
+static inline int system_maxvifs(void)
+{
+        if (pim_southbound_enabled)
+                return MAXVIFS_VENDOR;
+
+        return MAXVIFS;
+}
+
+#if PIM_IPV == 4
+struct mfcctl_vendor {
+        struct in_addr mfcc_origin;              /* Origin of mcast      */
+        struct in_addr mfcc_mcastgrp;            /* Group in question    */
+        vifi_t mfcc_parent;                      /* Where it arrived     */
+        unsigned char mfcc_ttls[MAXVIFS_VENDOR]; /* Where it is going    */
+        unsigned int mfcc_pkt_cnt;               /* pkt count for src-grp */
+        unsigned int mfcc_byte_cnt;
+        unsigned int mfcc_wrong_if;
+        int mfcc_expire;
+};
+#else
+struct mf6cctl_vendor {
+        struct sockaddr_in6 mf6cc_origin;               /* Origin of mcast      */
+        struct sockaddr_in6 mf6cc_mcastgrp;             /* Group in question    */
+        mifi_t  mf6cc_parent;                   /* Where it arrived     */
+        struct {
+                if_mask ifs_bits[(MAXVIFS_VENDOR + NIFBITS - 1) / NIFBITS];
+        } mf6cc_ifset;                          /* Where it is going */
+};
+#endif /* PIM_IPV */
+
+#else
+#define MAXVIFS_VENDOR (MAXVIFS)
+
+static inline int system_maxvifs(void)
+{
+        return MAXVIFS;
+}
+#endif /* PIM_SOUTHBOUND */
+
 struct channel_oil;
 struct pim_instance;
 struct pim_upstream;
