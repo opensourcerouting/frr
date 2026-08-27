@@ -112,13 +112,18 @@ extern void mgmt_destroy_txn(uint64_t *txn_id);
  * @abort: TRUE if need to restore Src DS back to Dest DS, FALSE otherwise.
  * @implicit: TRUE if the commit is implicit, FALSE otherwise.
  * @unlock: pass back in the commit config reply
+ * @restore_on_error: TRUE if Src DS must be restored from Dest DS when the
+ *	commit fails -- for senders whose commit covers all of the changes
+ *	staged in Src DS (implicit per-command commits and locked config file
+ *	batches), so a rejected commit doesn't leave Src DS diverged.
  * @edit: Additional info when triggered from native edit request.
  */
 extern void
 mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
 				struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
-				bool implicit, bool unlock, struct mgmt_edit_req *edit);
+				bool implicit, bool unlock, bool restore_on_error,
+				struct mgmt_edit_req *edit);
 
 /**
  * mgmt_txn_send_get_tree() - Send get-tree to the backend `clients`.

@@ -154,7 +154,12 @@ DEFPY(mgmt_commit,
 	if (!validate_only && !vty->mgmt_locked_running_ds)
 		vty_out(vty, "Warning: running datastore is not locked.\n");
 
-	if (vty_mgmt_send_commit_config(vty, validate_only, abort, false) != 0)
+	/*
+	 * No restore-on-error: this is an explicit transactional commit, the
+	 * candidate may hold earlier valid changes and the user can fix up the
+	 * bad ones or "mgmt commit abort".
+	 */
+	if (vty_mgmt_send_commit_config(vty, validate_only, abort, false, false) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	return CMD_SUCCESS;
 }

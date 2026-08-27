@@ -106,7 +106,7 @@ extern void vty_mgmt_init(void);
 extern void vty_mgmt_terminate(void);
 
 extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort,
-				       bool unlock);
+				       bool unlock, bool restore_on_error);
 extern int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore, LYD_FORMAT result_type,
 				      uint8_t flags, uint8_t defaults, const char *xpath);
 extern int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore, LYD_FORMAT request_type,

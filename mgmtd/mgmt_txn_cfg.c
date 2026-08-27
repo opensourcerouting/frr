@@ -40,6 +40,7 @@ struct txn_req_commit {
 	uint8_t rollback : 1;
 	uint8_t init : 1;
 	uint8_t unlock_info : 1;
+	uint8_t restore_on_error : 1;
 	uint8_t txn_lock : 1;
 
 	/* Track commit phases */
@@ -526,11 +527,24 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	 *
 	 * Discard candidate changes (running->candidate):
 	 *
-	 *    If this is a successful abort
+	 *    If this is a successful abort.
+	 *
+	 *    Or if the commit failed and the requester asked us to restore the
+	 *    source on error. Such a requester (a per-command implicit commit,
+	 *    or a batch of changes committed while holding the datastore locks
+	 *    for a config file load) staged the entirety of the candidate delta
+	 *    itself and is done after this commit, so a rejected commit must
+	 *    drop those changes. Leaving them behind diverges the (shared)
+	 *    candidate from running, and every later commit would re-diff and
+	 *    re-emit the rejected changes -- failing unrelated config until
+	 *    mgmtd is restarted. Transactional requesters don't set this, as
+	 *    their candidate may hold earlier valid changes that a failure of
+	 *    the latest one shouldn't invalidate.
 	 */
 	apply_op = !ccreq->validate_only && !ccreq->abort && !ccreq->init;
 	accept_changes = ccreq->phase >= MGMTD_COMMIT_PHASE_APPLY_CFG && apply_op;
-	discard_changes = (result == MGMTD_SUCCESS && ccreq->abort);
+	discard_changes = (result == MGMTD_SUCCESS && ccreq->abort) ||
+			  (!success && ccreq->restore_on_error && !accept_changes);
 	if (accept_changes) {
 		/* unlock_info == true: per-command implicit commit; skip history. */
 		bool create_cmt_info_rec = (result != MGMTD_NO_CFG_CHANGES && !ccreq->rollback &&
@@ -1036,7 +1050,8 @@ static int txn_get_config_changes(struct txn_req_commit *ccreq, struct nb_config
 void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
 				     struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				     struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
-				     bool implicit, bool unlock, struct mgmt_edit_req *edit)
+				     bool implicit, bool unlock, bool restore_on_error,
+				     struct mgmt_edit_req *edit)
 {
 	struct mgmt_txn *txn;
 	struct txn_req_commit *ccreq;
@@ -1064,6 +1079,7 @@ void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt
 	ccreq->abort = abort;
 	ccreq->implicit = implicit;  /* this is only true iff edit */
 	ccreq->unlock_info = unlock; /* this is true for implicit commit in front-end */
+	ccreq->restore_on_error = restore_on_error;
 	ccreq->edit = edit;
 	ccreq->cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
 

@@ -598,6 +598,16 @@ struct mgmt_msg_lock_reply {
  * @target: the datastore to commit into.
  * @action: apply, abort, or validate the changes from source to target.
  * @unlock: value passed to reply message.
+ * @restore_on_error: restore @source from @target if the commit fails.
+ *
+ * @restore_on_error is used by senders whose commit covers the entirety of the
+ * changes staged in @source (e.g., a per-command implicit commit, or a batch of
+ * changes sent while holding the datastore locks for a config file load). For
+ * those senders a failed commit means the staged changes must be dropped,
+ * otherwise they are left in @source diverged from @target where they would
+ * poison every subsequent commit. Transactional senders, which accumulate
+ * changes over multiple commits, leave this clear so a failure keeps @source
+ * intact for the user to fix or abort.
  */
 struct mgmt_msg_commit {
 	struct mgmt_msg_header;
@@ -605,7 +615,8 @@ struct mgmt_msg_commit {
 	uint8_t target; /* MGMT_MSG_DATASTORE_* */
 	uint8_t action; /* MGMT_MSG_COMMIT_* */
 	uint8_t unlock;
-	uint8_t resv2[4];
+	uint8_t restore_on_error;
+	uint8_t resv2[3];
 };
 
 /**

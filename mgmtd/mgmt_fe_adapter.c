@@ -731,20 +731,9 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgm
 	 * those locks are managed by the client (or cleaned up on session
 	 * disconnect).
 	 *
-	 * However, for the implicit commit (legacy CLI/non-transactional) case
-	 * the intention is that each change is made to the candidate and
-	 * running at the same (i.e., as the user enters commands they take
-	 * affect). So a failure to apply the change to running means we should
-	 * back that change out of the candidate DS, and the user will be
-	 * presented with an error message.
-	 *
-	 * So, if we have a failiure to apply an implicit commit, we
-	 * should restore the candidate DS, and we can do this by copying
-	 * running back over candidate. This doesn't work in the transactional
-	 * case b/c the candidate may be made up from multiple changes and a
-	 * failure of the latest change shouldn't invalidate all the previous
-	 * valid changes which is what would happen if we copied running back
-	 * over candidate.
+	 * Restoring the candidate DS from running after a failed commit is
+	 * handled by the TXN code (see restore_on_error in txn_finish_commit())
+	 * so that it happens whether or not the session is still around.
 	 */
 	session = fe_session_lookup(session_id);
 	if (session && session->cfg_txn_id && session->cfg_txn_id != txn_id)
@@ -754,14 +743,6 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgm
 		action = MGMT_MSG_COMMIT_VALIDATE;
 	else
 		action = MGMT_MSG_COMMIT_APPLY;
-
-	/*
-	 * Restore the source from the dest in case of error with an implicit commit.
-	 * Currently we use the unlock feedback to identify an implicit commit.
-	 */
-	if (result != MGMTD_SUCCESS && result != MGMTD_NO_CFG_CHANGES && unlock)
-		mgmt_ds_copy_dss(mgmt_ds_get_ctx_by_id(mm, src_ds_id),
-				 mgmt_ds_get_ctx_by_id(mm, dst_ds_id), false);
 
 	if (!session)
 		return -ENOENT;
@@ -873,7 +854,7 @@ static void fe_session_handle_commit(struct mgmt_fe_session_ctx *session, void *
 					msg->target, dst_ds_ctx,
 					msg->action == MGMT_MSG_COMMIT_VALIDATE,
 					msg->action == MGMT_MSG_COMMIT_ABORT, false /* implicit */,
-					msg->unlock, NULL);
+					msg->unlock, msg->restore_on_error, NULL);
 }
 
 /* ------------ */
@@ -1379,7 +1360,8 @@ static void fe_session_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 		/* And this is modifying the running */
 		mgmt_txn_send_commit_config_req(txn_id, msg->req_id, can_id, can_ds, run_id,
 						run_ds, false /*abort*/, false /*validate-only*/,
-						true /*implicit*/, false /*unlock*/, edit);
+						true /*implicit*/, false /*unlock*/,
+						false /*restore-on-error*/, edit);
 		return;
 	}
 reply:

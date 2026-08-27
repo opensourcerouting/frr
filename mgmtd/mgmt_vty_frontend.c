@@ -433,7 +433,7 @@ error:
 		return CMD_SUCCESS;
 
 	assert(vty->mgmt_client_id && vty->mgmt_session_id);
-	if (vty_mgmt_send_commit_config(vty, false, false, true) < 0)
+	if (vty_mgmt_send_commit_config(vty, false, false, true, true) < 0)
 		goto error;
 
 	return CMD_SUCCESS;
@@ -443,13 +443,14 @@ error:
 /* Commit Config */
 /* ------------- */
 
-int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock)
+int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock,
+				bool restore_on_error)
 {
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		vty->mgmt_req_id++;
 		if (mgmt_fe_send_commit_req(mgmt_fe_client, vty->mgmt_session_id, vty->mgmt_req_id,
 					    MGMTD_DS_CANDIDATE, MGMTD_DS_RUNNING, validate_only,
-					    abort, unlock)) {
+					    abort, unlock, restore_on_error)) {
 			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64, vty->mgmt_req_id);
 			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");
 			return -1;
@@ -749,9 +750,16 @@ static void vty_end_config_mgmt(struct vty *vty)
 	 * If we have made changes with vty_mgmt_send_config_data(), but without
 	 * implicit commit then we need to do a commit now to apply all those
 	 * pending changes.
+	 *
+	 * This commit covers every change staged in the candidate by this
+	 * locked batch (i.e., a config file load), and we release the locks
+	 * right after it, so ask mgmtd to restore the candidate from running if
+	 * the commit is rejected. Otherwise the rejected changes stay in the
+	 * shared candidate and get re-diffed and re-rejected by every later
+	 * commit, blocking unrelated config until mgmtd restarts.
 	 */
 	if (vty->mgmt_num_pending_setcfg)
-		vty_mgmt_send_commit_config(vty, false, false, false);
+		vty_mgmt_send_commit_config(vty, false, false, false, true);
 }
 
 static int nb_cli_apply_changes_mgmt(struct vty *vty, const char *xpath_base_abs)
