@@ -228,7 +228,7 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id, 
 
 int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
 			       enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dest_ds_id,
-			       bool validate_only, bool abort, bool unlock)
+			       bool validate_only, bool abort, bool unlock, bool restore_on_error)
 {
 	struct mgmt_msg_commit *msg;
 	int ret;
@@ -246,9 +246,10 @@ int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_i
 	else
 		msg->action = MGMT_MSG_COMMIT_APPLY;
 	msg->unlock = unlock;
+	msg->restore_on_error = restore_on_error;
 
-	debug_fe_client("Sending COMMIT message for Src-DS:%s, Dst-DS:%s session-id %Lu",
-			dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id);
+	debug_fe_client("Sending COMMIT message for Src-DS:%s, Dst-DS:%s session-id %Lu restore-on-error: %d",
+			dsid2name(src_ds_id), dsid2name(dest_ds_id), session_id, restore_on_error);
 
 	ret = mgmt_msg_native_send_msg(&client->client.conn, msg, false);
 	ret = fe_client_push_sent_msg(client, (struct mgmt_msg_header *)msg, ret);

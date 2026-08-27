@@ -794,7 +794,8 @@ static void fe_adapter_handle_commit(struct mgmt_fe_session_ctx *session, void *
 					    src_ds_ctx, msg->target, dst_ds_ctx,
 					    msg->action == MGMT_MSG_COMMIT_VALIDATE,
 					    msg->action == MGMT_MSG_COMMIT_ABORT,
-					    false /* implicit */, msg->unlock, NULL) != 0) {
+					    false /* implicit */, msg->unlock,
+					    msg->restore_on_error, NULL) != 0) {
 		fe_adapter_send_error(session, msg->req_id, false, EINVAL,
 				      "failed to create config request under txn-id: %Lu for session-id: %Lu on '%s'",
 				      session->cfg_txn_id, session->session_id,

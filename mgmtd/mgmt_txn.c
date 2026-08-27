@@ -80,6 +80,7 @@ struct mgmt_commit_cfg_req {
 	uint8_t rollback : 1;
 	uint8_t init : 1;
 	uint8_t unlock : 1;
+	uint8_t restore_on_error : 1;
 
 	/* Track commit phases */
 	enum mgmt_commit_phase phase;
@@ -424,9 +425,17 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		 * back the contents of the candidate DS. For non-implicit
 		 * commit we want to allow the user to re-commit on the changes
 		 * (whether further modified or not).
+		 *
+		 * The same restore is needed when the requester asked for it
+		 * explicitly: a batch of changes committed while holding the
+		 * datastore locks for a config file load staged the entirety of
+		 * the candidate delta itself and is done after this commit, so
+		 * a rejected commit must drop those changes rather than leave
+		 * the shared candidate diverged from running.
 		 */
 		if (txn->commit_cfg_req->req.commit_cfg.implicit ||
-		    txn->commit_cfg_req->req.commit_cfg.unlock)
+		    txn->commit_cfg_req->req.commit_cfg.unlock ||
+		    txn->commit_cfg_req->req.commit_cfg.restore_on_error)
 			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx,
 					 txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx, false);
 	}
@@ -1376,7 +1385,8 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
 				    struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				    struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
-				    bool implicit, bool unlock, struct mgmt_edit_req *edit)
+				    bool implicit, bool unlock, bool restore_on_error,
+				    struct mgmt_edit_req *edit)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -1401,6 +1411,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_
 	txn_req->req.commit_cfg.abort = abort;
 	txn_req->req.commit_cfg.implicit = implicit;
 	txn_req->req.commit_cfg.unlock = unlock;
+	txn_req->req.commit_cfg.restore_on_error = restore_on_error;
 	txn_req->req.commit_cfg.edit = edit;
 	txn_req->req.commit_cfg.cmt_stats =
 		mgmt_fe_get_session_commit_stats(txn->session_id);
@@ -1801,7 +1812,8 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id ds_id,
 		edit->unlock = unlock;
 
 		mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id, ds_ctx, commit_ds_id,
-						commit_ds_ctx, false, false, true, false, edit);
+						commit_ds_ctx, false, false, true, false, false,
+						edit);
 		return 0;
 	}
 reply:

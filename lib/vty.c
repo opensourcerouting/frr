@@ -3973,19 +3973,21 @@ error:
 		return CMD_SUCCESS;
 
 	assert(vty->mgmt_client_id && vty->mgmt_session_id);
-	if (vty_mgmt_send_commit_config(vty, false, false, true) < 0)
+	if (vty_mgmt_send_commit_config(vty, false, false, true, true) < 0)
 		goto error;
 
 	return CMD_SUCCESS;
 }
 
-int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock)
+int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock,
+				bool restore_on_error)
 {
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		vty->mgmt_req_id++;
 		if (mgmt_fe_send_commitcfg_req(mgmt_fe_client, vty->mgmt_session_id,
 					       vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
-					       MGMTD_DS_RUNNING, validate_only, abort, unlock)) {
+					       MGMTD_DS_RUNNING, validate_only, abort, unlock,
+					       restore_on_error)) {
 			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64,
 				 vty->mgmt_req_id);
 			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");

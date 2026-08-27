@@ -250,9 +250,16 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	 * FE interface using vty_mgmt_send_config_data() without implicit
 	 * commit before, should we need to send an explicit COMMIT-REQ now
 	 * to apply all those commands at once.
+	 *
+	 * This commit covers every change staged in the candidate by this
+	 * locked batch (i.e., a config file load), and the locks are released
+	 * right after it, so ask mgmtd to restore the candidate from running if
+	 * the commit is rejected. Otherwise the rejected changes stay in the
+	 * shared candidate and get re-diffed and re-rejected by every later
+	 * commit, blocking unrelated config until mgmtd restarts.
 	 */
 	if (vty->mgmt_num_pending_setcfg && vty_mgmt_fe_enabled())
-		vty_mgmt_send_commit_config(vty, false, false, false);
+		vty_mgmt_send_commit_config(vty, false, false, false, true);
 
 	if (callback.end_config)
 		(*callback.end_config)();
