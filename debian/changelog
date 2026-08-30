@@ -4,6 +4,13 @@ frr (10.8.0-dev) UNRELEASED; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 15 Jul 2026 02:00:00 -0600
 
+frr (10.7.1-1) sid; urgency=medium
+
+  * Merging upstream version 10.7.1.
+  * Removing pull-23088.patch, included upstream.
+
+ -- Daniel Baumann <daniel@debian.org>  Sun, 30 Aug 2026 06:38:42 +0200
+
 frr (10.7.0-2) sid; urgency=medium
 
   * Updating python3-sphinx build-depends to fix FTBFS on trixie.
