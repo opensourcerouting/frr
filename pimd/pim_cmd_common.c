@@ -4412,6 +4412,12 @@ void clear_mroute(struct pim_instance *pim)
 	/* clean up all upstreams*/
 	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
 		pim_upstream_del(pim, up, __func__);
+
+	/* Re insert GMP static entries */
+	if (southbound.interface_join) {
+		FOR_ALL_INTERFACES (pim->vrf, ifp)
+			southbound.interface_join(ifp);
+	}
 }
 
 void clear_pim_statistics(struct pim_instance *pim)
