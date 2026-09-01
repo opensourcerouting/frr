@@ -322,6 +322,52 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	return best;
 }
 
+#ifdef PIM_SOUTHBOUND_COMMON
+bool pim_rp_sb_registers(const struct rp_info *rp, struct channel_oil *oil)
+{
+	if (rp == NULL || rp->rp.source_nexthop.interface == NULL ||
+	    rp->rp.source_nexthop.interface->info == NULL)
+		return false;
+
+	return channel_oil_oif_find(oil, PIM_OIF_PIM_REGISTER_VIF) != NULL;
+}
+
+/*
+ * The southbound installs the RP address for register encapsulation, so
+ * reinstall the (S,G) mroutes whose RP changed.
+ */
+static void pim_rp_sb_register_update(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+
+	/* Only the southbound module programs the register destination. */
+	if (!southbound.fpm_sync)
+		return;
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		struct prefix grp;
+		struct rp_info *trp_info;
+		pim_addr register_to = PIMADDR_ANY;
+
+		if (pim_addr_is_any(up->sg.src))
+			continue;
+
+		/* Not installed routes get the current RP when installed. */
+		if (!up->channel_oil || !up->channel_oil->installed)
+			continue;
+
+		/* Same as `pimsb_mroute_do`: only registering routes carry the RP. */
+		pim_addr_to_prefix(&grp, up->sg.grp);
+		trp_info = pim_rp_find_match_group(pim, &grp);
+		if (pim_rp_sb_registers(trp_info, up->channel_oil))
+			register_to = trp_info->rp.rpf_addr;
+
+		if (pim_addr_cmp(register_to, up->sb_register_to))
+			pim_upstream_mroute_add(up->channel_oil, __func__);
+	}
+}
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 /*
  * When the user makes "ip pim rp" configuration changes or if they change the
  * prefix-list(s) used by these statements we must tickle the upstream state
@@ -339,6 +385,9 @@ void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 	 */
 	pim_upstream_dense_reevaluate(pim);
 	pim_upstream_reeval_use_rpt(pim);
+#ifdef PIM_SOUTHBOUND_COMMON
+	pim_rp_sb_register_update(pim);
+#endif /* PIM_SOUTHBOUND_COMMON */
 	pim_upstream_register_reevaluate(pim);
 }
 

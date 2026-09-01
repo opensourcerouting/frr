@@ -75,6 +75,18 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr);
 int pim_rp_list_cmp(void *v1, void *v2);
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);
+
+#ifdef PIM_SOUTHBOUND_COMMON
+struct channel_oil;
+
+/**
+ * Tells whether the southbound must program `oil` to register its traffic
+ * with `rp`: `pimreg` is in the OIL and the RP is reachable through a PIM
+ * interface.
+ */
+extern bool pim_rp_sb_registers(const struct rp_info *rp, struct channel_oil *oil);
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
 void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim);
 

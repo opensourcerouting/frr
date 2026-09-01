@@ -1779,6 +1779,9 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 	pim_msdp_sa_local_del(pim, &up->sg);
 #endif /* PIM_IPV == 4 */
 
+	/* The flow is inactive. */
+	pim_upstream_data_stop(up);
+
 	/* JoinDesired can change when KAT is started or stopped */
 	pim_upstream_update_join_desired(pim, up);
 
