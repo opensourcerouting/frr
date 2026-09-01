@@ -94,6 +94,18 @@ struct prefix_list;
 
 #define PIM_UPSTREAM_DM_FLAG_MASK_PRUNE                (1 << 23)
 
+#ifdef PIM_SOUTHBOUND
+/*
+ * Set when forwarding plane indicates SPT is desired (i.e. bandwidth/packet
+ * rate exceeded threshold)
+ */
+#define PIM_UPSTREAM_FLAG_MASK_SPT_DESIRED (1 << 24)
+/*
+ * DATA_START flag: it is set when we received a data start for a particular
+ * upstream. Unset when DATA_STOP or new upstream.
+ */
+#define PIM_UPSTREAM_FLAG_MASK_DATA_START (1 << 25)
+#endif /* PIM_SOUTHBOUND */
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
@@ -286,6 +298,11 @@ struct pim_upstream {
 #define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */
+
+#ifdef PIM_SOUTHBOUND
+	/* Address to send the register to. */
+	pim_addr sb_register_to;
+#endif /* PIM_SOUTHBOUND */
 };
 
 static inline bool pim_upstream_is_kat_running(struct pim_upstream *up)
