@@ -21,6 +21,7 @@
 #include "pim_autorp.h"
 #include "pim_nht.h"
 #include "pim_static.h"
+#include "pim_southbound.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -263,5 +264,6 @@ extern struct pim_router *router;
 
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 void pim_vrf_shutdown(struct pim_instance *pim, bool shutdown);
+
 
 #endif

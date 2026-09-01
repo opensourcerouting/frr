@@ -62,8 +62,12 @@ void igmp_v2_send_query(struct gm_group *group, int fd, const struct interface *
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
-		      (struct sockaddr *)&to, tolen);
+	/* The data plane doesn't handle loopbacks: those keep the OS socket. */
+	if (southbound.send && !if_is_loopback(ifp))
+		sent = southbound.send(ifp, NULL, &dst_addr, PIM_IP_PROTO_IGMP, 1, query_buf,
+				       msg_size);
+	else
+		sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT, (struct sockaddr *)&to, tolen);
 	if (sent != (ssize_t)msg_size) {
 		if (sent < 0) {
 			zlog_warn("Send IGMPv2 QUERY failed due to %pI4s on %s: group=%pI4s msg_size=%zd: errno=%d: %s",
