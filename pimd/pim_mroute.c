@@ -413,7 +413,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		}
 
 		/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
-		if (up->rpf.source_nexthop.interface && up->channel_oil->iif.index >= MAXVIFS) {
+		if (up->rpf.source_nexthop.interface &&
+		    up->channel_oil->iif.index >= southbound.interface_max) {
 			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 		}
 
@@ -530,7 +531,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	up->channel_oil->cc.pktcnt++;
 
 	/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
-	if (up->rpf.source_nexthop.interface && up->channel_oil->iif.index >= MAXVIFS)
+	if (up->rpf.source_nexthop.interface &&
+	    up->channel_oil->iif.index >= southbound.interface_max)
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 	/*
@@ -738,7 +740,8 @@ static int pim_upstream_activate_stream(struct interface *ifp, pim_sgaddr *sg)
 	up->channel_oil->cc.pktcnt++;
 
 	/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
-	if (up->rpf.source_nexthop.interface && up->channel_oil->iif.index >= MAXVIFS)
+	if (up->rpf.source_nexthop.interface &&
+	    up->channel_oil->iif.index >= southbound.interface_max)
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
 	if (!pim_is_group_filtered(pim_ifp, &sg->grp, &sg->src) && pim_upstream_could_register(up))
@@ -1789,7 +1792,7 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 		const char *name)
 {
-	vifi_t iif = MAXVIFS;
+	vifi_t iif = southbound.interface_max;
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp;
 	struct pim_upstream *up = c_oil->up;
@@ -1814,7 +1817,7 @@ int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name)
 {
 	char buf[1000];
 
-	if (c_oil->iif.index >= MAXVIFS) {
+	if (c_oil->iif.index >= southbound.interface_max) {
 		/* the c_oil cannot be installed as a mroute yet */
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
@@ -1828,12 +1831,12 @@ int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name)
 		 * updates to it leaving it in a stale state
 		 */
 		if (c_oil->installed)
-			pim_mroute_del(c_oil, name);
+			southbound.mroute_uninstall(c_oil, name);
 		/* return success (skipped) */
 		return 0;
 	}
 
-	return pim_mroute_add(c_oil, name);
+	return southbound.mroute_install(c_oil, name);
 }
 
 /* IIF associated with SGrpt entries are re-evaluated when the parent
@@ -1910,10 +1913,10 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 		return;
 
 	c_oil->iif.index = input_vif_index;
-	if (input_vif_index == MAXVIFS)
-		pim_mroute_del(c_oil, name);
+	if (input_vif_index == southbound.interface_max)
+		southbound.mroute_uninstall(c_oil, name);
 	else
-		pim_mroute_add(c_oil, name);
+		southbound.mroute_install(c_oil, name);
 }
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)
@@ -1969,6 +1972,12 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 }
 
 void pim_mroute_update_counters(struct channel_oil *c_oil)
+{
+	if (southbound.mroute_update_counters)
+		southbound.mroute_update_counters(c_oil);
+}
+
+void pim_mroute_update_counters_kernel(struct channel_oil *c_oil)
 {
 	struct pim_instance *pim = c_oil->pim;
 	pim_sioc_sg_req sgreq;

@@ -656,6 +656,14 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 			      struct sockaddr *dst, size_t salen,
 			      const char *ifname)
 {
+	if (southbound.send) {
+		const struct ipv4_header *ipv4 = (struct ipv4_header *)buf;
+		const size_t header_length = ipv4_header_length(ipv4);
+
+		return !southbound.send(ifname, &ipv4->source, &ipv4->destination, ipv4->protocol,
+					ipv4->ttl, buf + header_length, len - header_length);
+	}
+
 	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
 		return 0;
 
