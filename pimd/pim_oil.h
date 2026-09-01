@@ -164,6 +164,20 @@ struct channel_oil {
 	struct channel_counts cc;
 	struct pim_upstream *up;
 	time_t mroute_creation;
+
+#ifdef PIM_SOUTHBOUND
+	/* NB: filtered oils are still installed into the kernel, but their
+	 * oifs are empty.  Otherwise the kernel would keep notifying us about
+	 * unexpected traffic from this source.
+	 */
+	bool filtered;
+
+	/* only valid on (*,G) entries */
+	uint32_t spt_threshold;
+
+	/** Notification interface. */
+	struct channel_oif notifif;
+#endif /* PIM_SOUTHBOUND */
 };
 
 extern int pim_channel_oil_compare(const struct channel_oil *c1,

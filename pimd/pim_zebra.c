@@ -432,6 +432,28 @@ static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 	router->multipath = cap->ecmp;
 }
 
+#ifdef PIM_SOUTHBOUND
+static int pim_zebra_fpm_sync(ZAPI_CALLBACK_ARGS)
+{
+	struct pim_instance *pim;
+	struct channel_oil *oil;
+
+	if (!southbound.fpm_sync)
+		return 0;
+
+	pim = pim_get_pim_instance(vrf_id);
+	if (!pim)
+		return 0;
+
+	frr_each (rb_pim_oil, &pim->channel_oil_head, oil) {
+		if (oil->installed)
+			southbound.mroute_install(oil, "FPM sync");
+	}
+
+	return 0;
+}
+#endif /* PIM_SOUTHBOUND */
+
 static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
@@ -446,6 +468,10 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_MLAG_PROCESS_DOWN] = pim_zebra_mlag_process_down,
 	[ZEBRA_MLAG_FORWARD_MSG] = pim_zebra_mlag_handle_msg,
 #endif
+
+#ifdef PIM_SOUTHBOUND
+	[ZEBRA_PIM_FPM_SYNC] = pim_zebra_fpm_sync,
+#endif /* PIM_SOUTHBOUND */
 };
 
 void pim_zebra_init(void)
