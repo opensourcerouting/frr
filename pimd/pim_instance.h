@@ -25,6 +25,7 @@
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
 	PIM_SPT_INFINITY,
+	PIM_SPT_THRESH_NEVER = ~0U,
 };
 
 /* stats for updates rxed from the MLAG component during the life of a
