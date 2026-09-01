@@ -248,7 +248,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 #endif /* PIM_IPV == 4 */
 	}
 
-	pim_mroute_del(up->channel_oil, __func__);
+	southbound.mroute_uninstall(up->channel_oil, __func__);
 	upstream_channel_oil_detach(pim, up);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
@@ -398,9 +398,14 @@ static void on_prune_timer(struct event *t)
 
 	pim_mroute_update_counters(up->channel_oil);
 
-	/* Have we seen packets? */
-	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
-	    (up->channel_oil->cc.lastused / 100 > 30)) {
+	/*
+	 * Have we seen packets? Data planes without per route counters report
+	 * the traffic instead (see `pim_upstream_sg_running_proc`).
+	 */
+	if (southbound.mroute_update_counters
+		    ? (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+			      (up->channel_oil->cc.lastused / 100 > 30)
+		    : !pim_upstream_data_started(up)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
 				   __func__, up->sg_str, pim->vrf->name,
@@ -928,6 +933,17 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 							__func__);
 				up->reg_state = PIM_REG_NOINFO;
 			}
+		} else if (pim_register_skip_rp(pim, up->sg.grp)) {
+			/* We became the RP: the data plane forwards natively. */
+			if (up->reg_state != PIM_REG_NOINFO) {
+				if (PIM_DEBUG_PIM_EVENTS)
+					zlog_debug("Clear register for %s as we are RP",
+						   up->sg_str);
+				pim_channel_del_oif(up->channel_oil, pim->regiface,
+						    PIM_OIF_FLAG_PROTO_PIM, __func__);
+				event_cancel(&up->t_rs_timer);
+				up->reg_state = PIM_REG_NOINFO;
+			}
 		} else {
 			/* register ASM sources with the RP */
 			if (up->reg_state == PIM_REG_NOINFO) {
@@ -942,6 +958,15 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 				up->reg_state = PIM_REG_JOIN;
 			}
 		}
+	}
+
+	/* The LHR SG(*,G) `pimreg` also depends on who the RP is. */
+	if (southbound.no_register_on_rp && pim->regiface && pim->regiface->info &&
+	    ((struct pim_interface *)pim->regiface->info)->mroute_vif_index >= 0) {
+		if (pim->spt.switchover == PIM_SPT_INFINITY)
+			pim_upstream_remove_lhr_star_pimreg(pim, pim->spt.plist);
+		else
+			pim_upstream_add_lhr_star_pimreg(pim);
 	}
 }
 
@@ -1096,7 +1121,8 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		 */
 		if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && up->reg_state == PIM_REG_NOINFO &&
 		    pim->regiface->configured && !pim_is_grp_ssm(pim, up->sg.grp) &&
-		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim_upstream_could_register(up)) {
+		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) &&
+		    pim_upstream_could_register(up) && !pim_register_skip_rp(pim, up->sg.grp)) {
 			pim_channel_add_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_PIM,
 					    __func__);
 		}
@@ -2424,6 +2450,7 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 {
 	bool rv = false;
+	bool traffic = true;
 	struct pim_instance *pim = up->pim;
 
 	if (!up->channel_oil || !up->channel_oil->installed)
@@ -2437,32 +2464,51 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	 * freshly (re-)installed entry it is the age of the entry and not the
 	 * time since a packet was forwarded.  Only trust it when a source
 	 * stream is already active.
+	 *
+	 * Data planes unable to report per route counters (they notify us
+	 * when the traffic starts and stops instead) leave
+	 * oldpktcnt/pktcnt/lastused frozen, which would always look idle and
+	 * expire the KAT no matter the real traffic: trust their notification
+	 * instead. SPT switched LHR routes are excepted: the data plane may
+	 * forward them in hardware without ever reporting their traffic, so
+	 * only their keepalive timer is refreshed (no traffic means no stream
+	 * reference).
 	 */
-	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
-		if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
-		    (up->channel_oil->cc.lastused / 100 > 30)) {
-			if (PIM_DEBUG_PIM_TRACE) {
-				zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
-					   __func__, up->sg_str, pim->vrf->name,
-					   up->channel_oil->cc.oldpktcnt,
-					   up->channel_oil->cc.pktcnt,
-					   up->channel_oil->cc.lastused / 100);
-			}
+	if (!southbound.mroute_update_counters) {
+		traffic = pim_upstream_data_started(up);
+		if (!traffic && !PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_debug("%s[%s]: %s no traffic reported by the data plane",
+					   __func__, up->sg_str, pim->vrf->name);
 			return rv;
 		}
 	} else {
-		if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) {
-			if (PIM_DEBUG_PIM_TRACE) {
-				zlog_debug("%s[%s]: %s old packet count is equal, (%ld,%ld)",
-					   __func__, up->sg_str, pim->vrf->name,
-					   up->channel_oil->cc.oldpktcnt,
-					   up->channel_oil->cc.pktcnt);
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+			if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+			    (up->channel_oil->cc.lastused / 100 > 30)) {
+				if (PIM_DEBUG_PIM_TRACE) {
+					zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+						   __func__, up->sg_str, pim->vrf->name,
+						   up->channel_oil->cc.oldpktcnt,
+						   up->channel_oil->cc.pktcnt,
+						   up->channel_oil->cc.lastused / 100);
+				}
+				return rv;
 			}
-			return rv;
+		} else {
+			if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) {
+				if (PIM_DEBUG_PIM_TRACE) {
+					zlog_debug("%s[%s]: %s old packet count is equal, (%ld,%ld)",
+						   __func__, up->sg_str, pim->vrf->name,
+						   up->channel_oil->cc.oldpktcnt,
+						   up->channel_oil->cc.pktcnt);
+				}
+				return rv;
+			}
 		}
 	}
 
-	if (pim_upstream_kat_start_ok(up)) {
+	if (traffic && pim_upstream_kat_start_ok(up)) {
 		/* Add a source reference to the stream if
 		 * one doesn't already exist */
 		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
@@ -2485,7 +2531,7 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 		if (pim_upstream_could_register(up) && !pim_is_grp_ssm(pim, up->sg.grp) &&
 		    up->reg_state == PIM_REG_NOINFO && !event_is_scheduled(up->t_rs_timer) &&
 		    !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) && pim->regiface &&
-		    pim->regiface->configured) {
+		    pim->regiface->configured && !pim_register_skip_rp(pim, up->sg.grp)) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug("%s: add pimreg to %s[%s]", __func__, up->sg_str,
 					   pim->vrf->name);
@@ -2557,6 +2603,13 @@ void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 		if (!PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags))
 			continue;
 
+		/* We may have become the RP since `pimreg` was added. */
+		if (pim_register_skip_rp(pim, up->sg.grp)) {
+			pim_channel_del_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_GM,
+					    __func__);
+			continue;
+		}
+
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_GM, __func__);
 	}
@@ -2601,7 +2654,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 		if (!PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags))
 			continue;
 
-		if (!nlist) {
+		if (!nlist || pim_register_skip_rp(pim, up->sg.grp)) {
 			pim_channel_del_oif(up->channel_oil, pim->regiface,
 					    PIM_OIF_FLAG_PROTO_GM, __func__);
 			continue;

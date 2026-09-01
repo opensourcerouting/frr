@@ -94,6 +94,14 @@ struct prefix_list;
 
 #define PIM_UPSTREAM_DM_FLAG_MASK_PRUNE                (1 << 23)
 
+#ifdef PIM_SOUTHBOUND_COMMON
+/*
+ * DATA_START flag: it is set when we received a data start for a particular
+ * upstream. Unset when DATA_STOP or new upstream.
+ */
+#define PIM_UPSTREAM_FLAG_MASK_DATA_START (1 << 24)
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
@@ -287,6 +295,38 @@ struct pim_upstream {
 
 	int64_t state_transition; /* Record current state uptime */
 };
+
+/*
+ * Records that traffic started flowing for this upstream.
+ *
+ * Data planes without per route counters (no `mroute_update_counters`) report
+ * the traffic activity this way instead (DATA_START/DATA_STOP events): it
+ * replaces the counters when deciding whether the source is still active.
+ * Only available with `PIM_SOUTHBOUND_COMMON`, otherwise it is a no-op.
+ */
+static inline void pim_upstream_data_start(struct pim_upstream *up)
+{
+#ifdef PIM_SOUTHBOUND_COMMON
+	SET_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DATA_START);
+#endif /* PIM_SOUTHBOUND_COMMON */
+}
+
+static inline void pim_upstream_data_stop(struct pim_upstream *up)
+{
+#ifdef PIM_SOUTHBOUND_COMMON
+	UNSET_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DATA_START);
+#endif /* PIM_SOUTHBOUND_COMMON */
+}
+
+/* Tells whether the data plane reported traffic for this upstream. */
+static inline bool pim_upstream_data_started(const struct pim_upstream *up)
+{
+#ifdef PIM_SOUTHBOUND_COMMON
+	return CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DATA_START);
+#else
+	return false;
+#endif /* PIM_SOUTHBOUND_COMMON */
+}
 
 static inline bool pim_upstream_is_kat_running(struct pim_upstream *up)
 {

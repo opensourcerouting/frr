@@ -3676,6 +3676,14 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		memset(&vreq, 0, sizeof(vreq));
+
+		/*
+		 * Only the kernel multicast routing socket has interface
+		 * counters (the southbound has none).
+		 */
+		if (pim->mroute_socket < 0 || !southbound.mroute_update_counters)
+			goto skip_counters;
+
 #if PIM_IPV == 4
 		vreq.vifi = pim_ifp->mroute_vif_index;
 		frr_with_privs (&pimd_privs) {
@@ -3695,6 +3703,8 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				safe_strerror(errno));
 		}
 #endif
+
+skip_counters:
 
 		if (json) {
 			json_row = json_object_new_object();
@@ -4412,6 +4422,12 @@ void clear_mroute(struct pim_instance *pim)
 	/* clean up all upstreams*/
 	while ((up = rb_pim_upstream_first(&pim->upstream_head)))
 		pim_upstream_del(pim, up, __func__);
+
+	/* Re insert GMP static entries */
+	if (southbound.interface_join) {
+		FOR_ALL_INTERFACES (pim->vrf, ifp)
+			southbound.interface_join(ifp);
+	}
 }
 
 void clear_pim_statistics(struct pim_instance *pim)
