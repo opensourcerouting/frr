@@ -27,6 +27,8 @@ enum pim_spt_switchover {
 	PIM_SPT_INFINITY,
 };
 
+#define PIM_SPT_THRESH_NEVER (~0U)
+
 /* stats for updates rxed from the MLAG component during the life of a
  * session
  */

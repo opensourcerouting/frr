@@ -525,6 +525,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		}
 	}
 
+	pim_upstream_data_start(up);
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 
@@ -735,6 +736,7 @@ static int pim_upstream_activate_stream(struct interface *ifp, pim_sgaddr *sg)
 		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
 	}
 
+	pim_upstream_data_start(up);
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 	up->channel_oil->cc.pktcnt++;
