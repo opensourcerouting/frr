@@ -248,7 +248,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 #endif /* PIM_IPV == 4 */
 	}
 
-	pim_mroute_del(up->channel_oil, __func__);
+	southbound.mroute_uninstall(up->channel_oil, __func__);
 	upstream_channel_oil_detach(pim, up);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
@@ -2437,28 +2437,35 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	 * freshly (re-)installed entry it is the age of the entry and not the
 	 * time since a packet was forwarded.  Only trust it when a source
 	 * stream is already active.
+	 *
+	 * Data planes unable to report per route counters (they notify us
+	 * when the traffic stops instead) leave oldpktcnt/pktcnt/lastused
+	 * frozen, which would always look idle and expire the KAT no matter
+	 * the real traffic: trust their notification instead.
 	 */
-	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
-		if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
-		    (up->channel_oil->cc.lastused / 100 > 30)) {
-			if (PIM_DEBUG_PIM_TRACE) {
-				zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
-					   __func__, up->sg_str, pim->vrf->name,
-					   up->channel_oil->cc.oldpktcnt,
-					   up->channel_oil->cc.pktcnt,
-					   up->channel_oil->cc.lastused / 100);
+	if (southbound.mroute_update_counters) {
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+			if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+			    (up->channel_oil->cc.lastused / 100 > 30)) {
+				if (PIM_DEBUG_PIM_TRACE) {
+					zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+						   __func__, up->sg_str, pim->vrf->name,
+						   up->channel_oil->cc.oldpktcnt,
+						   up->channel_oil->cc.pktcnt,
+						   up->channel_oil->cc.lastused / 100);
+				}
+				return rv;
 			}
-			return rv;
-		}
-	} else {
-		if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) {
-			if (PIM_DEBUG_PIM_TRACE) {
-				zlog_debug("%s[%s]: %s old packet count is equal, (%ld,%ld)",
-					   __func__, up->sg_str, pim->vrf->name,
-					   up->channel_oil->cc.oldpktcnt,
-					   up->channel_oil->cc.pktcnt);
+		} else {
+			if (up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) {
+				if (PIM_DEBUG_PIM_TRACE) {
+					zlog_debug("%s[%s]: %s old packet count is equal, (%ld,%ld)",
+						   __func__, up->sg_str, pim->vrf->name,
+						   up->channel_oil->cc.oldpktcnt,
+						   up->channel_oil->cc.pktcnt);
+				}
+				return rv;
 			}
-			return rv;
 		}
 	}
 

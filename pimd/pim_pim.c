@@ -91,7 +91,7 @@ static void sock_close(struct interface *ifp)
 	/*
 	 * If the fd is already deleted no need to do anything here
 	 */
-	if (pim_ifp->pim_sock_fd > 0 && close(pim_ifp->pim_sock_fd)) {
+	if (!southbound.own_sockets && pim_ifp->pim_sock_fd > 0 && close(pim_ifp->pim_sock_fd)) {
 		zlog_warn(
 			"Failure closing PIM socket fd=%d on interface %s: errno=%d: %s",
 			pim_ifp->pim_sock_fd, ifp->name, errno,
@@ -656,6 +656,14 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 			      struct sockaddr *dst, size_t salen,
 			      const char *ifname)
 {
+	if (southbound.send) {
+		const struct ipv4_header *ipv4 = (struct ipv4_header *)buf;
+		const size_t header_length = ipv4_header_length(ipv4);
+
+		return !southbound.send(ifname, &ipv4->source, &ipv4->destination, ipv4->protocol,
+					ipv4->ttl, buf + header_length, len - header_length);
+	}
+
 	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
 		return 0;
 
@@ -1088,6 +1096,22 @@ int pim_sock_add(struct interface *ifp)
 				"Can't recreate existing PIM socket fd=%d for interface %s",
 				pim_ifp->pim_sock_fd, ifp->name);
 		return -1;
+	}
+
+	/* Southbound owns the socket, skip the normal event handlers. */
+	if (southbound.own_sockets) {
+		pim_ifp->pim_sock_fd = southbound.pim_fd;
+		pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
+
+		old_genid = pim_ifp->pim_generation_id;
+		while (old_genid == pim_ifp->pim_generation_id)
+			pim_ifp->pim_generation_id = frr_weak_random();
+
+		zlog_info("PIM INTERFACE UP: on interface %s ifindex=%d", ifp->name, ifp->ifindex);
+
+		pim_hello_restart_triggered(ifp);
+
+		return 0;
 	}
 
 	pim_ifp->pim_sock_fd = pim_sock_open(ifp);

@@ -1180,6 +1180,10 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 
 	/* nothing more to do here, pass2 is no-op for leaves */
 	gm_subscriber_drop(&subscriber);
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(gm_ifp->ifp);
 }
 
 /* for each general query received (or sent), a timer is started to expire
@@ -1235,6 +1239,10 @@ static void gm_t_expire(struct event *t)
 
 	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("next general expiry waiting for query"));
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(gm_ifp->ifp);
 }
 
 /* NB: the receive handlers will also run when sending packets, since we
@@ -1659,6 +1667,11 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 			gm_handle_q_group(gm_ifp, &timers, hdr->grp);
 			gm_ifp->stats.rx_query_old_group++;
 		}
+
+		/* Replay static GMP join groups */
+		if (southbound.interface_join)
+			southbound.interface_join(gm_ifp->ifp);
+
 		return;
 	}
 
@@ -1688,6 +1701,10 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 				     ntohs(hdr->n_src));
 		gm_ifp->stats.rx_query_new_groupsrc++;
 	}
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(gm_ifp->ifp);
 }
 
 static void gm_rx_process(struct gm_if *gm_ifp,

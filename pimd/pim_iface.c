@@ -687,6 +687,10 @@ void pim_if_addr_add(struct connected *ifc)
 		pim_if_gm_join_replay(ifp);
 #endif
 
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(ifp);
+
 	if (pim_ifp->pim_enable) {
 
 		if (!pim_addr_is_any(pim_ifp->primary_address)) {
@@ -1052,7 +1056,7 @@ static ifindex_t pim_iface_next_vif_index(struct interface *ifp)
 		break;
 	}
 
-	if (index >= MAXVIFS)
+	if (index >= southbound.interface_max)
 		return -1;
 
 	return index;
@@ -1104,9 +1108,8 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
 
 	if (pim_ifp->mroute_vif_index == -1) {
-		zlog_warn(
-			"%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
-			__func__, MAXVIFS, ifp->name);
+		zlog_warn("%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
+			  __func__, southbound.interface_max, ifp->name);
 		return -3;
 	}
 
@@ -1117,7 +1120,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		flags = VIFF_USE_IFINDEX;
 #endif
 
-	if (pim_mroute_add_vif(ifp, ifaddr, flags)) {
+	if (southbound.interface_enable(ifp, ifaddr, flags)) {
 		/* pim_mroute_add_vif reported error */
 		return -5;
 	}
@@ -1157,7 +1160,7 @@ int pim_if_del_vif(struct interface *ifp)
 
 	gm_ifp_teardown(ifp);
 
-	pim_mroute_del_vif(ifp);
+	southbound.interface_disable(ifp);
 
 	pim_instance_mif_delete(pim_ifp->pim, pim_ifp->mroute_vif_index);
 
@@ -1469,6 +1472,10 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 
 	listnode_add(pim_ifp->gm_join_list, ij);
 
+	/* Start static GMP join group */
+	if (southbound.interface_join)
+		southbound.interface_join(ifp);
+
 	return ij;
 }
 
@@ -1664,6 +1671,10 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 							     : GM_JOIN_STATIC);
 		return 0;
 	}
+
+	/* Leave the group immediately */
+	if (southbound.interface_leave)
+		southbound.interface_leave(ifp, &ij->source_addr, &ij->group_addr);
 
 	if (ij->sock_fd >= 0 && close(ij->sock_fd)) {
 		zlog_warn(
@@ -2078,12 +2089,12 @@ static int pim_ifp_create(struct interface *ifp)
 
 	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
 		     sizeof(PIM_VXLAN_TERM_DEV_NAME))) {
-		if (multicast_interface_list_count(&pim->mif_list) < MAXVIFS)
+		if (multicast_interface_list_count(&pim->mif_list) <
+		    (size_t)southbound.interface_max)
 			pim_vxlan_add_term_dev(pim, ifp);
 		else
-			zlog_warn(
-				"%s: Cannot enable pim on %s. MAXVIFS(%d) reached. Deleting and readding the vxlan termimation device after unconfiguring pim from other interfaces may succeed.",
-				__func__, ifp->name, MAXVIFS);
+			zlog_warn("%s: Cannot enable pim on %s. MAXVIFS(%d) reached. Deleting and readding the vxlan termimation device after unconfiguring pim from other interfaces may succeed.",
+				  __func__, ifp->name, southbound.interface_max);
 	}
 #endif
 

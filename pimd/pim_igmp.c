@@ -419,6 +419,10 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 	event_add_timer_msec(router->master, pim_igmp_other_querier_expire,
 			     igmp, other_querier_present_interval_msec,
 			     &igmp->t_other_querier_timer);
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(igmp->interface);
 }
 
 void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
@@ -950,6 +954,10 @@ static void pim_igmp_general_query(struct event *t)
 
 	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
 
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(igmp->interface);
+
 	pim_igmp_general_query_on(igmp);
 }
 
@@ -968,7 +976,7 @@ static void sock_close(struct gm_sock *igmp)
 	}
 	event_cancel(&igmp->t_igmp_read);
 
-	if (close(igmp->fd)) {
+	if (!southbound.own_sockets && close(igmp->fd)) {
 		flog_err(
 			EC_LIB_SOCKET,
 			"Failure closing IGMP socket %pI4 fd=%d on interface %s: errno=%d: %s",
@@ -1264,6 +1272,12 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 	struct sockaddr_in sin;
 	int fd;
 
+	if (southbound.own_sockets) {
+		igmp = igmp_sock_new(-1, ifaddr, ifp, mtrace_only);
+		listnode_add(igmp_sock_list, igmp);
+		return igmp;
+	}
+
 	fd = igmp_sock_open(ifaddr, ifp);
 	if (fd < 0) {
 		zlog_warn("Could not open IGMP socket for %pI4 on %s",
@@ -1545,6 +1559,10 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 	}
 
 	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(ifp);
 }
 
 void gm_group_delete(struct interface *ifp)
