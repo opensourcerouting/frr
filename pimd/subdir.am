@@ -204,3 +204,15 @@ pimd_pim_southbound_la_CFLAGS  = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pim_southbound_la_LDFLAGS = $(MODULE_LDFLAGS)
 pimd_pim_southbound_la_LIBADD  =
 endif
+
+if PIM6_SOUTHBOUND
+module_LTLIBRARIES += pimd/pim6_southbound.la
+
+pimd_pim6_southbound_la_SOURCES = \
+	pimd/pim_southbound_common.c \
+	pimd/pim6_southbound.c \
+	# end
+pimd_pim6_southbound_la_CFLAGS  = $(AM_CFLAGS) -DPIM_IPV=6
+pimd_pim6_southbound_la_LDFLAGS = $(MODULE_LDFLAGS)
+pimd_pim6_southbound_la_LIBADD  =
+endif
