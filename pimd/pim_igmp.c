@@ -419,6 +419,10 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 	event_add_timer_msec(router->master, pim_igmp_other_querier_expire,
 			     igmp, other_querier_present_interval_msec,
 			     &igmp->t_other_querier_timer);
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(igmp->interface);
 }
 
 void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
@@ -949,6 +953,10 @@ static void pim_igmp_general_query(struct event *t)
 			1 /* s_flag: always set for general queries */, igmp);
 
 	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(igmp->interface);
 
 	pim_igmp_general_query_on(igmp);
 }
@@ -1545,6 +1553,10 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 	}
 
 	XFREE(MTYPE_PIM_IGMP_PACKET, query_buf);
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(ifp);
 }
 
 void gm_group_delete(struct interface *ifp)

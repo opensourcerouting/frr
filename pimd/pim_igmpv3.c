@@ -983,6 +983,10 @@ static void igmp_send_query_group(struct gm_group *group, char *query_buf,
 			pim_ifp->gm_specific_query_max_response_time_dsec,
 			s_flag, igmp);
 	}
+
+	/* Replay static GMP join groups */
+	if (southbound.interface_join)
+		southbound.interface_join(ifp);
 }
 
 /*
@@ -1568,8 +1572,11 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
-		      (struct sockaddr *)&to, tolen);
+	if (southbound.send)
+		sent = southbound.send(ifname, NULL, &dst_addr, PIM_IP_PROTO_IGMP, 1, query_buf,
+				       msg_size);
+	else
+		sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT, (struct sockaddr *)&to, tolen);
 	if (sent != (ssize_t)msg_size) {
 		if (sent < 0) {
 			zlog_warn("Send IGMPv3 query failed due to %pI4s on %s: group=%pI4s msg_size=%zd: errno=%d: %s",

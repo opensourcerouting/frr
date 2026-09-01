@@ -178,6 +178,7 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 int pim_mroute_del(struct channel_oil *c_oil, const char *name);
 
 void pim_mroute_update_counters(struct channel_oil *c_oil);
+extern void pim_mroute_update_counters_kernel(struct channel_oil *c_oil);
 bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		int oif_index);
 int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
