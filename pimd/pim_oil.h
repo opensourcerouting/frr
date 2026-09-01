@@ -153,6 +153,10 @@ struct channel_oil {
 	pim_addr source;
 	pim_addr group;
 
+#ifdef PIM_SOUTHBOUND
+	/** Notification interface */
+	struct channel_oif notifif;
+#endif /* PIM_SOUTHBOUND */
 	/* Input interface */
 	struct channel_oif iif;
 	/* List of output interfaces and their state */
