@@ -1828,12 +1828,12 @@ int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name)
 		 * updates to it leaving it in a stale state
 		 */
 		if (c_oil->installed)
-			pim_mroute_del(c_oil, name);
+			southbound.mroute_uninstall(c_oil, name);
 		/* return success (skipped) */
 		return 0;
 	}
 
-	return pim_mroute_add(c_oil, name);
+	return southbound.mroute_install(c_oil, name);
 }
 
 /* IIF associated with SGrpt entries are re-evaluated when the parent
@@ -1911,9 +1911,9 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 
 	c_oil->iif.index = input_vif_index;
 	if (input_vif_index == MAXVIFS)
-		pim_mroute_del(c_oil, name);
+		southbound.mroute_uninstall(c_oil, name);
 	else
-		pim_mroute_add(c_oil, name);
+		southbound.mroute_install(c_oil, name);
 }
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)

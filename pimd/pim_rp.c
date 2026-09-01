@@ -442,7 +442,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 	rpf_result = pim_rpf_update(pim, up, &old_rpf, NULL, __func__);
 	if (rpf_result == PIM_RPF_FAILURE && up->channel_oil)
-		pim_mroute_del(up->channel_oil, __func__);
+		southbound.mroute_uninstall(up->channel_oil, __func__);
 
 	/* update kernel multicast forwarding cache (MFC) */
 	if (up->rpf.source_nexthop.interface && up->channel_oil)

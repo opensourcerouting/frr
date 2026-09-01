@@ -2638,6 +2638,12 @@ DEFPY(clear_ipv6_mld_interfaces,
 	FOR_ALL_INTERFACES (vrf, ifp)
 		pim_if_addr_add_all(ifp);
 
+	/* Replay static GMP join groups */
+	if (southbound.interface_join) {
+		FOR_ALL_INTERFACES (vrf, ifp)
+			southbound.interface_join(ifp);
+	}
+
 	return CMD_SUCCESS;
 }
 

@@ -248,7 +248,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 #endif /* PIM_IPV == 4 */
 	}
 
-	pim_mroute_del(up->channel_oil, __func__);
+	southbound.mroute_uninstall(up->channel_oil, __func__);
 	upstream_channel_oil_detach(pim, up);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
