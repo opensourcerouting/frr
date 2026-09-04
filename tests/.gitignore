@@ -42,6 +42,7 @@ frr_northbound*
 /lib/test_heavy_wq
 /lib/test_idalloc
 /lib/test_link_state
+/lib/test_ip_assembly
 /lib/test_memory
 /lib/test_nexthop
 /lib/test_nexthop_iter
