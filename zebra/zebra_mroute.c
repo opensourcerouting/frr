@@ -16,6 +16,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mroute.h"
+#include "zebra/zebra_router.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 
@@ -84,6 +85,27 @@ stream_failure:
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);
+}
+
+void zmroute_sync(vrf_id_t vrf_id)
+{
+	struct zserv *client;
+	struct stream *stream;
+
+	/* Create message. */
+	stream = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	zclient_create_header(stream, ZEBRA_PIM_FPM_SYNC, vrf_id);
+	stream_putw_at(stream, 0, (uint16_t)stream_get_endp(stream));
+
+	/* Send message to all running PIM daemons. */
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (client->proto != ZEBRA_ROUTE_PIM)
+			continue;
+
+		zserv_send_message(client, stream_dup(stream));
+	}
+
+	stream_free(stream);
 }
 
 struct mroute_oif_arg *mroute_oif_arg_new(struct mroute_oif_list *oif_list)
