@@ -87,6 +87,14 @@ struct mroute_args {
 
 void zmroute_event(ZAPI_HANDLER_ARGS);
 
+/**
+ * Tell PIM clients that the forwarding plane lost its multicast state and
+ * that every installed multicast route must be sent again.
+ *
+ * \param vrf_id the VRF whose routes must be resynchronized.
+ */
+extern void zmroute_sync(vrf_id_t vrf_id);
+
 #ifdef __cplusplus
 }
 #endif
