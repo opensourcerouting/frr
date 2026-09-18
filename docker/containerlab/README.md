@@ -9,6 +9,20 @@ writes the host's public keys to `/root/.ssh/authorized_keys` and expects an
 `sshd` to be listening. Host keys are generated on first start rather than at
 build time, so containers do not all share one key.
 
+It also carries a few conveniences a lab router wants and the release image
+does not:
+
+- an `admin` user whose login shell is `vtysh`, so `ssh admin@<node>` lands in
+  the routing CLI. Its password is `admin`, and it belongs to the `frr` and
+  `frrvty` groups, so it can configure and `write memory` as well as look
+  around. `root` keeps a normal shell.
+- an `/etc/motd`, shown on every ssh login, naming the two ways in and where
+  FRR's log goes.
+- no default route. The management network offers one for v4 and for v6; the
+  start script drops both, since a leftover default gets redistributed into the
+  IGP and is often the very route the lab exists to test. The management network
+  stays reachable over its connected route.
+
 Everything else, FRR included, comes from the base image unchanged.
 
 The image is published as `quay.io/frrouting/frr:containerlab-$VERSION` and built on
@@ -40,6 +54,7 @@ topology:
 ```
 
 Containerlab writes `/etc/frr/frr.conf`, `/etc/frr/daemons` and
-`/etc/frr/vtysh.conf` for each node, and the routers are reachable with
-`ssh root@clab-frr01-router1`. See the
+`/etc/frr/vtysh.conf` for each node. The routers are reachable with
+`ssh root@clab-frr01-router1` for a shell, or `ssh admin@clab-frr01-router1`
+for `vtysh`. See the
 [`frr` kind documentation](https://containerlab.dev/manual/kinds/frr/).

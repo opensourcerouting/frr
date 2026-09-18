@@ -18,6 +18,18 @@ FROM quay.io/frrouting/frr:${TAG}
 
 RUN apk add --no-cache openssh
 
+# An "admin" user whose login shell is vtysh, so that "ssh admin@node" reaches
+# the routing CLI rather than a shell. frr and frrvty are the groups that let
+# vtysh open the daemons' sockets and write the configuration, which is what
+# separates a usable CLI from a read-only one.
+RUN adduser -D -s /usr/bin/vtysh -G frr admin \
+    && addgroup admin frrvty \
+    && echo 'admin:admin' | chpasswd \
+    && echo '/usr/bin/vtysh' >> /etc/shells
+
+# Replaces the stock Alpine motd, which says nothing about FRR.
+COPY docker/containerlab/motd /etc/motd
+
 # Starts sshd alongside watchfrr. The base image's script starts watchfrr only.
 COPY docker/containerlab/docker-start /usr/lib/frr/docker-start
 

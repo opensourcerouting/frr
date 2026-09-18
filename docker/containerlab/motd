@@ -1,0 +1,7 @@
+
+  FRRouting -- containerlab image
+
+  ssh root@<node>       a Linux shell
+  ssh admin@<node>      vtysh, the routing CLI
+  docker logs <node>    FRR's log output
+
