@@ -4,6 +4,12 @@ frr (10.8.0-dev) UNRELEASED; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 15 Jul 2026 02:00:00 -0600
 
+frr (10.7.1-3) experimental; urgency=medium
+
+  * Adding patches to build frr with libyang5 (Closes: #1142048).
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 19 Sep 2026 18:41:10 +0200
+
 frr (10.7.1-2) sid; urgency=medium
 
   * Tidying depends for debhelper 14.
