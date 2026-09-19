@@ -4,6 +4,13 @@ frr (10.8.0-dev) UNRELEASED; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 15 Jul 2026 02:00:00 -0600
 
+frr (10.7.1-2) sid; urgency=medium
+
+  * Tidying depends for debhelper 14.
+  * Building with lua5.5.
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 19 Sep 2026 17:51:15 +0200
+
 frr (10.7.1-1) sid; urgency=medium
 
   * Merging upstream version 10.7.1.
