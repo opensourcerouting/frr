@@ -201,6 +201,32 @@ int setsockopt_ipv6_tclass(int sock, int tclass)
 	return ret;
 }
 
+#ifdef GNU_LINUX
+int setsockopt_ipv6_flowinfo(int fd, int value)
+{
+	int ret;
+
+	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_FLOWINFO, &value, sizeof(value));
+	if (ret == -1)
+		flog_err(EC_LIB_SOCKET, "Can't set IPV6_FLOWINFO option for fd %d to %#x: %s", fd,
+			 value, safe_strerror(errno));
+
+	return ret;
+}
+
+int setsockopt_ipv6_flowinfo_send(int fd, int value)
+{
+	int ret;
+
+	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_FLOWINFO_SEND, &value, sizeof(value));
+	if (ret == -1)
+		flog_err(EC_LIB_SOCKET, "Can't set IPV6_FLOWINFO_SEND option for fd %d to %#x: %s",
+			 fd, value, safe_strerror(errno));
+
+	return ret;
+}
+#endif /* GNU_LINUX */
+
 /*
  * Process multicast socket options for IPv4 in an OS-dependent manner.
  * Supported options are IP_{ADD,DROP}_MEMBERSHIP.
