@@ -864,13 +864,20 @@ AC_ARG_ENABLE([python_runtime],
 
 AC_ARG_ENABLE([pim_southbound],
   AS_HELP_STRING([--enable-pim-southbound], [enable vendor PIM southbound support]))
+AC_ARG_ENABLE([pim6_southbound],
+  AS_HELP_STRING([--enable-pim6-southbound], [enable vendor PIMv6 southbound support]))
 
 if test "$enable_pim_southbound" = "yes" ; then
   AC_DEFINE([PIM_SOUTHBOUND], [1], [PIM southbound support])
   AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
 fi
+if test "$enable_pim6_southbound" = "yes" ; then
+  AC_DEFINE([PIM6_SOUTHBOUND], [1], [PIMv6 southbound support])
+  AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
+fi
 
 AM_CONDITIONAL([PIM_SOUTHBOUND], [test "$enable_pim_southbound" = "yes"])
+AM_CONDITIONAL([PIM6_SOUTHBOUND], [test "$enable_pim6_southbound" = "yes"])
 
 ##
 ## gperftools tcmalloc version, more complete than "minimal"
