@@ -39,6 +39,8 @@ enum pim_msg_type {
 	PIM_MSG_TYPE_STATE_REFRESH
 };
 
+extern const char *pim_pim_msgtype2str(enum pim_msg_type type);
+
 void pim_ifstat_reset(struct interface *ifp);
 void pim_sock_reset(struct interface *ifp);
 int pim_sock_add(struct interface *ifp);

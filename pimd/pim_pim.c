@@ -33,7 +33,7 @@
 
 static void on_pim_hello_send(struct event *t);
 
-static const char *pim_pim_msgtype2str(enum pim_msg_type type)
+const char *pim_pim_msgtype2str(enum pim_msg_type type)
 {
 	switch (type) {
 	case PIM_MSG_TYPE_HELLO:
