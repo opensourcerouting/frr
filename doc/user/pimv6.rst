@@ -234,6 +234,71 @@ PIMv6 Router
    all state.
 
 
+.. _pimv6-southbound:
+
+Southbound (vendor data plane) module
+=====================================
+
+The ``pim6_southbound`` module is the PIMv6 counterpart of the *pimd*
+``pim_southbound`` module: it replaces the Linux kernel IPv6 multicast data
+plane used by *pim6d* with an external (vendor) data plane. Multicast routes
+are installed through *zebra* FPM and data plane events arrive on a stream
+connection. See :ref:`PIM southbound module <pim-southbound>` for the complete
+description, the address types and the *zebra* FPM requirements, which are
+the same for both modules.
+
+.. program:: configure
+
+Differences from the IPv4 module:
+
+- It is built when FRR is configured with :option:`--enable-pim6-southbound`.
+- It is loaded with ``-M pim6_southbound:<type>:<address>[:<port>]``.
+- The default TCP port is ``2651``.
+- MLD packets (queries and reports) and link-local multicast PIM packets are
+  exchanged with the data plane through raw sockets using IPv6 next header
+  ``240`` (MLD) and ``252`` (PIM). The real interface index is carried in the
+  IPv6 flow label, while the packet output interface may be a data plane
+  virtual interface. The data plane delivers these packets to the loopback
+  address ``::1``, so the original destination is restored from the packet
+  type.
+- MLD packets delivered to *pim6d* must start with a block shaped like an
+  IPv6 hop-by-hop options header (8 bytes or more, the length taken from its
+  second byte as in a real hop-by-hop header) followed by the ICMPv6 message.
+  If the original packet carried the MLD Router Alert, the block must have
+  next header ``58`` (ICMPv6) and contain the Router Alert option; otherwise
+  it is all zeros. Packets sent by *pim6d* use a real hop-by-hop options
+  header instead.
+- *pim6d* does not verify the ICMPv6 checksum of MLD packets or the PIM
+  checksum of link-local multicast PIM packets it receives through the
+  encapsulation: the data plane must validate both before delivering the
+  packets. The original hop limit is not carried either, so the data plane
+  must also drop MLD packets whose hop limit is not ``1`` (RFC 3810), like
+  the kernel path does.
+- *pim6d* loops its own multicast MLD packets (queries) back to itself, as the
+  kernel does: the data plane must not deliver the packets *pim6d* sends back
+  to it.
+- Unicast PIMv6 packets are sent through the same encapsulation. Registers
+  are sent with the interface towards the RP and register-stops with the
+  interface the register was received on; only Candidate-RP advertisements
+  in the default VRF are sent without an interface (flow label zero), so the
+  data plane must route them. Unicast PIMv6 packets are received from the
+  operating system as plain IPv6 PIM packets (their checksum is verified by
+  *pim6d*): the data plane must deliver them to the host IPv6 stack, on the
+  interface they arrived on.
+
+Example connecting to a data plane on ``::1`` port ``2651``::
+
+   pim6d -M pim6_southbound:ipv6c:[::1]
+
+The following debug commands show the southbound activity:
+
+- :clicmd:`debug mld packets`: MLD packets exchanged with the data plane.
+- :clicmd:`debug mroute6`: valid messages received from the data plane.
+- :clicmd:`debug mroute6 detail`: data plane connection details and invalid
+  messages.
+- :clicmd:`debug zebra kernel` (in *zebra*): multicast route installation.
+
+
 .. _pimv6-interface-configuration:
 
 PIMv6 Interface Configuration

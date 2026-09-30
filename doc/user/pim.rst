@@ -324,6 +324,108 @@ PIM Routers
    all state.
 
 
+.. _pim-southbound:
+
+Southbound (vendor data plane) module
+=====================================
+
+The ``pim_southbound`` module replaces the Linux kernel multicast data plane
+used by *pimd* with an external (vendor) data plane. When it is loaded *pimd*
+no longer uses the kernel multicast routing API:
+
+- Multicast routes (the equivalent of kernel ``MFC`` entries) are sent to
+  *zebra*, which installs them in the data plane through FPM (see
+  :ref:`zebra-fib-push-interface`).
+- Data plane events, the equivalent of the kernel upcalls (``DATA_START``,
+  ``DATA_STOP``, ``WRONG_IF`` and ``JOIN_SPT``), are received on a TCP (or
+  unix) stream connection between *pimd* and the data plane.
+- IGMP and PIM packets are exchanged with the data plane through raw sockets
+  using a private IP encapsulation that carries the interface index of the
+  packet. Encapsulated packets use IP protocol ``251`` for IGMP and ``252``
+  for PIM. Registers are sent with the index of the interface towards the
+  RP and register-stops with the index of the interface the register was
+  received on. Only Candidate-RP advertisements in the default VRF are sent
+  with interface index zero, meaning the data plane must route them itself.
+  Packets delivered to *pimd*, unicast included, must carry the index of the
+  interface they were received on: packets with an unknown interface index
+  (including zero) are dropped.
+
+.. program:: configure
+
+The module is built when FRR is configured with
+:option:`--enable-pim-southbound` and is loaded at *pimd* startup with the
+``-M`` option (see :ref:`loadable-module-support`)::
+
+   -M pim_southbound:<type>:<address>[:<port>]
+
+``<type>`` selects the socket type and whether *pimd* listens for the data
+plane connection or connects to it:
+
++-----------+------------------------------------------------------------+
+| Type      | Meaning                                                    |
++===========+============================================================+
+| ``ipv4``  | Listen on the IPv4 ``<address>``                           |
++-----------+------------------------------------------------------------+
+| ``ipv4c`` | Connect to the IPv4 ``<address>``                          |
++-----------+------------------------------------------------------------+
+| ``ipv6``  | Listen on the IPv6 ``<address>``                           |
++-----------+------------------------------------------------------------+
+| ``ipv6c`` | Connect to the IPv6 ``<address>``                          |
++-----------+------------------------------------------------------------+
+| ``unix``  | Listen on the unix socket path ``<address>``               |
++-----------+------------------------------------------------------------+
+| ``unixc`` | Connect to the unix socket path ``<address>``              |
++-----------+------------------------------------------------------------+
+
+IPv6 addresses must be enclosed in brackets (e.g. ``ipv6c:[::1]`` or
+``ipv6:[2001:db8::1]:3000``); a scope may be given with ``%<interface>``.
+The port does not apply to unix sockets. When the port is omitted the default
+TCP port ``2650`` is used. The address is mandatory: if it is missing or
+invalid the module fails to load and *pimd* exits. In connect mode *pimd*
+keeps retrying until the data plane accepts the connection. In listen mode a
+single data plane is served: a new connection replaces the previous one (e.g.
+after a data plane restart). TCP keepalives are enabled to notice a data plane
+that went away. When the connection is lost *pimd* forgets which flows are
+active (as if every one got a DATA_STOP); the data plane reports them again
+once it is back.
+
+Encapsulated PIM/IGMP packets are only accepted when addressed to the loopback
+(where the data plane delivers them), so they can't be injected from other
+hosts.
+
+Examples::
+
+   # Connect to a data plane listening on 127.0.0.1 port 2650
+   pimd -M pim_southbound:ipv4c:127.0.0.1
+
+   # Listen for the data plane connection on ::1 port 3000
+   pimd -M pim_southbound:ipv6:[::1]:3000
+
+*zebra* must be started with the ``dplane_fpm_nl`` module (``-M
+dplane_fpm_nl``) and configured to send routes to the data plane FPM server
+without next hop groups:
+
+.. code-block:: frr
+
+   fpm address 127.0.0.1
+   no fpm use-next-hop-groups
+
+The ``dplane_fpm_nl`` module is only built on Linux, so the southbound modules
+can only be used on Linux (configure does not check this). See
+:clicmd:`fpm use-next-hop-groups` for the FPM configuration commands.
+
+The following debug commands show the southbound activity:
+
+- ``debug igmp packets``: IGMP packets exchanged with the data plane.
+- :clicmd:`debug mroute`: valid messages received from the data plane.
+- :clicmd:`debug mroute detail`: data plane connection details and invalid
+  messages.
+- :clicmd:`debug zebra kernel` (in *zebra*): multicast route installation.
+
+A PIMv6 version of this module also exists, see
+:ref:`PIMv6 southbound module <pimv6-southbound>`.
+
+
 .. _pim-global-configuration:
 
 Global Multicast
