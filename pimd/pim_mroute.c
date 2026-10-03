@@ -244,6 +244,7 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
 		pim_upstream_set_sptbit(up, ifp);
 
+	pim_upstream_data_start(up);
 	up->channel_oil->cc.pktcnt++;
 
 	pim_upstream_update_join_desired(pim, up);
@@ -534,6 +535,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		}
 	}
 
+	pim_upstream_data_start(up);
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 
@@ -625,6 +627,7 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 
 				up = pim_upstream_add(pim_ifp->pim, &sg, src_conn->ifp, up_flags,
 						      __func__, NULL);
+				pim_upstream_data_start(up);
 				PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 				pim_upstream_keep_alive_timer_start(up,
 								    pim_ifp->pim->keep_alive_time);
@@ -757,6 +760,7 @@ static int pim_upstream_activate_stream(struct interface *ifp, pim_sgaddr *sg)
 			PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
 	}
 
+	pim_upstream_data_start(up);
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 	up->channel_oil->cc.pktcnt++;
@@ -966,6 +970,7 @@ static int pim_mroute_wrongvif_prefer_ingress(struct interface *ifp, pim_sgaddr 
 	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
 		pim_upstream_set_sptbit(up, ifp);
 
+	pim_upstream_data_start(up);
 	up->channel_oil->cc.pktcnt++;
 
 	pim_upstream_update_join_desired(pim, up);
@@ -1341,6 +1346,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 					&sg, ifp->name);
 			return -2;
 		}
+		pim_upstream_data_start(up);
 		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);

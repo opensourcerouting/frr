@@ -78,6 +78,16 @@ struct gm_sock {
 	bool mtrace_only;
 
 	struct igmp_stats igmp_stats;
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/*
+	 * Keep a pointer to the join timer in case it is called
+	 * multiple times before the callback triggers.
+	 *
+	 * Used by `southbound.interface_join()`.
+	 */
+	struct event *join_event;
+#endif /* PIM_SOUTHBOUND_COMMON */
 };
 
 struct pim_interface;

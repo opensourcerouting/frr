@@ -862,6 +862,9 @@ AC_ARG_ENABLE([version_build_config],
 AC_ARG_ENABLE([python_runtime],
   AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
+AC_ARG_ENABLE([pim_southbound],
+  AS_HELP_STRING([--enable-pim-southbound], [enable vendor PIM southbound support]))
+
 ##
 ## gperftools tcmalloc version, more complete than "minimal"
 ##
@@ -2226,6 +2229,24 @@ case "$host_os" in
     ;;
 esac
 fi
+
+dnl ------------------------------------
+dnl PIM southbound needs zebra's FPM (Linux only)
+dnl ------------------------------------
+if test "$enable_pim_southbound" = "yes"; then
+  if test "$enable_pimd" = "no"; then
+    AC_MSG_ERROR([--enable-pim-southbound requires pimd])
+  fi
+  case "$host_os" in
+    linux*)
+      ;;
+    *)
+      AC_MSG_ERROR([--enable-pim-southbound is only supported on Linux])
+      ;;
+  esac
+  AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
+fi
+AM_CONDITIONAL([PIM_SOUTHBOUND], [test "$enable_pim_southbound" = "yes"])
 
 dnl -------------------------------------
 dnl VRRP is only supported on linux
