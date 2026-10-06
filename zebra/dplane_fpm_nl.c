@@ -1371,23 +1371,31 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_vxlan_vni *vni;
 	struct zebra_if *br_zif;
 	vlanid_t vid;
-	bool sticky;
 
 	/* Entry already sent. */
 	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT) || !fra->complete)
 		return;
 
-	sticky = !!CHECK_FLAG(zrmac->flags,
-			      (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
-	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
+	/* Same entries and checks as `zl3vni_rmac_install()`. */
+	if (!CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE) ||
+	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC))
+		return;
+
+	if (!zif || !zif->brslave_info.br_if)
+		return;
+
 	vni = zebra_vxlan_if_vni_find(zif, fra->zl3vni->vni);
+	if (!vni)
+		return;
+
+	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
 	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
 	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, vid,
-			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
-			0 /*update_flags*/);
+			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, false /*sticky*/,
+			0 /*nhg*/, DPLANE_MAC_REMOTE);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,
 				&fra->fnc->t_rmacwalk);
@@ -1399,6 +1407,13 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
 	struct zebra_l3vni *zl3vni = bucket->data;
+
+	/*
+	 * Router MACs are only installed while the L3VNI is up, and the
+	 * table outlives the vxlan interface until BGP withdraws them.
+	 */
+	if (!is_l3vni_oper_up(zl3vni))
+		return;
 
 	fra->zl3vni = zl3vni;
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
