@@ -1,0 +1,36 @@
+Author: Daniel Baumann <daniel@debian.org>
+Description: LY_ARRAY_COUNT has been renamed to LYA_COUNT in libyang 6.4.0.
+
+diff -Naurp frr.orig/lib/northbound_cli.c frr/lib/northbound_cli.c
+--- frr.orig/lib/northbound_cli.c
++++ frr/lib/northbound_cli.c
+@@ -1619,7 +1619,7 @@ DEFPY (show_yang_module,
+ 
+ 		snprintf(flags, sizeof(flags), "%c%c",
+ 			 module->implemented ? 'I' : ' ',
+-			 LY_ARRAY_COUNT(module->deviated_by) ? 'D' : ' ');
++			 LYA_COUNT(module->deviated_by) ? 'D' : ' ');
+ 
+ 		ttable_add_row(tt, "%s|%s|%s|%s|%s", module->name,
+ 			       (module->parsed->version == 2) ? "1.1" : "1.0",
+diff -Naurp frr.orig/lib/yang_wrappers.c frr/lib/yang_wrappers.c
+--- frr.orig/lib/yang_wrappers.c
++++ frr/lib/yang_wrappers.c
+@@ -221,7 +221,7 @@ int yang_str2enum(const char *xpath, con
+ 	type = (const struct lysc_type_enum *)sleaf->type;
+ 	assert(type->basetype == LY_TYPE_ENUM);
+ 	enums = type->enums;
+-	unsigned int count = LY_ARRAY_COUNT(enums);
++	unsigned int count = LYA_COUNT(enums);
+ 	for (unsigned int i = 0; i < count; i++) {
+ 		if (strmatch(value, enums[i].name)) {
+ 			assert(CHECK_FLAG(enums[i].flags, LYS_SET_VALUE));
+@@ -256,7 +256,7 @@ struct yang_data *yang_data_new_enum(con
+ 	type = (const struct lysc_type_enum *)sleaf->type;
+ 	assert(type->basetype == LY_TYPE_ENUM);
+ 	enums = type->enums;
+-	unsigned int count = LY_ARRAY_COUNT(enums);
++	unsigned int count = LYA_COUNT(enums);
+ 	for (unsigned int i = 0; i < count; i++) {
+ 		if (CHECK_FLAG(enums[i].flags, LYS_SET_VALUE)
+ 		    && value == enums[i].value)

@@ -3,3 +3,4 @@ libyang/0002-lib-Remove-lyd_new_ext_term-lyd_change_term_bin-wrap.patch
 libyang/0003-lib-Remove-parameter-from-wrapper-for-lyd_new_path2.patch
 libyang/0004-lib-northbound-Use-lyd_new_term-in-generic-getter-fu.patch
 libyang/0005-lib-northbound-Replace-use-of-lyd_new_term_bin.patch
+libyang/0006-ly_array_count-to-lya_count.patch
