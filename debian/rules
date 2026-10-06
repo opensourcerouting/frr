@@ -121,10 +121,8 @@ override_dh_makeshlibs:
 override_dh_missing:
 	dh_missing --fail-missing
 
-ifneq ($(filter nocheck,$(DEB_BUILD_PROFILES) $(DEB_BUILD_OPTIONS)),)
 override_dh_auto_test:
 	true
-endif
 
 execute_after_dh_auto_clean:
 	rm -rf tests/.pytest_cache
