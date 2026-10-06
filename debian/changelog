@@ -4,6 +4,13 @@ frr (10.8.0-dev) UNRELEASED; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 15 Jul 2026 02:00:00 -0600
 
+frr (10.7.1-4) experimental; urgency=medium
+
+  * Adding patch to fix FTBFS with libyang 6.4.0 and newer.
+  * Temporarily skipping failing test suite.
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 06 Oct 2026 11:14:19 +0200
+
 frr (10.7.1-3) experimental; urgency=medium
 
   * Adding patches to build frr with libyang5 (Closes: #1142048).
