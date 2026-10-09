@@ -1027,6 +1027,22 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len = (size_t)rv;
 		break;
 
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+		rv = netlink_vxlan_flood_update_ctx(ctx,
+						    op == DPLANE_OP_VTEP_ADD ? RTM_NEWNEIGH
+									     : RTM_DELNEIGH,
+						    nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
+				 "%s: netlink_vxlan_flood_update_ctx failed", __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
 	case DPLANE_OP_NH_DELETE:
 		rv = netlink_nexthop_msg_encode(RTM_DELNEXTHOP, ctx, nl_buf,
 						sizeof(nl_buf), true);
@@ -1078,8 +1094,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
@@ -1354,7 +1368,8 @@ static void fpm_rib_send(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC and L2VNI remote MAC enqueue.
+ * The next functions will handle RMAC, L2VNI remote MAC and flood list
+ * enqueue.
  */
 struct fpm_evpn_arg {
 	struct zebra_dplane_ctx *ctx;
@@ -1479,21 +1494,50 @@ static void fpm_enqueue_l2vni_mac_table(struct hash_bucket *bucket, void *arg)
 	SET_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT);
 }
 
+/*
+ * L2VNI flood list: the remote VTEPs zebra_evpn_vtep_install() programs.
+ */
+static void fpm_enqueue_l2vni_vtep(struct fpm_evpn_arg *fra, struct zebra_vtep *zvtep)
+{
+	struct zebra_evpn *zevpn = fra->zevpn;
+
+	if (CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT) || !fra->complete)
+		return;
+
+	if (!is_vxlan_flooding_head_end() || zvtep->flood_control != VXLAN_FLOOD_HEAD_END_REPL)
+		return;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_VTEP_ADD);
+	dplane_vtep_init(fra->ctx, zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT);
+}
+
 static void fpm_enqueue_l2vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_evpn_arg *fra = arg;
 	struct zebra_evpn *zevpn = bucket->data;
+	struct zebra_vtep *zvtep;
 	struct zebra_if *zif;
 
-	/* Remote MACs are only installed on a bridged VXLAN interface. */
-	if (!zevpn->vxlan_if || !zevpn->mac_table)
-		return;
-
-	zif = zevpn->vxlan_if->info;
-	if (!zif || !zif->brslave_info.br_if)
+	if (!zevpn->vxlan_if)
 		return;
 
 	fra->zevpn = zevpn;
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next)
+		fpm_enqueue_l2vni_vtep(fra, zvtep);
+
+	/* Remote MACs are only installed on a bridged VXLAN interface. */
+	zif = zevpn->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if || !zevpn->mac_table)
+		return;
+
 	hash_iterate(zevpn->mac_table, fpm_enqueue_l2vni_mac_table, fra);
 }
 
@@ -1587,7 +1631,7 @@ static void fpm_rib_reset(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC and L2VNI remote MAC table reset.
+ * The next functions will handle RMAC, L2VNI remote MAC and flood list reset.
  */
 static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 {
@@ -1606,6 +1650,10 @@ static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 static void fpm_unset_l2vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_evpn *zevpn = bucket->data;
+	struct zebra_vtep *zvtep;
+
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next)
+		UNSET_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT);
 
 	if (zevpn->mac_table)
 		hash_iterate(zevpn->mac_table, fpm_unset_mac_table, NULL);
