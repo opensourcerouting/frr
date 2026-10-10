@@ -1212,6 +1212,13 @@ enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
 					     const struct ipaddr *ip);
 
 /*
+ * Enqueue the removal of a neighbor zebra installed itself (not an EVPN
+ * remote neighbor), e.g. with `dplane_local_neigh_add()`.
+ */
+enum zebra_dplane_result dplane_local_neigh_delete(const struct interface *ifp,
+						   const struct ipaddr *ip);
+
+/*
  * Enqueue evpn VTEP updates for the dataplane.
  */
 enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const struct ipaddr *ip,
@@ -1222,6 +1229,10 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const s
 /* Helper api to init an empty or new context for a VTEP flood list update */
 void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		      const struct ipaddr *ip, vni_t vni);
+
+/* Helper api to init an empty or new context for a remote neighbor add */
+void dplane_rem_neigh_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+			   const struct ipaddr *ip, const struct ethaddr *mac, uint32_t flags);
 
 /*
  * Enqueue a neighbour discovery request for the dataplane.
