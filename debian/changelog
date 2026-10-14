@@ -4,6 +4,12 @@ frr (10.8.0-dev) UNRELEASED; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 15 Jul 2026 02:00:00 -0600
 
+frr (10.7.1-5) sid; urgency=medium
+
+  * Uploading without changes to sid.
+
+ -- Daniel Baumann <daniel@debian.org>  Wed, 14 Oct 2026 19:51:26 +0200
+
 frr (10.7.1-4) experimental; urgency=medium
 
   * Adding patch to fix FTBFS with libyang 6.4.0 and newer.
