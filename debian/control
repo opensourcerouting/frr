@@ -30,7 +30,7 @@ Build-Depends:
  libsnmp-dev,
  libssh-dev <!pkg.frr.nortrlib>,
  libunwind-dev [!alpha !m68k !sparc64 !x32],
- libyang-dev (>= 6),
+ libyang-dev (>= 3.0.3) | libyang2-dev (>= 2.1.128),
  lua5.5 <!pkg.frr.nolua>,
  pkgconf,
  protobuf-c-compiler,
