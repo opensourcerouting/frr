@@ -3,11 +3,11 @@ Section: net
 Priority: optional
 Maintainer: David Lamparter <equinox-debian@diac24.net>
 Uploaders: FRRouting-dev <dev@lists.frrouting.org>,
-           Ondřej Surý <ondrej@debian.org>
+           Ondřej Surý <ondrej@debian.org>,
+           Daniel Baumann <daniel@debian.org>,
 Build-Depends: bison,
                chrpath,
-               debhelper (>= 10~) | dh-systemd,
-               debhelper (>= 9.20150101~),
+               debhelper (>= 10~),
                flex,
                gawk,
                install-info,
@@ -15,7 +15,7 @@ Build-Depends: bison,
                libcap-dev,
                libelf-dev:native,
                libjson-c-dev | libjson0-dev,
-               libpam0g-dev | libpam-dev,
+               libpam0g-dev,
                libpcre2-dev,
                libprotobuf-c-dev,
                libpython3-dev:native,
@@ -24,8 +24,8 @@ Build-Depends: bison,
                libsnmp-dev,
                libssh-dev <!pkg.frr.nortrlib>,
                libyang-dev (>= 3.0.3) | libyang2-dev (>= 2.1.128),
-               lsb-base,
-               pkg-config,
+               libunwind-dev [!alpha !m68k !sparc64 !x32],
+               pkgconf,
                protobuf-c-compiler,
                python3:native,
                python3-dev:native,
@@ -122,6 +122,7 @@ Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends},
          ${sphinxdoc:Depends}
+Built-Using: ${sphinxdoc:Built-Using}
 Suggests: frr
 Conflicts: quagga-doc
 Description: FRRouting suite - user manual

@@ -57,7 +57,7 @@ export PYTHON=python3
 	dh $@ -Bbuild --with=sphinxdoc
 
 override_dh_auto_configure:
-	$(shell dpkg-buildflags --export=sh); \
+	$(shell dpkg-buildflags --export=sh); export LIBS="$$LIBS -latomic"; \
 	dh_auto_configure -- \
 		--sbindir=/usr/lib/frr \
 		--with-vtysh-pager=/usr/bin/pager \
@@ -115,6 +115,12 @@ override_dh_auto_install:
 	rm -rf debian/tmp/usr/include
 	-rm debian/tmp/usr/lib/frr/ssd
 
+# drop test-tools files
+ifeq (,$(filter $(dh_listpackages), frr-test-tools))
+	rm -f debian/tmp/usr/lib/frr/fpm_listener
+else
+endif
+
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
 
@@ -136,9 +142,8 @@ override_dh_auto_test:
 endif
 
 override_dh_auto_clean:
-# we generally do NOT want a full distclean since that wipes both
-# debian/changelog and config.version
-	if test -f Makefile; then make redistclean; fi
+	dh_auto_clean
+	-rm -rf tests/.pytest_cache
 	-rm -f debian/frr.init
 	-rm -f debian/frr.service
 	-rm -f debian/frr@.service
