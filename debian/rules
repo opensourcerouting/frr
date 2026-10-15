@@ -81,7 +81,9 @@ override_dh_auto_configure:
 		--enable-configfile-mask=0640 \
 		--enable-logfile-mask=0640
 
-execute_after_dh_auto_install:
+override_dh_auto_install:
+	dh_auto_install
+
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr-reload.py
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/generate_support_bundle.py
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr_babeltrace.py
@@ -119,7 +121,8 @@ override_dh_missing:
 override_dh_auto_test:
 	true
 
-execute_after_dh_auto_clean:
+override_dh_auto_clean:
+	dh_auto_clean
 	rm -rf tests/.pytest_cache
 	rm -f debian/frr.init
 	rm -f debian/frr.service
