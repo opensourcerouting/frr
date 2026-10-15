@@ -1,3 +1,0 @@
-# The -Wno-* flags are intentional: FRR headers trigger many warnings
-# without them, and consumers need these flags to compile cleanly.
-frr-dev: pkg-config-bad-directive *
