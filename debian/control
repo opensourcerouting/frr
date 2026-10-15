@@ -98,9 +98,10 @@ Description: FRRouting suite - user manual
 
 Package: frr-grpc
 Architecture: linux-any
-Depends: frr (= ${binary:Version}),
-         ${misc:Depends},
-	 ${shlibs:Depends}
+Depends:
+ frr (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: FRRouting suite - GRPC interface
  This provides the GRPC interface to the daemons.
 Build-Profiles: <pkg.frr.grpc>
@@ -152,8 +153,9 @@ Description: FRRouting suite - SNMP support
 
 Package: frr-test-tools
 Architecture: linux-any
-Depends: frr (= ${binary:Version}),
-	${misc:Depends},
-	${shlibs:Depends}
+Depends:
+ frr (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: FRRouting suite - Testing Tools
  Adds FRR test tools, used in testing FRR.
