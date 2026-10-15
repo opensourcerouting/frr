@@ -6,7 +6,6 @@ Uploaders:
  David Lamparter <equinox-debian@diac24.net>,
 Build-Depends:
  debhelper-compat (= 13),
- dh-sequence-installsysusers,
  bison,
  chrpath,
  flex,
@@ -66,10 +65,6 @@ Suggests:
  frr-doc,
 Conflicts:
  pimd,
-Breaks:
- opensysusers (<< 0.7.3-5.1~),
- systemd (<< 257),
- systemd-standalone-sysusers (<< 257),
 Description: FRRouting Internet routing protocol suite
  FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
  RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.

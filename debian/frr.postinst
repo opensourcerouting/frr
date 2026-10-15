@@ -20,11 +20,25 @@ Remove_default_file()
 	fi
 }
 
-# sysuers need to run first
-#DEBHELPER#
-
 case "${1}" in
 	configure)
+		# creating group
+		for GROUP in frr frrvty
+		do
+			if ! getent group "${GROUP}" > /dev/null 2>&1
+			then
+				groupadd --system "${GROUP}"
+			fi
+		done
+
+		# creating user
+		if ! getent passwd frr > /dev/null 2>&1
+		then
+			useradd --system -g frr --home-dir /nonexistent --no-create-home frr
+		fi
+
+		usermod -G frrvty frr
+
 		mkdir -p /etc/frr
 		if ! dpkg-statoverride --list /etc/frr > /dev/null 2>&1
 		then
@@ -55,5 +69,7 @@ case "${1}" in
 		exit 1
 		;;
 esac
+
+#DEBHELPER#
 
 exit 0
