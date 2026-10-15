@@ -110,6 +110,9 @@ ifeq (,$(filter $(dh_listpackages), frr-test-tools))
 else
 endif
 
+override_dh_installinit:
+	dh_installinit -r
+
 override_dh_installsystemd:
 	dh_installsystemd -r
 
