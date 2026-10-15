@@ -63,9 +63,6 @@ Suggests:
  frr-doc,
 Conflicts:
  pimd,
-Breaks:
-# changed restart behaviour
- systemd (<< 259),
 Description: FRRouting Internet routing protocol suite
  FRRouting (FRR) is a Internet routing protocol suite implementing BGP, OSPF,
  RIP, IS-IS, PIM, LDP, BFD, Babel, PBR, OpenFabric, VRRP, EIGRP and NHRP.
