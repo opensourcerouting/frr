@@ -13,7 +13,7 @@ Build-Depends:
  install-info,
  libc-ares-dev,
  libcap-dev,
- libcrypt-dev,
+ libcrypt-dev | libc6-dev (<< 2.43),
  libelf-dev:native,
  libgoogle-perftools-dev <pkg.frr.tcmalloc>,
  libgrpc++-dev (>=1.16.1) <pkg.frr.grpc>,
