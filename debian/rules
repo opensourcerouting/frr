@@ -104,12 +104,6 @@ execute_after_dh_auto_install:
 	rm -f debian/tmp/usr/lib/*/frr/pkgconfig/frr.pc
 	rm -f debian/tmp/usr/lib/frr/ssd
 
-	# drop test-tools files
-ifeq (,$(filter $(dh_listpackages), frr-test-tools))
-	rm -f debian/tmp/usr/lib/frr/fpm_listener
-else
-endif
-
 override_dh_installinit:
 	dh_installinit -r
 
