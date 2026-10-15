@@ -57,17 +57,159 @@ frr (10.2-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 12 Nov 2024 02:00:00 -0600
 
+frr (10.1.1-1) unstable; urgency=medium
+
+  * Adding myself to uploaders, thanks David.
+  * Harmonizing my email address in changelog entries.
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 09 Nov 2024 14:27:13 +0100
+
+frr (10.1.1-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release.
+
+ -- Daniel Baumann <daniel@debian.org>  Tue, 17 Sep 2024 05:15:20 +0200
+
+frr (10.1-0.2) unstable; urgency=medium
+
+  * Non-maintainer upload to unstable.
+
+ -- Daniel Baumann <daniel@debian.org>  Wed, 11 Sep 2024 13:57:30 +0200
+
+frr (10.1-0.1) experimental; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release.
+  * Removing add-XREF_SETUP-to-libraries-and-utilites.patch, included upstream.
+  * Adding conditional in rules to fix FTBFS when building without frr-test-tools.
+
+ -- Daniel Baumann <daniel@debian.org>  Mon, 05 Aug 2024 09:11:22 +0200
+
 frr (10.1-0) unstable; urgency=medium
 
   * New upstream release FRR 10.1
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 26 Jul 2024 02:00:00 -0600
 
+frr (10.0.1-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release:
+    - an attacker using a malformed Prefix SID attribute in a BGP UPDATE
+      packet can cause the bgpd daemon to crash [CVE-2024-31948]
+      (Closes: #1072126)
+    - an infinite loop can occur when receiving a MP/GR capability as a
+      dynamic capability because malformed data results in a pointer not
+      advancing [CVE-2024-31949] (Closes: #1072125)
+    - there can be a buffer overflow and daemon crash in ospf_te_parse_ri for
+      OSPF LSA packets during an attempt to read Segment Routing subTLVs (their
+      size is not validated) [CVE-2024-31950] (Closes: #1070377)
+    - there can be a buffer overflow and daemon crash in
+      ospf_te_parse_ext_link for OSPF LSA packets during an attempt to read
+      Segment Routing Adjacency SID subTLVs (lengths are not validated)
+      [CVE-2024-31951 (Closes: #1070377)
+    - ospf_te_parse_te in ospfd/ospf_te.c allows remote attackers to cause a
+      denial of service (ospfd daemon crash) via a malformed OSPF LSA packet,
+      because of an attempted access to a missing attribute field
+      [CVE-2024-27913]
+    - it is possible for the get_edge() function in ospf_te.c in the OSPF
+      daemon to return a NULL pointer. In cases where calling functions do not
+      handle the returned NULL value, the OSPF daemon crashes, leading to denial
+      of service [CVE-2024-34088] (Closes: #1070377)
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 27 Jul 2024 02:19:29 +0200
+
+frr (10.0-2) unstable; urgency=medium
+
+  * fix build on hppa
+  * only use libunwind on architectures where it is available
+  * remove /var/lib/frr on purge
+  * drop some ancient dependency alternates
+
+ -- David Lamparter <equinox-debian@diac24.net>  Fri, 03 May 2024 14:53:50 +0200
+
+frr (10.0-1) unstable; urgency=medium
+
+  * IRDP module is no longer packaged (slated to be removed upstream)
+  * added mkdir+chown /var/lib/frr which is now used by FRR
+  * sysconfdir and localstatedir configure args are no longer needed
+  * NB: refer to never-released 8.5.2-1 changes below!
+  * Link libatomic unconditionally (closes: #1067077)
+  * known to not build on hppa due to struct.calcsize python exception
+
+ -- David Lamparter <equinox-debian@diac24.net>  Tue, 30 Apr 2024 19:36:44 +0200
+
+frr (10.0-0.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Linking with atomic like armel to fix FTBFS.
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 27 Apr 2024 07:44:24 +0200
+
+frr (10.0-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream release.
+  * Bumping libyang2 build-depends to required version.
+  * Removing CVE-2024-27913.patch, included upstream.
+  * Adding now explicit configure flag to keep enabled building zebra_irdp.
+
+ -- Daniel Baumann <daniel@debian.org>  Sat, 27 Apr 2024 05:46:52 +0200
+
 frr (10.0-0) unstable; urgency=medium
 
   * New upstream release FRR 10.0
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 25 Mar 2024 02:00:00 -0600
+
+frr (9.1-0.1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * New upstream release (Closes: #1042473, #1055852):
+    - CVE-2023-3748: parsing certain babeld unicast hello messages that are
+      intended to be ignored. This issue may allow an attacker to send specially
+      crafted hello messages with the unicast flag set, the interval field set
+      to 0, or any TLV that contains a sub-TLV with the Mandatory flag set to
+      enter an infinite loop and cause a denial of service.
+    - CVE-2023-38407: bgpd/bgp_label.c attempts to read beyond the end of the
+      stream during labeled unicast parsing.
+    - CVE-2023-41361: bgpd/bgp_open.c does not check for an overly large
+      length of the rcv software version.
+    - CVE-2023-46752: It mishandles malformed MP_REACH_NLRI data, leading to a
+      crash.
+    - CVE-2023-46753: A crash can occur for a crafted BGP UPDATE message
+      without mandatory attributes, e.g., one with only an unknown transit
+      attribute.
+    - CVE-2023-47234: A crash can occur when processing a crafted BGP UPDATE
+      message with a MP_UNREACH_NLRI attribute and additional NLRI data (that
+      lacks mandatory path attributes).
+    - CVE-2023-47235: A crash can occur when a malformed BGP UPDATE message
+      with an EOR is processed, because the presence of EOR does not lead to a
+      treat-as-withdraw outcome.
+  * Updating patches:
+    - removing CVE-2023-38802.patch, included upstream.
+    - removing CVE-2023-41358.patch, included upstream.
+    - removing CVE-2023-41360.patch, included upstream.
+    - removing unapplied CVE-2023-41361.patch, included upstream.
+    - adding CVE-2024-27913.patch from upstream:
+      ospf_te_parse_te in ospfd/ospf_te.c allows remote attackers to cause a
+      denial of service (ospfd daemon crash) via a malformed OSPF LSA packet,
+      because of an attempted access to a missing attribute field (Closes:
+      #1065144).
+  * Updating build-depends:
+    - adding now required protobuf-c-compiler to build-depends.
+    - adding now required libprotobuf-c-dev to build-depends.
+    - adding new libmgmt_be_nb.so to frr.install.
+    - removing obsolete lsb-base.
+    - prefering new pkgconf over old pkg-config.
+  * Updating override_dh_auto_clean to fix FTBFS when built twice in a row
+    (Closes: #1044470):
+    - call dh_auto_clean which is safe to run now.
+    - remove tests/.pytest_cache.
+  * Removing obsolete doc-base.
+
+ -- Daniel Baumann <daniel@debian.org>  Fri, 08 Mar 2024 23:21:21 +0100
 
 frr (9.1-0) unstable; urgency=medium
 
@@ -81,11 +223,42 @@ frr (9.0-0) unstable; urgency=medium
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 26 Jul 2023 02:00:00 -0600
 
+frr (8.5.2-1) UNRELEASED; urgency=medium
+
+  * new upstream release FRR 8.5.2
+  * cleaned up outdated debian/README files
+  * build against libunwind.  Results in better backtraces captured for both
+    crashes and non-crash deviations from expected operations.
+    (libunwind is used automatically if present, this also fixes an
+    uncontrolled build environment influence on the result binaries by always
+    requiring it.)
+  * this version was never uploaded to Debian, the changelog entry is here for
+    reference.
+
+ -- David Lamparter <equinox-debian@diac24.net>  Sat, 15 Jul 2023 08:33:59 -0700
+
 frr (8.5-0) unstable; urgency=medium
 
   * New upstream release FRR 8.5
 
  -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Fri, 10 Mar 2023 02:00:00 -0600
+
+frr (8.4.4-1.1) unstable; urgency=high
+
+  * Non-maintainer upload by the Security Team.
+  * Upstream fixes for CVE-2023-38802, CVE-2023-41358, CVE-2023-41360
+
+ -- Aron Xu <aron@debian.org>  Fri, 01 Sep 2023 16:57:41 +0800
+
+frr (8.4.4-1) unstable; urgency=medium
+
+  * new upstream release FRR 8.4.4
+  * upstream fix CVE-2023-31489 (closes: #1036061)
+  * upstream fix CVE-2023-31490 (closes: #1036062)
+  * correctly use sphinxdoc:Built-Using
+  * point watch file at git tarball, no more upstream dist tarballs
+
+ -- David Lamparter <equinox-debian@diac24.net>  Wed, 12 Jul 2023 14:28:34 +0200
 
 frr (8.4.2-1) unstable; urgency=medium
 
