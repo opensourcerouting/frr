@@ -1937,7 +1937,6 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	};
 	struct ipv6_ph ph6 = {
 		.src = pim_ifp->ll_lowest,
-		.ulpl = htonl(sizeof(query)),
 		.next_hdr = IPPROTO_ICMPV6,
 	};
 	union {
@@ -1990,6 +1989,16 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 		iov_len = 3;
 	}
 
+	expect_ret = iov[1].iov_len;
+	if (iov_len == 3)
+		expect_ret += iov[2].iov_len;
+
+	/*
+	 * The kernel recomputes the checksum, but the southbound sends it as
+	 * is: the pseudo-header must have the real length (MLDv1 queries are
+	 * shorter, queries with sources longer).
+	 */
+	ph6.ulpl = htonl(expect_ret);
 	query.hdr.icmp6_cksum = in_cksumv(iov, iov_len);
 
 	if (PIM_DEBUG_GM_PACKETS)
