@@ -1620,16 +1620,18 @@ static void *bgp_attr_hash_alloc(void *p)
 	return attr;
 }
 
-/* Internet argument attribute. */
-struct attr *bgp_attr_intern(struct attr *attr)
+/*
+ * Take a reference on every sub-structure of attr, interning the ones that
+ * are not interned yet. Counterpart of bgp_attr_unintern_sub(): every
+ * reference on a hashed attr carries one reference on each of these.
+ */
+static void bgp_attr_intern_sub(struct attr *attr)
 {
-	struct attr *find;
 	struct ecommunity *ecomm = NULL;
 	struct ecommunity *ipv6_ecomm = NULL;
 	struct lcommunity *lcomm = NULL;
 	struct community *comm = NULL;
 	struct bgp_route_evpn *bre = NULL;
-	struct attr *reuse_anchor = attr->attr_intern_reuse.parsed_attr;
 
 	/* Intern referenced structure. */
 	if (attr->aspath) {
@@ -1778,6 +1780,73 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			bgp_attr_get_ls_attr(attr)->refcnt++;
 	}
+}
+
+/*
+ * Intern-reuse cache.
+ *
+ * NLRI parsers anchor the parsed attr of an UPDATE with
+ * bgp_attr_reuse_anchor() for the duration of the NLRI loop, so that
+ * bgp_attr_intern() can hand out the attr it interned for a previous NLRI
+ * instead of looking it up in attrhash again.
+ *
+ * The cache owns a full reference on the attr it holds, so that attr cannot
+ * be freed while it is cached, whatever is uninterned in between. A hit is
+ * only taken when the attr being interned equals the cached attr itself
+ * (not the anchor, which the parsers may rewrite per NLRI, e.g. the EVPN
+ * ESI or overlay index), so the cache can never return a wrong attr.
+ * bgp_attr_reuse_unanchor() must be called on every exit path of the
+ * parser to drop the reference.
+ */
+static void bgp_attr_reuse_drop(struct attr *anchor)
+{
+	if (anchor->attr_intern_reuse.interned)
+		bgp_attr_unintern(&anchor->attr_intern_reuse.interned);
+	anchor->attr_intern_reuse.interned = NULL;
+}
+
+static void bgp_attr_reuse_set(struct attr *anchor, struct attr *interned)
+{
+	/* Take the cache's own reference before dropping the old one. */
+	bgp_attr_intern_sub(interned);
+	interned->refcnt++;
+
+	bgp_attr_reuse_drop(anchor);
+	anchor->attr_intern_reuse.interned = interned;
+}
+
+void bgp_attr_reuse_anchor(struct attr *attr)
+{
+	if (!attr)
+		return;
+
+	memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+	attr->attr_intern_reuse.parsed_attr = attr;
+}
+
+void bgp_attr_reuse_unanchor(struct attr *attr)
+{
+	if (!attr)
+		return;
+
+	if (attr->attr_intern_reuse.parsed_attr == attr)
+		bgp_attr_reuse_drop(attr);
+	memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+}
+
+struct attr *bgp_attr_intern(struct attr *attr)
+{
+	struct attr *find;
+	struct attr *reuse_anchor = attr->attr_intern_reuse.parsed_attr;
+	struct attr *cached = NULL;
+
+	/* Only use the cache if the anchor was set up by a parser. */
+	if (reuse_anchor && reuse_anchor->attr_intern_reuse.parsed_attr != reuse_anchor)
+		reuse_anchor = NULL;
+	if (reuse_anchor)
+		cached = reuse_anchor->attr_intern_reuse.interned;
+
+	bgp_attr_intern_sub(attr);
 
 	/* At this point, attr only contains intern'd pointers.  that means
 	 * if we find it in attrhash, it has all the same pointers and we
@@ -1787,26 +1856,21 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	 * wasn't on hash.
 	 * Also, we are trying to avoid duplicate attr interning by cache
 	 * and reusing the already interned attr.
-	 * It is upto the caller to set the parsed_attr to make use of this code.
-	 * If the incoming attr equals the original parsed attr, reuse the
-	 * cached attr. Otherwise, do new intern and populate the cache.
+	 * It is upto the caller to anchor the parsed attr to make use of this
+	 * code. If the incoming attr equals the cached interned attr, reuse
+	 * it: that is exactly the entry hash_get() would return. Otherwise,
+	 * do a new intern and, if the result equals the parsed attr as it is
+	 * now, cache it.
 	 */
-	if (reuse_anchor && reuse_anchor->attr_intern_reuse.valid &&
-	    reuse_anchor->attr_intern_reuse.parsed_attr &&
-	    reuse_anchor->attr_intern_reuse.parsed_attr ==
-		    reuse_anchor && /* self-anchored by caller */
-	    attrhash_cmp(attr, reuse_anchor->attr_intern_reuse.parsed_attr)) {
-		find = reuse_anchor->attr_intern_reuse.interned;
+	if (cached && attrhash_cmp(attr, cached)) {
+		find = cached;
 		find->refcnt++;
 	} else {
 		find = (struct attr *)hash_get(attrhash, attr, bgp_attr_hash_alloc);
 		find->refcnt++;
 		/* Populate cache only for the unchanged-parsed-attr case */
-		if (reuse_anchor && reuse_anchor->attr_intern_reuse.parsed_attr &&
-		    attrhash_cmp(find, reuse_anchor->attr_intern_reuse.parsed_attr)) {
-			reuse_anchor->attr_intern_reuse.valid = true;
-			reuse_anchor->attr_intern_reuse.interned = find;
-		}
+		if (reuse_anchor && attrhash_cmp(find, reuse_anchor))
+			bgp_attr_reuse_set(reuse_anchor, find);
 	}
 
 	if (bgp_attr_owns_extra(attr))
@@ -2048,17 +2112,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 
 	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
 	attr->extra = NULL;
-}
-
-/* Clear cached intern_attr if it points to the attr that is being uninterned */
-void bgp_attr_unintern_clear_reuse(struct attr *parsed_attr, struct attr **p)
-{
-	if (parsed_attr && parsed_attr->attr_intern_reuse.valid &&
-	    parsed_attr->attr_intern_reuse.interned == *p) {
-		parsed_attr->attr_intern_reuse.valid = false;
-		parsed_attr->attr_intern_reuse.interned = NULL;
-	}
-	bgp_attr_unintern(p);
 }
 
 /* Free bgp attribute and aspath. */

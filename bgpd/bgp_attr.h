@@ -258,14 +258,16 @@ struct attr {
 	   Used on the peer outbound side. */
 	uint16_t rmap_change_flags;
 
-	/* Cache to avoid repeated interning within a single UPDATE section */
+	/* Cache to avoid repeated interning within a single UPDATE section,
+	 * see bgp_attr_reuse_anchor()/bgp_attr_reuse_unanchor().
+	 */
 	struct {
-		bool valid;
-
-		/* interned attr(reference) to reuse during prefix parsing */
+		/* interned attr to reuse during prefix parsing; the cache
+		 * owns a reference on it
+		 */
 		struct attr *interned;
 
-		/* parsed attr pointer for equality check */
+		/* anchor: the parsed attr owning the cache */
 		struct attr *parsed_attr;
 	} attr_intern_reuse;
 
@@ -437,7 +439,8 @@ extern void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *service);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
-extern void bgp_attr_unintern_clear_reuse(struct attr *parsed_attr, struct attr **p);
+extern void bgp_attr_reuse_anchor(struct attr *attr);
+extern void bgp_attr_reuse_unanchor(struct attr *attr);
 extern struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 					 uint8_t origin);
 extern struct attr *bgp_attr_aggregate_intern(

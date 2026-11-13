@@ -99,10 +99,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	 * srv6_l3service (and other attr->extra members) for prefixes
 	 * after the first one in the same UPDATE.
 	 */
-	if (attr) {
-		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
-		attr->attr_intern_reuse.parsed_attr = attr;
-	}
+	bgp_attr_reuse_anchor(attr);
 
 #define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
 	while (STREAM_READABLE(data) > 0) {
@@ -254,9 +251,8 @@ stream_failure:
 	ret = BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 
 done:
-	/* Reset the attr_intern_reuse cache */
-	if (attr)
-		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+	/* Release the attr_intern_reuse cache */
+	bgp_attr_reuse_unanchor(attr);
 
 	stream_free(data);
 	return ret;

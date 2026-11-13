@@ -7494,17 +7494,16 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr, const struct bgp_n
 	 * carries pmsi_tnl_type/tunn_id) on the first intern, the NLRI loop
 	 * passes this attr to bgp_update() once per prefix. Mirrors
 	 * bgp_nlri_parse_ip()/bgp_nlri_parse_vpn().
+	 * The per-type processors rewrite the ESI, ES flags and overlay
+	 * index of this attr per NLRI; that is safe because the reuse cache
+	 * only hands out an attr equal to the one being interned.
 	 */
-	if (attr) {
-		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
-		attr->attr_intern_reuse.parsed_attr = attr;
-	}
+	bgp_attr_reuse_anchor(attr);
 
 	ret = _bgp_nlri_parse_evpn_internal(peer, attr, packet, withdraw);
 
-	/* Reset the attr_intern_reuse cache */
-	if (attr)
-		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+	/* Release the attr_intern_reuse cache */
+	bgp_attr_reuse_unanchor(attr);
 
 	return ret;
 }

@@ -6693,7 +6693,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 
 			bgp_dest_unlock_node(dest);
-			bgp_attr_unintern_clear_reuse(attr, &attr_new);
+			bgp_attr_unintern(&attr_new);
 			if (p_evpn)
 				evpn_overlay_free(p_evpn);
 			return;
@@ -6841,7 +6841,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 		/* Update to new attribute.  */
-		bgp_attr_unintern_clear_reuse(attr, &pi->attr);
+		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
 
 		/* Update MPLS label */
@@ -8812,8 +8812,8 @@ bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi)
 
 /* Parse NLRI stream.  Withdraw NLRI is recognized by NULL attr
    value. */
-int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
-		      struct bgp_nlri *packet)
+static int _bgp_nlri_parse_ip_internal(struct peer *peer, struct attr *attr,
+				       struct bgp_nlri *packet)
 {
 	uint8_t *pnt;
 	uint8_t *lim;
@@ -8831,11 +8831,6 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	addpath_id = 0;
 	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
-	/* cache the incoming attr to avoid repeated intern */
-	if (attr) {
-		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
-		attr->attr_intern_reuse.parsed_attr = attr;
-	}
 	/* RFC4271 6.3 The NLRI field in the UPDATE message is checked for
 	   syntactic validity.  If the field is syntactically incorrect,
 	   then the Error Subcode is set to Invalid Network Field. */
@@ -8950,10 +8945,6 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 			return BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW;
 	}
 
-	/* Reset the attr_intern_reuse cache */
-	if (attr)
-		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
-
 	/* Packet length consistency check. */
 	if (pnt != lim) {
 		flog_err(
@@ -8964,6 +8955,21 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	}
 
 	return BGP_NLRI_PARSE_OK;
+}
+
+int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
+{
+	int ret;
+
+	/* cache the incoming attr to avoid repeated intern */
+	bgp_attr_reuse_anchor(attr);
+
+	ret = _bgp_nlri_parse_ip_internal(peer, attr, packet);
+
+	/* Release the attr_intern_reuse cache on every exit path */
+	bgp_attr_reuse_unanchor(attr);
+
+	return ret;
 }
 
 static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
