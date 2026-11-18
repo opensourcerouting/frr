@@ -185,7 +185,7 @@ void zebra_evpn_mac_clear_fwd_info(struct zebra_mac *zmac)
 int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 			       bool was_static)
 {
-	const struct zebra_if *zif, *br_zif;
+	const struct zebra_if *zif;
 	const struct zebra_vxlan_vni *vni;
 	bool sticky;
 	enum zebra_dplane_result res;
@@ -223,12 +223,7 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		vtep_ip = mac->fwd_info.r_vtep_ip;
 	}
 
-	br_zif = (const struct zebra_if *)(br_ifp->info);
-
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		vid = vni->access_vlan;
-	else
-		vid = 0;
+	vid = zebra_evpn_access_vid(zevpn);
 
 	res = dplane_rem_mac_add(zevpn->vxlan_if, br_ifp, vid, &mac->macaddr, vni->vni, &vtep_ip,
 				 sticky, nhg_id, was_static);
@@ -244,7 +239,7 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 				 struct zebra_mac *mac, bool force)
 {
-	const struct zebra_if *zif, *br_zif;
+	const struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
 	struct ipaddr vtep_ip;
 	const struct interface *ifp, *br_ifp;
@@ -284,12 +279,7 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 	if (!vni)
 		return -1;
 
-	br_zif = (const struct zebra_if *)br_ifp->info;
-
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		vid = vni->access_vlan;
-	else
-		vid = 0;
+	vid = zebra_evpn_access_vid(zevpn);
 
 	ifp = zevpn->vxlan_if;
 	vtep_ip = mac->fwd_info.r_vtep_ip;

@@ -1028,6 +1028,10 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len = (size_t)rv;
 		break;
 
+	/*
+	 * EVPN type-3 (IMET) remote VTEP flood entries. Encoded as an FDB
+	 * entry with an all-zero MAC, matching the kernel data plane.
+	 */
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
 		rv = netlink_vxlan_flood_update_ctx(ctx,
@@ -1522,7 +1526,6 @@ static void fpm_enqueue_l2vni_mac_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_mac *mac = bucket->data;
 	struct zebra_evpn *zevpn = fra->zevpn;
 	struct zebra_if *zif = zevpn->vxlan_if->info;
-	struct zebra_if *br_zif = zif->brslave_info.br_if->info;
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 	struct zebra_vxlan_vni *vni;
 	struct ipaddr vtep_ip;
@@ -1554,7 +1557,7 @@ static void fpm_enqueue_l2vni_mac_table(struct hash_bucket *bucket, void *arg)
 		vtep_ip = mac->fwd_info.r_vtep_ip;
 
 	sticky = !!CHECK_FLAG(mac->flags, (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
-	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
+	vid = zebra_evpn_access_vid(zevpn);
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
@@ -1579,12 +1582,12 @@ static void fpm_enqueue_l2vni_vtep(struct fpm_evpn_arg *fra, struct zebra_vtep *
 	if (CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT) || !fra->complete)
 		return;
 
-	if (!is_vxlan_flooding_head_end() || zvtep->flood_control != VXLAN_FLOOD_HEAD_END_REPL)
+	if (!CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED))
 		return;
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_VTEP_ADD);
-	dplane_vtep_init(fra->ctx, zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni);
+	dplane_vtep_init(fra->ctx, zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni, zvtep->vid);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
 		fra->complete = false;
