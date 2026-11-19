@@ -5312,15 +5312,11 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		zvtep->gr_refresh_time = monotime(NULL);
 
 		/* If the remote VTEP already exists check if
-		 * the flood mode has changed
+		 * the flood mode has changed: installing it again removes
+		 * the HER fdb entry installed before if the new mode is not
+		 * head-end-replication.
 		 */
 		if (zvtep->flood_control != flood_control) {
-			if (zvtep->flood_control == VXLAN_FLOOD_DISABLED)
-				/* old mode was head-end-replication but
-				 * is no longer; get rid of the HER fdb
-				 * entry installed before
-				 */
-				zebra_evpn_vtep_uninstall(zevpn, zvtep);
 			zvtep->flood_control = flood_control;
 			zebra_evpn_vtep_install(zevpn, zvtep);
 		}

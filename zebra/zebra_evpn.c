@@ -1346,7 +1346,8 @@ static int zebra_evpn_vtep_remove(struct zebra_evpn *zevpn, struct zebra_vtep *z
 
 /*
  * Install remote VTEP into the kernel if the remote VTEP has asked
- * for head-end-replication.
+ * for head-end-replication, or remove the entry installed before if it
+ * no longer does.
  *
  * An entry installed with another access VLAN is moved to the current one:
  * removed and installed again for the dataplanes keying the flood entries
@@ -1364,21 +1365,24 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 		return -1;
 	}
 
-	if (is_vxlan_flooding_head_end() &&
-	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
-		vid = zebra_evpn_access_vid(zevpn);
-		vlan_move = CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED) && zvtep->vid != vid;
-		if (vlan_move)
-			zebra_evpn_vtep_remove(zevpn, zvtep, true);
+	if (!is_vxlan_flooding_head_end() || zvtep->flood_control != VXLAN_FLOOD_HEAD_END_REPL) {
+		if (CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED))
+			return zebra_evpn_vtep_uninstall(zevpn, zvtep);
 
-		zvtep->vid = vid;
-		if (ZEBRA_DPLANE_REQUEST_FAILURE == dplane_vtep_add(zevpn->vxlan_if,
-								    &zvtep->vtep_ip, zevpn->vni,
-								    zvtep->vid, vlan_move))
-			return -1;
-
-		SET_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED);
+		return 0;
 	}
+
+	vid = zebra_evpn_access_vid(zevpn);
+	vlan_move = CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED) && zvtep->vid != vid;
+	if (vlan_move)
+		zebra_evpn_vtep_remove(zevpn, zvtep, true);
+
+	zvtep->vid = vid;
+	if (ZEBRA_DPLANE_REQUEST_FAILURE ==
+	    dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni, zvtep->vid, vlan_move))
+		return -1;
+
+	SET_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED);
 
 	return 0;
 }
