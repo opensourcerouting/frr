@@ -3762,6 +3762,15 @@ static int install_evpn_route_entry_in_vni_common(
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
 		}
 
+		/*
+		 * The flood mode of a remote VTEP comes from the PMSI tunnel
+		 * type of its type-3 route: reinstall the path in zebra when
+		 * it changes.
+		 */
+		if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE &&
+		    bgp_attr_get_pmsi_tnl_type(pi->attr) != bgp_attr_get_pmsi_tnl_type(attr_new))
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
+
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
