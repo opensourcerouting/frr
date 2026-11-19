@@ -133,6 +133,22 @@ struct glob {
 struct glob glob_space;
 struct glob *glob = &glob_space;
 
+/*
+ * The SIGUSR1 handler dumps the tables with stdio: keep the signal blocked
+ * while the tables or the output file change, and only take it while
+ * waiting for a connection or for data, so that a dump never walks a table
+ * in the middle of an update.
+ */
+static sigset_t sigusr1_set;
+
+static void sigusr1_allow(bool allow)
+{
+	int saved_errno = errno;
+
+	sigprocmask(allow ? SIG_UNBLOCK : SIG_BLOCK, &sigusr1_set, NULL);
+	errno = saved_errno;
+}
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 /*
@@ -227,8 +243,10 @@ static int accept_conn(int listen_sock)
 
 		fprintf(glob->output_file, "Waiting for client connection...\n");
 		client_len = sizeof(client_addr);
+		sigusr1_allow(true);
 		sock = accept(listen_sock, (struct sockaddr *)&client_addr,
 			      &client_len);
+		sigusr1_allow(false);
 
 		if (sock >= 0) {
 			fprintf(glob->output_file, "[%s] Accepted client %s\n", get_timestamp(),
@@ -271,7 +289,9 @@ read_fpm_msg(char *buf, size_t buf_len)
 			reading_full_msg = 1;
 		}
 
+		sigusr1_allow(true);
 		bytes_read = read(glob->sock, cur, need_len);
+		sigusr1_allow(false);
 
 		if (bytes_read == 0) {
 			fprintf(glob->output_file, "Socket closed as that read returned 0\n");
@@ -1262,7 +1282,11 @@ int main(int argc, char **argv)
 	fpm_route_init(&glob->route_tree);
 	fpm_nhg_init(&glob->nhg_hash);
 
-	/* Set up signal handler for SIGUSR1 */
+	/* Set up signal handler for SIGUSR1, blocked until we wait for I/O */
+	sigemptyset(&sigusr1_set);
+	sigaddset(&sigusr1_set, SIGUSR1);
+	sigusr1_allow(false);
+
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = sigusr1_handler;
 	sigemptyset(&sa.sa_mask);
